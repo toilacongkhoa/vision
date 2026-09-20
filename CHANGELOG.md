@@ -118,3 +118,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 322.19 ms.
 - Kết quả: **đã rollback** về commit backup `b3708aa`; latency tăng 5.4%, độ chính xác không đổi.
 - Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
+
+## 2026-09-20 — Vòng tối ưu 11: weighted-average các mệnh đề CLIP
+
+- Thay đổi thử nghiệm: trong `src/sqlite_engine.py`, trọng số vector mỗi clause theo số từ khi gộp vector truy vấn nhiều mệnh đề; truy vấn một mệnh đề không đổi.
+- Mục tiêu: để mệnh đề mô tả dài có ảnh hưởng tương xứng hơn, kỳ vọng cải thiện recall mà không gọi model thêm lần nào.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 196.06 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 442.63 ms.
+- Kết quả: **đã rollback** về commit backup `9c9a9e5`; latency tăng 125.8%, độ chính xác không đổi.
+- Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
