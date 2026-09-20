@@ -72,7 +72,7 @@ class SQLiteSearchEngine:
     def _get_db(self):
         conn = getattr(self._db_local, "connection", None)
         if conn is None:
-            conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+            conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, isolation_level=None)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA cache_size = -65536")
             conn.execute("PRAGMA mmap_size = 268435456")
