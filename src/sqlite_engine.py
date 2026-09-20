@@ -137,8 +137,7 @@ class SQLiteSearchEngine:
         if self.model is None:
             self.load_clip_model()
         tokens = self.tokenizer([text]).to(self.device)
-        text_features = self.model.encode_text(tokens)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
+        text_features = self.model.encode_text(tokens, normalize=True)
         return text_features.cpu().numpy()[0].astype(np.float32)
 
     @torch.inference_mode()
@@ -146,8 +145,7 @@ class SQLiteSearchEngine:
         if self.model is None:
             self.load_clip_model()
         tokens = self.tokenizer(texts).to(self.device)
-        text_features = self.model.encode_text(tokens)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
+        text_features = self.model.encode_text(tokens, normalize=True)
         return text_features.cpu().numpy().astype(np.float32)
 
     @torch.no_grad()

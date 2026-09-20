@@ -299,3 +299,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (167,94 ms), QA hoàn chỉnh 1/16 (174,78 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (263,94 ms); tổng 2/57 (3,51%); trung bình 173,23 ms.
   - Sau: KIS 1/39 (313,83 ms), QA hoàn chỉnh 1/16 (190,06 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (309,11 ms); tổng 2/57 (3,51%); trung bình 278,92 ms.
 - Kết quả: **đã rollback** về backup `ababc00`; latency tổng tăng 61,01%, độ chính xác không đổi.
+
+## 2026-09-21 — Vòng tối ưu 30: dùng chuẩn hóa tích hợp của OpenCLIP
+
+- Thay đổi: cập nhật `encode_text()` và `encode_text_batch()` trong `src/sqlite_engine.py` để gọi `self.model.encode_text(..., normalize=True)` thay cho encode rồi chuẩn hóa bằng phép norm riêng.
+- Mục tiêu: giảm một bước xử lý sau encode, giữ vector truy vấn ở dạng L2-normalized và không thay đổi ranking.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (313,75 ms), QA hoàn chỉnh 1/16 (238,85 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (264,50 ms); tổng 2/57 (3,51%); trung bình 291,00 ms.
+  - Sau: KIS 1/39 (219,01 ms), QA hoàn chỉnh 1/16 (221,43 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (410,79 ms); tổng 2/57 (3,51%); trung bình 226,42 ms. Lần chạy xác nhận thứ hai: 237,26 ms.
+- Kết quả: **giữ lại**, latency lần đo chính giảm 22,19%, độ chính xác không đổi.
