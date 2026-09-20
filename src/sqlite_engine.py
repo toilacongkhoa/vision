@@ -304,24 +304,32 @@ class SQLiteSearchEngine:
             return results
 
         top_candidates_indices = [int(idx) for idx in top_indices]
-        with self._get_db() as conn:
-            cur = conn.cursor()
-            placeholders = ','.join(['?'] * len(top_candidates_indices))
-            if video_id_filter:
-                query = f"SELECT vector_id, raw_json FROM keyframes WHERE vector_id IN ({placeholders}) AND video_id = ?"
-                cur.execute(query, top_candidates_indices + [video_id_filter])
-            else:
-                query = f"SELECT vector_id, raw_json FROM keyframes WHERE vector_id IN ({placeholders})"
-                cur.execute(query, top_candidates_indices)
-            
-            rows_by_vid = {row['vector_id']: row['raw_json'] for row in cur.fetchall()}
-            
-            for idx, score in zip(top_indices, scores):
-                idx_int = int(idx)
-                if idx_int in rows_by_vid:
-                    results.append(self._format_result(rows_by_vid[idx_int], float(score)))
-                if len(results) >= top_k:
-                    break
+        uncached_indices = [idx for idx in top_candidates_indices if idx not in self._formatted_result_cache]
+        if uncached_indices:
+            with self._get_db() as conn:
+                cur = conn.cursor()
+                placeholders = ','.join(['?'] * len(uncached_indices))
+                if video_id_filter:
+                    query = f"SELECT vector_id, raw_json FROM keyframes WHERE vector_id IN ({placeholders}) AND video_id = ?"
+                    cur.execute(query, uncached_indices + [video_id_filter])
+                else:
+                    query = f"SELECT vector_id, raw_json FROM keyframes WHERE vector_id IN ({placeholders})"
+                    cur.execute(query, uncached_indices)
+
+                for row in cur.fetchall():
+                    self._formatted_result_cache[row['vector_id']] = self._format_result(row['raw_json'], 1.0)
+
+        for idx, score in zip(top_indices, scores):
+            idx_int = int(idx)
+            cached = self._formatted_result_cache.get(idx_int)
+            if cached is not None:
+                item = cached.copy()
+                if video_id_filter and item.get("video_id") != video_id_filter:
+                    continue
+                item["score"] = float(round(float(score) * 100, 2)) if score <= 1.0 else float(score)
+                results.append(item)
+            if len(results) >= top_k:
+                break
         return results
 
     def search_context(self, video_id: str, frame_idx: int, limit: int = 20, surrounding: bool = False):
