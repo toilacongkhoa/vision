@@ -39,6 +39,7 @@ class SQLiteSearchEngine:
         self.metadata_cache = None
         self._formatted_result_cache: Dict[int, Dict[str, Any]] = {}
         self._db_local = threading.local()
+        self._score_local = threading.local()
         
         self._load_vectors()
         self._load_metadata_cache()
@@ -79,6 +80,16 @@ class SQLiteSearchEngine:
             conn.execute("PRAGMA query_only = ON")
             self._db_local.connection = conn
         return conn
+
+    def _score_vectors(self, query_vec: np.ndarray) -> np.ndarray:
+        """Compute all cosine scores into a reusable per-thread buffer."""
+        scores_all = getattr(self._score_local, "scores", None)
+        expected_shape = (len(self.vectors),)
+        if scores_all is None or scores_all.shape != expected_shape or scores_all.dtype != np.float32:
+            scores_all = np.empty(expected_shape, dtype=np.float32)
+            self._score_local.scores = scores_all
+        np.dot(self.vectors, query_vec, out=scores_all)
+        return scores_all
 
     def _load_vectors(self):
         if self.vectors_path.exists():
@@ -159,7 +170,7 @@ class SQLiteSearchEngine:
             scores = scores_matrix[0]
             top_indices = indices_matrix[0]
         else:
-            scores_all = np.dot(self.vectors, query_vec)
+            scores_all = self._score_vectors(query_vec)
             # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
             top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
             # Sort only the top_candidates
@@ -289,7 +300,7 @@ class SQLiteSearchEngine:
             scores = scores_matrix[0]
             top_indices = indices_matrix[0]
         else:
-            scores_all = np.dot(self.vectors, query_vec)
+            scores_all = self._score_vectors(query_vec)
             # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
             top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
             # Sort only the top_candidates
