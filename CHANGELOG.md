@@ -98,3 +98,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 0/21, QA hoàn chỉnh 1/8, TRAKE 0/1; tổng 1/30 (3.33%); trung bình 189.13 ms.
   - Sau: KIS 0/21, QA hoàn chỉnh 1/8, TRAKE 0/1; tổng 1/30 (3.33%); trung bình 232.00 ms.
 - Kết quả: **đã rollback** về commit backup `c6351fd` vì latency tăng 22.7% và độ chính xác không đổi.
+
+## 2026-09-20 — Vòng tối ưu 9: giảm số luồng PyTorch
+
+- Thay đổi thử nghiệm: giảm `torch.set_num_threads(2)` xuống `1` trong `src/sqlite_engine.py` cho workload truy vấn đơn lẻ trên CPU.
+- Mục tiêu: giảm overhead tạo/quản lý luồng trên Windows mà không đổi ranking hoặc tiêu chí đúng.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 30 câu, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 0/21, QA hoàn chỉnh 1/8 (location 1/8, text_answer 4/8), TRAKE 0/1; tổng 1/30 (3.33%); trung bình 201.70 ms.
+  - Sau: KIS 0/21, QA hoàn chỉnh 1/8 (location 1/8, text_answer 4/8), TRAKE 0/1; tổng 1/30 (3.33%); trung bình 511.79 ms.
+- Kết quả: **đã rollback** về commit backup `1f0a0c6`; latency tăng 153.7%, độ chính xác không đổi.
+- Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
