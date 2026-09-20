@@ -120,6 +120,15 @@ class SQLiteSearchEngine:
         text_features /= text_features.norm(dim=-1, keepdim=True)
         return text_features.cpu().numpy()[0].astype(np.float32)
 
+    @torch.inference_mode()
+    def encode_text_batch(self, texts: List[str]) -> np.ndarray:
+        if self.model is None:
+            self.load_clip_model()
+        tokens = self.tokenizer(texts).to(self.device)
+        text_features = self.model.encode_text(tokens)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+        return text_features.cpu().numpy().astype(np.float32)
+
     @torch.no_grad()
     def encode_image(self, image_bytes: bytes) -> np.ndarray:
         if self.model is None:
@@ -260,7 +269,7 @@ class SQLiteSearchEngine:
             import re
             clauses = [c.strip() for c in re.split(r',|;|\n| and ', translated_text) if c.strip()]
             if len(clauses) > 1:
-                vecs = [self.encode_text(c) for c in clauses]
+                vecs = self.encode_text_batch(clauses)
                 query_vec = np.mean(vecs, axis=0)
                 query_vec /= np.linalg.norm(query_vec)
             else:
