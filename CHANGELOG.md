@@ -281,3 +281,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (218,88 ms), QA hoàn chỉnh 1/16 (224,46 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (323,17 ms); tổng 2/57 (3,51%); trung bình 224,10 ms.
   - Sau: KIS 1/39 (185,65 ms), QA hoàn chỉnh 1/16 (178,17 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (324,90 ms); tổng 2/57 (3,51%); trung bình 188,43 ms.
 - Kết quả: **giữ lại**, latency tổng giảm 15,66%, độ chính xác không đổi.
+
+## 2026-09-20 — Vòng tối ưu 28: tra cứu memory-cache translator một lần
+
+- Thay đổi: cập nhật `src/fast_translator.py`, thay cặp thao tác `in` rồi lookup bằng một lần `dict.get()` trong `FastTranslator.translate()`.
+- Mục tiêu: giảm một lần tra cứu dictionary trên các truy vấn tiếng Việt đã có trong memory cache, giữ nguyên bản dịch và fallback.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (171,94 ms), QA hoàn chỉnh 1/16 (189,54 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (362,36 ms); tổng 2/57 (3,51%); trung bình 183,56 ms.
+  - Sau: KIS 1/39 (158,79 ms), QA hoàn chỉnh 1/16 (160,20 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (321,70 ms); tổng 2/57 (3,51%); trung bình 164,90 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 10,17%, độ chính xác không đổi.

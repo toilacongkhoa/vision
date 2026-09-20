@@ -98,8 +98,9 @@ class FastTranslator:
         norm_key = text_clean.lower()
 
         # 1. Check in-memory cache (0.01ms)
-        if norm_key in self.memory_cache:
-            return self.memory_cache[norm_key]
+        cached_translation = self.memory_cache.get(norm_key)
+        if cached_translation is not None:
+            return cached_translation
 
         # 2. Check SQLite cache (0.5ms)
         try:
