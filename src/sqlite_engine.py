@@ -76,6 +76,7 @@ class SQLiteSearchEngine:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA cache_size = -65536")
             conn.execute("PRAGMA mmap_size = 268435456")
+            conn.execute("PRAGMA query_only = ON")
             self._db_local.connection = conn
         return conn
 
