@@ -244,4 +244,4 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
   - Trước: KIS 1/39 (420,01 ms), QA hoàn chỉnh 1/16 (278,74 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (304,27 ms); tổng 2/57 (3,51%); trung bình 376,29 ms.
   - Sau: KIS 1/39 (249,88 ms), QA hoàn chỉnh 1/16 (244,88 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (342,41 ms); tổng 2/57 (3,51%); trung bình 251,72 ms.
-- Kết quả: **giữ lại**, latency tổng giảm 33,1%, độ chính xác không đổi.
+- Kết quả: **đã rollback** về backup `e25640d`; không tiếp tục giữ thay đổi vì đây là cùng hướng tối ưu số thread PyTorch đã được thử ở vòng 3 và vòng 9.
