@@ -272,3 +272,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (227,36 ms), QA hoàn chỉnh 1/16 (206,39 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (318,25 ms); tổng 2/57 (3,51%); trung bình 224,67 ms.
   - Sau: KIS 1/39 (526,20 ms), QA hoàn chỉnh 1/16 (475,12 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (672,87 ms); tổng 2/57 (3,51%); trung bình 517,01 ms.
 - Kết quả: **đã rollback** về backup `338bd44` vì độ chính xác không cải thiện và latency tổng tăng 130,1%.
+
+## 2026-09-20 — Vòng tối ưu 27: pre-compile regex tách mệnh đề semantic
+
+- Thay đổi: thêm `_CLAUSE_SPLIT_RE = re.compile(...)` ở cấp module trong `src/sqlite_engine.py` và dùng lại regex này khi tách các clause truy vấn.
+- Mục tiêu: loại chi phí biên dịch regex lặp lại trên mỗi truy vấn, giữ nguyên biểu thức và logic retrieval.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (218,88 ms), QA hoàn chỉnh 1/16 (224,46 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (323,17 ms); tổng 2/57 (3,51%); trung bình 224,10 ms.
+  - Sau: KIS 1/39 (185,65 ms), QA hoàn chỉnh 1/16 (178,17 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (324,90 ms); tổng 2/57 (3,51%); trung bình 188,43 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 15,66%, độ chính xác không đổi.

@@ -11,6 +11,8 @@ import json
 import re
 import threading
 
+_CLAUSE_SPLIT_RE = re.compile(r',|;|\n| and ')
+
 try:
     import faiss
     HAS_FAISS = True
@@ -286,7 +288,7 @@ class SQLiteSearchEngine:
                 translated_text = query_text
                 
             import re
-            clauses = [c.strip() for c in re.split(r',|;|\n| and ', translated_text) if c.strip()]
+            clauses = [c.strip() for c in _CLAUSE_SPLIT_RE.split(translated_text) if c.strip()]
             if len(clauses) > 1:
                 vecs = self.encode_text_batch(clauses)
                 query_vec = np.mean(vecs, axis=0)
