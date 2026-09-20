@@ -23,6 +23,7 @@ class SQLiteSearchEngine:
     def __init__(self, data_root: Path = DATA_ROOT, vectors_path: Path = CONSOLIDATED_VECTORS_PATH):
         try:
             torch.set_num_threads(2)
+            torch.set_num_interop_threads(1)
         except Exception:
             pass
 

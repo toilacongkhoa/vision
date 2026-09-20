@@ -236,3 +236,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 660,25 ms.
   - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 206,05 ms.
 - Kết quả: **giữ lại**, latency trung bình giảm 68,8%, độ chính xác không đổi.
+
+## 2026-09-20 — Vòng tối ưu 23: giới hạn PyTorch inter-op threads
+
+- Thay đổi: cập nhật `src/sqlite_engine.py`, gọi `torch.set_num_interop_threads(1)` cạnh cấu hình intra-op `torch.set_num_threads(2)` khi khởi tạo `SQLiteSearchEngine`.
+- Mục tiêu: giảm overhead điều phối thread khi OpenCLIP encode text trên CPU, không thay đổi vector, ranking hoặc kết quả.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (420,01 ms), QA hoàn chỉnh 1/16 (278,74 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (304,27 ms); tổng 2/57 (3,51%); trung bình 376,29 ms.
+  - Sau: KIS 1/39 (249,88 ms), QA hoàn chỉnh 1/16 (244,88 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (342,41 ms); tổng 2/57 (3,51%); trung bình 251,72 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 33,1%, độ chính xác không đổi.
