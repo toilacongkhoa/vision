@@ -23,6 +23,7 @@ class FastTranslator:
         self.local_translator = None
         self.tokenizer = None
         self.memory_cache = {}
+        self._online_fallback_disabled = False
         
         self._init_cache_db()
         self._load_local_model()
@@ -110,7 +111,7 @@ class FastTranslator:
                 print(f"[FastTranslator] CTranslate2 inference failed: {e}", flush=True)
 
         # 4. Fallback to Google Translate if offline failed
-        if not translated_en:
+        if not translated_en and not self._online_fallback_disabled:
             try:
                 from deep_translator import GoogleTranslator
                 translated_en = GoogleTranslator(source='vi', target='en').translate(text_clean)
@@ -120,6 +121,9 @@ class FastTranslator:
                     translated_en = MyMemoryTranslator(source='vi-VN', target='en-US').translate(text_clean)
                 except Exception:
                     translated_en = text_clean
+
+        if translated_en and translated_en.strip().casefold() == text_clean.casefold():
+            self._online_fallback_disabled = True
 
         # Clean trailing periods often added by translation models
         if translated_en and translated_en.endswith(".") and not text_clean.endswith("."):
