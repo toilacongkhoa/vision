@@ -249,7 +249,7 @@ class SQLiteSearchEngine:
                 translated_text = query_text
                 
             import re
-            clauses = [c.strip() for c in re.split(r',|;| and ', translated_text) if c.strip()]
+            clauses = [c.strip() for c in re.split(r',|;|\n| and ', translated_text) if c.strip()]
             if len(clauses) > 1:
                 vecs = [self.encode_text(c) for c in clauses]
                 query_vec = np.mean(vecs, axis=0)
