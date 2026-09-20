@@ -263,3 +263,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (245,48 ms), QA hoàn chỉnh 1/16 (207,93 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (371,11 ms); tổng 2/57 (3,51%); trung bình 239,35 ms.
   - Sau: KIS 1/39 (173,79 ms), QA hoàn chỉnh 1/16 (183,68 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (267,84 ms); tổng 2/57 (3,51%); trung bình 179,87 ms.
 - Kết quả: **giữ lại**, latency tổng giảm 24,8%, độ chính xác không đổi.
+
+## 2026-09-20 — Vòng tối ưu 26: eager-load FastTranslator trong SQLite engine
+
+- Thay đổi thử nghiệm: đưa import singleton `fast_translator` từ bên trong `SQLiteSearchEngine.search()` lên import-time của `src/sqlite_engine.py`, nhằm chuyển chi phí khởi tạo translator ra startup.
+- Mục tiêu: giảm latency request semantic đầu tiên, không thay đổi logic dịch, cache hoặc ranking.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (227,36 ms), QA hoàn chỉnh 1/16 (206,39 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (318,25 ms); tổng 2/57 (3,51%); trung bình 224,67 ms.
+  - Sau: KIS 1/39 (526,20 ms), QA hoàn chỉnh 1/16 (475,12 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (672,87 ms); tổng 2/57 (3,51%); trung bình 517,01 ms.
+- Kết quả: **đã rollback** về backup `338bd44` vì độ chính xác không cải thiện và latency tổng tăng 130,1%.
