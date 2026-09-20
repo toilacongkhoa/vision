@@ -6,24 +6,6 @@ Lịch sử các vòng tối ưu hóa của dự án Vision, kèm benchmark trư
 
 Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `frame_idx / fps` theo `video_fps_map.json`, với dung sai **150 giây (±2.5 phút)**. KIS dùng một frame, TRAKE dùng từng mốc đúng thứ tự; QA báo riêng vị trí và `text_answer`, trong đó câu QA hoàn chỉnh cần cả hai phần đúng. Các số liệu của vòng 1 và 2 bên dưới được ghi theo tiêu chí cũ (frame khớp tuyệt đối).
 
-## 2026-09-20 — Vòng tối ưu 22: tái sử dụng kết nối SQLite translation cache
-
-- Thay đổi: cập nhật `src/fast_translator.py`, thêm kết nối SQLite cache theo từng thread và dùng lại cho các lần đọc/ghi trong `FastTranslator.translate()`.
-- Mục tiêu: giảm overhead mở/đóng kết nối `translation_cache.db` trên mỗi truy vấn tiếng Việt, không thay đổi logic dịch, cache key hoặc kết quả retrieval.
-- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
-  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 660,25 ms.
-  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 206,05 ms.
-- Kết quả: **giữ lại**, latency trung bình giảm 68,8%, độ chính xác không đổi.
-
-## 2026-09-20 — Vòng tối ưu 21: tái sử dụng buffer điểm số NumPy
-
-- Thay đổi: cập nhật `src/sqlite_engine.py`, thêm `_score_vectors()` và buffer `thread-local`; hai đường semantic/image search dùng `np.dot(..., out=...)` thay vì cấp phát mảng điểm mới cho mỗi truy vấn.
-- Mục tiêu: giảm cấp phát bộ nhớ và latency khi tính similarity trên toàn bộ 177.321 vector, không đổi thuật toán xếp hạng hay kết quả.
-- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
-  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 730,35 ms.
-  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 192,73 ms.
-- Kết quả: **giữ lại**, latency trung bình giảm 73,6%, độ chính xác không đổi.
-
 ## 2026-09-20 — Cập nhật tiêu chí benchmark
 
 - Cập nhật `tools/benchmark.py` để đọc `video_fps_map.json`, so khớp frame theo thời gian với dung sai 150 giây (±2.5 phút), kiểm tra TRAKE theo thứ tự và báo riêng `location`/`text_answer` cho QA.
@@ -236,3 +218,21 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 185.56 ms.
 - Kết quả: **đã rollback** về commit backup `37b0810`; latency tăng 5.8%, độ chính xác không đổi.
 - Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
+
+## 2026-09-20 — Vòng tối ưu 21: tái sử dụng buffer điểm số NumPy
+
+- Thay đổi: cập nhật `src/sqlite_engine.py`, thêm `_score_vectors()` và buffer `thread-local`; hai đường semantic/image search dùng `np.dot(..., out=...)` thay vì cấp phát mảng điểm mới cho mỗi truy vấn.
+- Mục tiêu: giảm cấp phát bộ nhớ và latency khi tính similarity trên toàn bộ 177.321 vector, không đổi thuật toán xếp hạng hay kết quả.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 730,35 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 192,73 ms.
+- Kết quả: **giữ lại**, latency trung bình giảm 73,6%, độ chính xác không đổi.
+
+## 2026-09-20 — Vòng tối ưu 22: tái sử dụng kết nối SQLite translation cache
+
+- Thay đổi: cập nhật `src/fast_translator.py`, thêm kết nối SQLite cache theo từng thread và dùng lại cho các lần đọc/ghi trong `FastTranslator.translate()`.
+- Mục tiêu: giảm overhead mở/đóng kết nối `translation_cache.db` trên mỗi truy vấn tiếng Việt, không thay đổi logic dịch, cache key hoặc kết quả retrieval.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 660,25 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 206,05 ms.
+- Kết quả: **giữ lại**, latency trung bình giảm 68,8%, độ chính xác không đổi.
