@@ -15,6 +15,12 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+try:
+    from deep_translator import GoogleTranslator, MyMemoryTranslator
+except Exception:
+    GoogleTranslator = None
+    MyMemoryTranslator = None
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 class FastTranslator:
@@ -122,11 +128,13 @@ class FastTranslator:
         # 4. Fallback to Google Translate if offline failed
         if not translated_en and not self._online_fallback_disabled:
             try:
-                from deep_translator import GoogleTranslator
+                if GoogleTranslator is None:
+                    raise ImportError("deep-translator is unavailable")
                 translated_en = GoogleTranslator(source='vi', target='en').translate(text_clean)
             except Exception as e:
                 try:
-                    from deep_translator import MyMemoryTranslator
+                    if MyMemoryTranslator is None:
+                        raise ImportError("deep-translator is unavailable")
                     translated_en = MyMemoryTranslator(source='vi-VN', target='en-US').translate(text_clean)
                 except Exception:
                     translated_en = text_clean

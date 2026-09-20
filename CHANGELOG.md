@@ -254,3 +254,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (157,52 ms), QA hoàn chỉnh 1/16 (161,39 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (269,41 ms); tổng 2/57 (3,51%); trung bình 162,53 ms.
   - Sau: KIS 1/39 (453,53 ms), QA hoàn chỉnh 1/16 (423,26 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (503,98 ms); tổng 2/57 (3,51%); trung bình 446,80 ms.
 - Kết quả: **đã rollback** về backup `e36fe6c` vì độ chính xác không cải thiện và latency tổng tăng 174,9%.
+
+## 2026-09-20 — Vòng tối ưu 25: eager-import translator fallback
+
+- Thay đổi: cập nhật `src/fast_translator.py`, import `GoogleTranslator` và `MyMemoryTranslator` một lần khi module khởi tạo thay vì import trong request đầu tiên.
+- Mục tiêu: loại overhead import khỏi lần dịch đầu tiên, không thay đổi logic fallback, cache hay kết quả retrieval.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (245,48 ms), QA hoàn chỉnh 1/16 (207,93 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (371,11 ms); tổng 2/57 (3,51%); trung bình 239,35 ms.
+  - Sau: KIS 1/39 (173,79 ms), QA hoàn chỉnh 1/16 (183,68 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (267,84 ms); tổng 2/57 (3,51%); trung bình 179,87 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 24,8%, độ chính xác không đổi.
