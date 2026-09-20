@@ -148,3 +148,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 188.20 ms.
 - Kết quả: **giữ lại**, latency giảm 28.7%, độ chính xác không đổi.
 - Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
+
+## 2026-09-20 — Vòng tối ưu 14: tăng SQLite page cache
+
+- Thay đổi: đặt `PRAGMA cache_size = -65536` (64 MB) khi tạo kết nối SQLite read-only trong `src/sqlite_engine.py`.
+- Mục tiêu: giảm đọc lại các trang của DB 814 MB giữa các truy vấn semantic, không đổi SQL, ranking hay kết quả.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 763.24 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 240.57 ms.
+- Kết quả: **giữ lại**, latency giảm 68.5%, độ chính xác không đổi.
+- Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.

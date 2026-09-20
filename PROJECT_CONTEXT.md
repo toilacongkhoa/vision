@@ -45,7 +45,7 @@ Browser / frontend/index.html
 1. Manual search gọi `/api/v1/search`, `/api/v1/search/image`, `/api/v1/search/similar` hoặc các endpoint context/interval/filmstrip.
 2. Semantic query tiếng Việt có dấu được FastTranslator dịch từ memory/SQLite cache, model CTranslate2 nếu có, rồi Google/MyMemory fallback; query không được nhận diện là tiếng Việt được giữ nguyên. Các vế phân cách bằng dấu phẩy, chấm phẩy hoặc `and` được encode riêng bằng OpenCLIP và lấy vector trung bình.
 3. `all_vectors.npy` đã L2-normalized; runtime tính NumPy dot product và dùng `argpartition` chọn top-K. FAISS luôn bị disable trong `_init_faiss`.
-4. Metadata lấy từ `metadata_cache.pkl` nếu file tồn tại; workspace hiện không có cache này nên engine batch-query `video_index_v2.db`, đọc `keyframes.raw_json` và sinh R2 URL từ `image.rel_path` (`.jpg` → `.webp`). Kết quả metadata semantic được cache trong process; kết nối SQLite được tái sử dụng theo từng thread ở chế độ read-only.
+4. Metadata lấy từ `metadata_cache.pkl` nếu file tồn tại; workspace hiện không có cache này nên engine batch-query `video_index_v2.db`, đọc `keyframes.raw_json` và sinh R2 URL từ `image.rel_path` (`.jpg` → `.webp`). Kết quả metadata semantic được cache trong process; kết nối SQLite được tái sử dụng theo từng thread ở chế độ read-only với page cache 64 MB.
 5. OCR/ASR thử exact phrase qua `ocr_fts`/`asr_fts`; nếu bảng/query FTS lỗi thì fallback sang token-substring `LIKE`. DB hiện tại không có hai bảng FTS nên luôn dùng fallback.
 6. Frontend ưu tiên R2 để hiển thị kết quả, mở preview/bounding box/filmstrip, mở Google Drive video hoặc thêm frame vào submission.
 
