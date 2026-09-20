@@ -4,6 +4,7 @@ import sys
 import os
 import re
 from pathlib import Path
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 try:
@@ -29,7 +30,10 @@ class AgySession:
     # sufficient because a stalled tool/model process can otherwise hold the
     # HTTP stream open for minutes.
     HEARTBEAT_SECONDS = 8.0
-    RESPONSE_TIMEOUT_SECONDS = 60.0
+    # A chat turn may include several MCP searches and visual inspections.
+    # Keep the stream alive indefinitely and use HEARTBEAT_SECONDS below to
+    # report progress instead of imposing a hard wall-clock limit.
+    RESPONSE_TIMEOUT_SECONDS: Optional[float] = None
     PREWARM_TIMEOUT_SECONDS = 90.0
     """1 persistent agy process = 1 conversation thread"""
 
@@ -160,26 +164,36 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
 
             # Stream response
             async for chunk in self._read_until_result(
-                timeout_seconds or self.RESPONSE_TIMEOUT_SECONDS
+                timeout_seconds
+                if timeout_seconds is not None
+                else self.RESPONSE_TIMEOUT_SECONDS
             ):
                 yield chunk
 
-    async def _read_until_result(self, timeout_seconds: float):
+    async def _read_until_result(self, timeout_seconds: Optional[float]):
         loop = asyncio.get_running_loop()
-        started_at = loop.time()
+        deadline = (
+            loop.time() + timeout_seconds
+            if timeout_seconds is not None
+            else None
+        )
         while True:
-            remaining = timeout_seconds - (loop.time() - started_at)
-            if remaining <= 0:
-                yield (
-                    f'data: [ERROR] Lỗi: AI vượt quá giới hạn xử lý '
-                    f'{int(timeout_seconds)} giây. Vui lòng thử lại.<br>\n\n'
-                )
-                await self.close()
-                break
+            if deadline is None:
+                read_timeout = self.HEARTBEAT_SECONDS
+            else:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    yield (
+                        f'data: [ERROR] Lỗi: AI vượt quá giới hạn xử lý '
+                        f'{int(timeout_seconds)} giây. Vui lòng thử lại.<br>\n\n'
+                    )
+                    await self.close()
+                    break
+                read_timeout = min(self.HEARTBEAT_SECONDS, remaining)
             try:
                 line = await asyncio.wait_for(
                     self.proc.stdout.readline(),
-                    timeout=min(self.HEARTBEAT_SECONDS, remaining),
+                    timeout=read_timeout,
                 )
             except asyncio.TimeoutError:
                 yield 'data: [TOOL] ⏳ Vẫn đang xử lý...\n\n'
