@@ -11,6 +11,7 @@ import re
 import sys
 import time
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,7 @@ class FastTranslator:
         self.tokenizer = None
         self.memory_cache = {}
         self._online_fallback_disabled = False
+        self._cache_local = threading.local()
         
         self._init_cache_db()
         self._load_local_model()
@@ -69,6 +71,13 @@ class FastTranslator:
                 self.local_translator = None
                 self.tokenizer = None
 
+    def _get_cache_connection(self):
+        conn = getattr(self._cache_local, "connection", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.cache_db), isolation_level=None)
+            self._cache_local.connection = conn
+        return conn
+
     def is_vietnamese(self, text: str) -> bool:
         return bool(re.search(
             r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]',
@@ -88,13 +97,13 @@ class FastTranslator:
 
         # 2. Check SQLite cache (0.5ms)
         try:
-            with sqlite3.connect(str(self.cache_db)) as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT translated_en FROM translations WHERE query_vi = ?", (norm_key,))
-                row = cur.fetchone()
-                if row:
-                    self.memory_cache[norm_key] = row[0]
-                    return row[0]
+            conn = self._get_cache_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT translated_en FROM translations WHERE query_vi = ?", (norm_key,))
+            row = cur.fetchone()
+            if row:
+                self.memory_cache[norm_key] = row[0]
+                return row[0]
         except Exception:
             pass
 
@@ -133,9 +142,9 @@ class FastTranslator:
         if translated_en and translated_en.lower() != norm_key:
             self.memory_cache[norm_key] = translated_en
             try:
-                with sqlite3.connect(str(self.cache_db)) as conn:
-                    conn.execute("INSERT OR REPLACE INTO translations (query_vi, translated_en, created_at) VALUES (?, ?, ?)",
-                                 (norm_key, translated_en, time.time()))
+                conn = self._get_cache_connection()
+                conn.execute("INSERT OR REPLACE INTO translations (query_vi, translated_en, created_at) VALUES (?, ?, ?)",
+                             (norm_key, translated_en, time.time()))
             except Exception:
                 pass
 
