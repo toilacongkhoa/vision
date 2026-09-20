@@ -290,3 +290,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (171,94 ms), QA hoàn chỉnh 1/16 (189,54 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (362,36 ms); tổng 2/57 (3,51%); trung bình 183,56 ms.
   - Sau: KIS 1/39 (158,79 ms), QA hoàn chỉnh 1/16 (160,20 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (321,70 ms); tổng 2/57 (3,51%); trung bình 164,90 ms.
 - Kết quả: **giữ lại**, latency tổng giảm 10,17%, độ chính xác không đổi.
+
+## 2026-09-21 — Vòng tối ưu 29: loại import `re` dư trong search
+
+- Thay đổi thử nghiệm: xóa `import re` bên trong `SQLiteSearchEngine.search()` trong `src/sqlite_engine.py`, vì module đã import `re` và regex ở cấp module.
+- Mục tiêu: giảm một lookup import thừa trên mỗi truy vấn semantic mà không thay đổi logic tách mệnh đề.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (167,94 ms), QA hoàn chỉnh 1/16 (174,78 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (263,94 ms); tổng 2/57 (3,51%); trung bình 173,23 ms.
+  - Sau: KIS 1/39 (313,83 ms), QA hoàn chỉnh 1/16 (190,06 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (309,11 ms); tổng 2/57 (3,51%); trung bình 278,92 ms.
+- Kết quả: **đã rollback** về backup `ababc00`; latency tổng tăng 61,01%, độ chính xác không đổi.
