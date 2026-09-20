@@ -9,6 +9,7 @@ import open_clip
 import sqlite3
 import json
 import re
+import threading
 
 try:
     import faiss
@@ -37,6 +38,7 @@ class SQLiteSearchEngine:
         self.faiss_index = None
         self.metadata_cache = None
         self._formatted_result_cache: Dict[int, Dict[str, Any]] = {}
+        self._db_local = threading.local()
         
         self._load_vectors()
         self._load_metadata_cache()
@@ -68,8 +70,11 @@ class SQLiteSearchEngine:
         return None
         
     def _get_db(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = getattr(self._db_local, "connection", None)
+        if conn is None:
+            conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+            conn.row_factory = sqlite3.Row
+            self._db_local.connection = conn
         return conn
 
     def _load_vectors(self):
