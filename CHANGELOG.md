@@ -245,3 +245,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (420,01 ms), QA hoàn chỉnh 1/16 (278,74 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (304,27 ms); tổng 2/57 (3,51%); trung bình 376,29 ms.
   - Sau: KIS 1/39 (249,88 ms), QA hoàn chỉnh 1/16 (244,88 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (342,41 ms); tổng 2/57 (3,51%); trung bình 251,72 ms.
 - Kết quả: **đã rollback** về backup `e25640d`; không tiếp tục giữ thay đổi vì đây là cùng hướng tối ưu số thread PyTorch đã được thử ở vòng 3 và vòng 9.
+
+## 2026-09-20 — Vòng tối ưu 24: tách liên từ tiếng Việt `và`
+
+- Thay đổi thử nghiệm: cập nhật regex tách clause trong `src/sqlite_engine.py` để tách thêm liên từ `và` trong truy vấn semantic nhiều mệnh đề.
+- Mục tiêu: cải thiện recall bằng cách encode riêng các vế tiếng Việt thay vì gộp vào một clause.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (157,52 ms), QA hoàn chỉnh 1/16 (161,39 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (269,41 ms); tổng 2/57 (3,51%); trung bình 162,53 ms.
+  - Sau: KIS 1/39 (453,53 ms), QA hoàn chỉnh 1/16 (423,26 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (503,98 ms); tổng 2/57 (3,51%); trung bình 446,80 ms.
+- Kết quả: **đã rollback** về backup `e36fe6c` vì độ chính xác không cải thiện và latency tổng tăng 174,9%.
