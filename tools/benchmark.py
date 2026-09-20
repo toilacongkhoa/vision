@@ -20,6 +20,8 @@ from urllib.request import Request, urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "answerAndQuestion.jsonl"
+FPS_MAP_PATH = PROJECT_ROOT / "video_fps_map.json"
+TOLERANCE_SECONDS = 150.0
 
 
 def load_cases(path: Path) -> List[Dict[str, Any]]:
@@ -27,18 +29,59 @@ def load_cases(path: Path) -> List[Dict[str, Any]]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def load_fps_map(path: Path) -> Dict[str, float]:
+    with path.open("r", encoding="utf-8") as handle:
+        raw_map = json.load(handle)
+    return {str(video_id): float(fps) for video_id, fps in raw_map.items()}
+
+
 def pair(item: Dict[str, Any]) -> Tuple[str, int]:
     return str(item.get("video_id")), int(item.get("frame_idx"))
 
 
-def result_pairs(results: Iterable[Dict[str, Any]]) -> set[Tuple[str, int]]:
-    pairs: set[Tuple[str, int]] = set()
+def within_time_tolerance(
+    expected: Tuple[str, int],
+    returned: Tuple[str, int],
+    fps_map: Dict[str, float],
+    tolerance_seconds: float,
+) -> bool:
+    expected_video, expected_frame = expected
+    returned_video, returned_frame = returned
+    if expected_video != returned_video:
+        return False
+    fps = fps_map.get(expected_video)
+    if fps is None or fps <= 0:
+        raise ValueError(f"Missing or invalid FPS for video_id={expected_video!r}")
+    expected_seconds = expected_frame / fps
+    returned_seconds = returned_frame / fps
+    return abs(returned_seconds - expected_seconds) <= tolerance_seconds
+
+
+def result_pairs(results: Iterable[Dict[str, Any]]) -> List[Tuple[str, int]]:
+    pairs: List[Tuple[str, int]] = []
     for result in results:
         try:
-            pairs.add(pair(result))
+            pairs.append(pair(result))
         except (TypeError, ValueError):
             continue
     return pairs
+
+
+def normalize_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").casefold()).strip()
+
+
+def text_answer_matches(expected_text: Any, results: Iterable[Dict[str, Any]]) -> bool:
+    expected = normalize_text(expected_text)
+    if not expected:
+        return True
+    fields = ("text_answer", "answer", "text", "ocr_text", "asr_text", "objects")
+    for result in results:
+        for field in fields:
+            content = normalize_text(result.get(field))
+            if expected and expected in content:
+                return True
+    return False
 
 
 def split_trake_events(query: str) -> List[str]:
@@ -73,7 +116,12 @@ def make_api_search(api_url: str, top_k: int) -> Callable[[str], List[Dict[str, 
     return search
 
 
-def benchmark_case(case: Dict[str, Any], search: Callable[[str], List[Dict[str, Any]]]) -> Dict[str, Any]:
+def benchmark_case(
+    case: Dict[str, Any],
+    search: Callable[[str], List[Dict[str, Any]]],
+    fps_map: Dict[str, float],
+    tolerance_seconds: float,
+) -> Dict[str, Any]:
     case_type = case["type"]
     answer = case["answer"]
     started = time.perf_counter()
@@ -82,12 +130,15 @@ def benchmark_case(case: Dict[str, Any], search: Callable[[str], List[Dict[str, 
         expected = [pair(item) for item in answer]
         events = split_trake_events(case["query"])
         event_hits: List[bool] = []
-        returned: List[List[Tuple[str, int]]] = []
-        for event in events:
+        for event_index, event in enumerate(events):
             results = search(event)
-            pairs = result_pairs(results)
-            returned.append(sorted(pairs))
-            event_hits.append(expected[len(event_hits)] in pairs if len(event_hits) < len(expected) else False)
+            event_hits.append(
+                event_index < len(expected)
+                and any(
+                    within_time_tolerance(expected[event_index], returned, fps_map, tolerance_seconds)
+                    for returned in result_pairs(results)
+                )
+            )
         correct = len(event_hits) == len(expected) and all(event_hits)
         return {
             "id": case["id"],
@@ -100,11 +151,17 @@ def benchmark_case(case: Dict[str, Any], search: Callable[[str], List[Dict[str, 
 
     expected = pair(answer)
     results = search(case["query"])
-    hits = expected in result_pairs(results)
+    location_correct = any(
+        within_time_tolerance(expected, returned, fps_map, tolerance_seconds)
+        for returned in result_pairs(results)
+    )
+    text_correct = text_answer_matches(answer.get("text_answer"), results) if case_type == "QA" else None
     return {
         "id": case["id"],
         "type": case_type,
-        "correct": hits,
+        "correct": location_correct and (text_correct if text_correct is not None else True),
+        "location_correct": location_correct,
+        "text_correct": text_correct,
         "expected": expected,
         "elapsed_ms": (time.perf_counter() - started) * 1000,
     }
@@ -113,17 +170,20 @@ def benchmark_case(case: Dict[str, Any], search: Callable[[str], List[Dict[str, 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
+    parser.add_argument("--fps-map", type=Path, default=FPS_MAP_PATH)
+    parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--api-url", help="Base URL of a running FastAPI server; otherwise use the direct production pipeline")
     args = parser.parse_args()
 
     cases = load_cases(args.dataset)
+    fps_map = load_fps_map(args.fps_map)
     search = make_api_search(args.api_url, args.top_k) if args.api_url else make_direct_search(args.top_k)
 
     records: List[Dict[str, Any]] = []
     for index, case in enumerate(cases, start=1):
         try:
-            record = benchmark_case(case, search)
+            record = benchmark_case(case, search, fps_map, args.tolerance_seconds)
         except Exception as exc:  # Keep the report complete and identify failing cases.
             record = {"id": case.get("id"), "type": case.get("type"), "correct": False, "error": repr(exc), "elapsed_ms": None}
         records.append(record)
@@ -135,7 +195,7 @@ def main() -> int:
     for record in records:
         grouped[record["type"]].append(record)
 
-    print("\n=== BENCHMARK SUMMARY ===")
+    print(f"\n=== BENCHMARK SUMMARY (frame tolerance: +/- {args.tolerance_seconds:.1f}s / +/- {args.tolerance_seconds / 60:.1f} min) ===")
     total_correct = sum(bool(record["correct"]) for record in records)
     timed = [record["elapsed_ms"] for record in records if record["elapsed_ms"] is not None]
     for case_type in ("KIS", "QA", "TRAKE"):
@@ -143,7 +203,12 @@ def main() -> int:
         correct = sum(bool(record["correct"]) for record in group)
         group_times = [record["elapsed_ms"] for record in group if record["elapsed_ms"] is not None]
         average = sum(group_times) / len(group_times) if group_times else 0.0
-        print(f"{case_type}: {correct}/{len(group)} correct ({(100 * correct / len(group)) if group else 0:.2f}%), average {average:.2f} ms")
+        details = ""
+        if case_type == "QA":
+            location_correct = sum(bool(record.get("location_correct")) for record in group)
+            text_correct = sum(bool(record.get("text_correct")) for record in group)
+            details = f", location {location_correct}/{len(group)}, text_answer {text_correct}/{len(group)}"
+        print(f"{case_type}: {correct}/{len(group)} correct ({(100 * correct / len(group)) if group else 0:.2f}%){details}, average {average:.2f} ms")
     average = sum(timed) / len(timed) if timed else 0.0
     print(f"TOTAL: {total_correct}/{len(records)} correct ({(100 * total_correct / len(records)) if records else 0:.2f}%), average {average:.2f} ms")
     errors = [record for record in records if "error" in record]
