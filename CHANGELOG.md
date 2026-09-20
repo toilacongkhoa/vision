@@ -158,3 +158,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 240.57 ms.
 - Kết quả: **giữ lại**, latency giảm 68.5%, độ chính xác không đổi.
 - Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.
+
+## 2026-09-20 — Vòng tối ưu 15: bật SQLite memory-mapped I/O
+
+- Thay đổi: đặt `PRAGMA mmap_size = 268435456` (256 MB) cho kết nối SQLite read-only trong `src/sqlite_engine.py`.
+- Mục tiêu: giảm overhead đọc DB lớn 814 MB khi kết hợp với page cache 64 MB, không đổi SQL, ranking hay kết quả.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 656.82 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3.51%); trung bình 212.66 ms.
+- Kết quả: **giữ lại**, latency giảm 67.6%, độ chính xác không đổi.
+- Tiêu chí nhất quán: frame matching cùng `video_id` và sai lệch thời gian không quá 150 giây (±2.5 phút), áp dụng cho KIS/QA/TRAKE.

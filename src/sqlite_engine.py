@@ -75,6 +75,7 @@ class SQLiteSearchEngine:
             conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA cache_size = -65536")
+            conn.execute("PRAGMA mmap_size = 268435456")
             self._db_local.connection = conn
         return conn
 
