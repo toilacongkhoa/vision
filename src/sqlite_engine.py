@@ -21,7 +21,7 @@ from .config import DATA_ROOT, CONSOLIDATED_VECTORS_PATH, CLIP_MODEL_NAME, CLIP_
 class SQLiteSearchEngine:
     def __init__(self, data_root: Path = DATA_ROOT, vectors_path: Path = CONSOLIDATED_VECTORS_PATH):
         try:
-            torch.set_num_threads(4)
+            torch.set_num_threads(2)
         except Exception:
             pass
 
