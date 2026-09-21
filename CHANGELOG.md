@@ -326,3 +326,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (319,39 ms), QA hoàn chỉnh 1/16 (331,45 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (367,19 ms); tổng 2/57 (3,51%); trung bình 324,45 ms.
   - Sau: KIS 1/39 (231,17 ms), QA hoàn chỉnh 1/16 (261,58 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (356,45 ms); tổng 2/57 (3,51%); trung bình 244,10 ms.
 - Kết quả: **giữ lại**, latency tổng giảm 24,76%, độ chính xác không đổi.
+
+## 2026-09-21 — Vòng tối ưu 33 (Track A): hợp nhất thứ hạng RRF cho nhiều mệnh đề
+
+- Thay đổi: cập nhật nhánh semantic nhiều mệnh đề trong `src/sqlite_engine.py`, hàm `SQLiteSearchEngine.search()`, từ trung bình các vector mệnh đề sang Reciprocal Rank Fusion (RRF) trên top ứng viên của từng mệnh đề. Nhánh đơn mệnh đề và Track B không thay đổi.
+- Mục tiêu: cải thiện tốc độ và/hoặc recall cho truy vấn mô tả nhiều sự kiện; đây là cách tiếp cận khác với các thử nghiệm trung bình có trọng số và max-similarity đã rollback trước đó.
+- Benchmark Track A trực tiếp qua `tools/benchmark.py`, toàn bộ 57 câu, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (2,56%), QA hoàn chỉnh 1/16 (6,25%; location 1/16, text_answer 6/16), TRAKE 0/2 (0,00%); tổng 2/57 (3,51%); trung bình 584,76 ms.
+  - Sau lần đo chính: KIS 1/39, QA hoàn chỉnh 1/16, TRAKE 0/2; tổng 2/57 (3,51%); trung bình 273,18 ms.
+  - Lần chạy xác nhận: KIS 1/39, QA hoàn chỉnh 1/16, TRAKE 0/2; tổng 2/57 (3,51%); trung bình 259,24 ms.
+- Kết quả: **giữ lại**, độ chính xác không đổi và latency xác nhận giảm 55,66% so với baseline.

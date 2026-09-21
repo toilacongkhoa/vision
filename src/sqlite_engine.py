@@ -289,23 +289,32 @@ class SQLiteSearchEngine:
             clauses = [c.strip() for c in _CLAUSE_SPLIT_RE.split(translated_text) if c.strip()]
             if len(clauses) > 1:
                 vecs = self.encode_text_batch(clauses)
-                query_vec = np.mean(vecs, axis=0)
-                query_vec /= np.linalg.norm(query_vec)
+                top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
+                fused_scores = np.zeros(len(self.vectors), dtype=np.float32)
+                rrf_k = 60.0
+                for clause_vec in vecs:
+                    clause_scores = self._score_vectors(clause_vec)
+                    clause_indices = np.argpartition(clause_scores, -top_candidates)[-top_candidates:]
+                    clause_indices = clause_indices[np.argsort(clause_scores[clause_indices])[::-1]]
+                    ranks = np.arange(1, len(clause_indices) + 1, dtype=np.float32)
+                    fused_scores[clause_indices] += 1.0 / (rrf_k + ranks)
+                top_indices = np.argpartition(fused_scores, -top_candidates)[-top_candidates:]
+                top_indices = top_indices[np.argsort(fused_scores[top_indices])[::-1]]
+                scores = fused_scores[top_indices]
             else:
                 query_vec = self.encode_text(translated_text)
-
-        top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-        if self.faiss_index is not None:
-            scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
-            scores = scores_matrix[0]
-            top_indices = indices_matrix[0]
-        else:
-            scores_all = self._score_vectors(query_vec)
-            # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
-            top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
-            # Sort only the top_candidates
-            top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
-            scores = scores_all[top_indices]
+                top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
+                if self.faiss_index is not None:
+                    scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
+                    scores = scores_matrix[0]
+                    top_indices = indices_matrix[0]
+                else:
+                    scores_all = self._score_vectors(query_vec)
+                    # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
+                    top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
+                    # Sort only the top_candidates
+                    top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
+                    scores = scores_all[top_indices]
 
         top_indices = [int(idx) for idx in top_indices]
 
