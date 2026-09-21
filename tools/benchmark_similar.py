@@ -2,7 +2,8 @@
 
 This intentionally exercises ``SQLiteSearchEngine.search(query_vector_id=...)``
 without requiring a running API server. A valid source vector must return the
-requested number of results with itself ranked first.
+requested number of results with itself ranked first, while vector IDs outside
+the matrix bounds must return no results.
 """
 
 from __future__ import annotations
@@ -43,6 +44,29 @@ def run_case(engine: Any, vector_id: int, top_k: int) -> Dict[str, Any]:
     }
 
 
+def run_invalid_case(engine: Any, vector_id: int, top_k: int) -> Dict[str, Any]:
+    started = time.perf_counter()
+    try:
+        results: List[Dict[str, Any]] = engine.search(
+            query_vector_id=vector_id,
+            top_k=top_k,
+        )
+    except Exception as exc:
+        return {
+            "vector_id": vector_id,
+            "passed": False,
+            "elapsed_ms": (time.perf_counter() - started) * 1000,
+            "error": repr(exc),
+        }
+
+    return {
+        "vector_id": vector_id,
+        "passed": results == [],
+        "elapsed_ms": (time.perf_counter() - started) * 1000,
+        "result_count": len(results),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vector-id", type=int, default=0)
@@ -62,21 +86,27 @@ def main() -> int:
     engine = SQLiteSearchEngine()
     load_ms = (time.perf_counter() - load_started) * 1000
     case = run_case(engine, args.vector_id, args.top_k)
+    invalid_cases = [
+        run_invalid_case(engine, -1, args.top_k),
+        run_invalid_case(engine, len(engine.vectors), args.top_k),
+    ]
+    cases = [case, *invalid_cases]
     report = {
-        "scenarios": 1,
-        "passed": int(bool(case["passed"])),
-        "failed": int(not case["passed"]),
-        "errors": int("error" in case),
+        "scenarios": len(cases),
+        "passed": sum(int(bool(item["passed"])) for item in cases),
+        "failed": sum(int(not item["passed"]) for item in cases),
+        "errors": sum(int("error" in item) for item in cases),
         "load_ms": load_ms,
         "case": case,
+        "invalid_cases": invalid_cases,
     }
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        status = "PASS" if case["passed"] else "FAIL"
+        status = "PASS" if report["failed"] == 0 else "FAIL"
         print(
-            f"SIMILAR: {status}, scenarios=1, passed={report['passed']}, "
+            f"SIMILAR: {status}, scenarios={report['scenarios']}, passed={report['passed']}, "
             f"failed={report['failed']}, errors={report['errors']}, "
             f"load={load_ms:.2f} ms, case={case['elapsed_ms']:.2f} ms"
         )
@@ -87,7 +117,14 @@ def main() -> int:
                 f"RESULTS: count={case['result_count']}, "
                 f"top_vector_id={case['top_vector_id']}"
             )
-    return 0 if case["passed"] else 1
+        for invalid_case in invalid_cases:
+            invalid_status = "PASS" if invalid_case["passed"] else "FAIL"
+            print(
+                f"INVALID {invalid_case['vector_id']}: {invalid_status}, "
+                f"results={invalid_case.get('result_count')}, "
+                f"case={invalid_case['elapsed_ms']:.2f} ms"
+            )
+    return 0 if report["failed"] == 0 else 1
 
 
 if __name__ == "__main__":

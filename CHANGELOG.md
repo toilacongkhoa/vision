@@ -603,3 +603,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `8b467b3` (`chore: checkpoint before invalid vector handling`).
 - Kết quả: **giữ lại** vì correctness tăng 0/2 → 2/2 và valid-vector không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật hành vi input ngoài phạm vi.
+
+## 2026-09-21 20:12 +07:00 — Vòng tối ưu 56: mở rộng benchmark similar cho input biên
+
+- Thay đổi: mở rộng `tools/benchmark_similar.py` bằng hai scenario tự động cho vector ID `-1` và `len(engine.vectors)`; giữ nguyên scenario valid và trường `case` cũ để tương thích output, bổ sung `invalid_cases` cùng aggregate pass/fail/error.
+- Mục tiêu: khóa hồi quy hành vi invalid-ID của vòng 55 bằng công cụ chính thức; metric chính là số scenario tự động và tỷ lệ pass.
+- Khám phá sơ bộ: không cần; khoảng trống coverage đã được xác định trực tiếp từ benchmark chỉ có một valid case.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_similar.py --vector-id 0 --top-k 5 --json`, cùng cấu hình trước/sau; compile toàn bộ `src` và benchmark làm guardrail.
+  - Trước: 1 scenario tự động, 1/1 pass, 0 fail/error; valid case 26,52 ms.
+  - Sau: 3 scenario tự động, 3/3 pass, 0 fail/error; valid case 18,42 ms; hai invalid case lần lượt 0,0022 ms và 0,0013 ms, đều trả 0 kết quả.
+  - Chênh lệch mục tiêu: coverage tăng 1 → 3 scenario, thêm đủ hai biên invalid; không dùng dao động latency cold làm kết luận. Compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm; runtime không thay đổi.
+- Checkpoint vòng: `f00684a` (`chore: checkpoint before similar edge benchmarks`).
+- Kết quả: **giữ lại** vì coverage tăng và toàn bộ scenario pass. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.

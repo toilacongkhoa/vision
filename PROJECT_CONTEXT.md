@@ -85,7 +85,7 @@ vision/
 ├── requirements.txt              # exact dependency pins
 ├── tools/benchmark.py            # benchmark semantic retrieval KIS/QA/TRAKE
 ├── tools/benchmark_chatbot.py    # benchmark chatbot SSE
-├── tools/benchmark_similar.py    # regression benchmark similar-by-vector
+├── tools/benchmark_similar.py    # regression benchmark valid/invalid similar-by-vector
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs
