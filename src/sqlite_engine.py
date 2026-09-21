@@ -47,6 +47,9 @@ class SQLiteSearchEngine:
         self._similar_candidate_cache = OrderedDict()
         self._similar_cache_lock = threading.Lock()
         self._similar_cache_maxsize = 256
+        self._text_embedding_cache = OrderedDict()
+        self._text_embedding_cache_lock = threading.Lock()
+        self._text_embedding_cache_maxsize = 256
         self._fts_table_cache: Dict[str, bool] = {}
         self._fts_table_lock = threading.Lock()
         self._db_local = threading.local()
@@ -156,6 +159,29 @@ class SQLiteSearchEngine:
         tokens = self.tokenizer(texts).to(self.device)
         text_features = self.model.encode_text(tokens, normalize=True)
         return text_features.cpu().numpy().astype(np.float32)
+
+    def _encode_texts_cached(self, texts: tuple[str, ...]) -> np.ndarray:
+        with self._text_embedding_cache_lock:
+            cached = self._text_embedding_cache.get(texts)
+            if cached is not None:
+                self._text_embedding_cache.move_to_end(texts)
+                return cached
+
+        if len(texts) == 1:
+            encoded = self.encode_text(texts[0]).reshape(1, -1)
+        else:
+            encoded = self.encode_text_batch(list(texts))
+        encoded.setflags(write=False)
+
+        with self._text_embedding_cache_lock:
+            cached = self._text_embedding_cache.get(texts)
+            if cached is not None:
+                self._text_embedding_cache.move_to_end(texts)
+                return cached
+            self._text_embedding_cache[texts] = encoded
+            while len(self._text_embedding_cache) > self._text_embedding_cache_maxsize:
+                self._text_embedding_cache.popitem(last=False)
+        return encoded
 
     @torch.no_grad()
     def encode_image(self, image_bytes: bytes) -> np.ndarray:
@@ -354,7 +380,7 @@ class SQLiteSearchEngine:
             import re
             clauses = [c.strip() for c in _CLAUSE_SPLIT_RE.split(translated_text) if c.strip()]
             if len(clauses) > 1:
-                vecs = self.encode_text_batch(clauses)
+                vecs = self._encode_texts_cached(tuple(clauses))
                 top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
                 rrf_k = 60.0
                 candidate_index_parts = []
@@ -377,7 +403,7 @@ class SQLiteSearchEngine:
                 top_indices = unique_indices[selected]
                 scores = fused_scores[selected]
             else:
-                query_vec = self.encode_text(translated_text)
+                query_vec = self._encode_texts_cached((translated_text,))[0]
                 top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
                 if self.faiss_index is not None:
                     scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)

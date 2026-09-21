@@ -655,3 +655,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm; runtime không thay đổi.
 - Checkpoint vòng: `3fad707` (`chore: checkpoint before similar prefix benchmark`).
 - Kết quả: **giữ lại** vì coverage tăng và toàn bộ scenario pass. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.
+
+## 2026-09-21 20:26 +07:00 — Vòng tối ưu 60: cache LRU embedding semantic query
+
+- Thay đổi: thêm cache LRU thread-safe tối đa 256 entry cho embedding OpenCLIP, key là tuple text đã dịch/mệnh đề; cache dùng chung cho query một và nhiều mệnh đề, array được đặt read-only trước khi lưu. Translation, scoring, RRF, metadata và ranking không đổi.
+- Mục tiêu: loại encode OpenCLIP lặp lại cho semantic query giống nhau; metric chính là warm average/median của bốn run sau cold run, guardrail là hash toàn bộ 50 vector ID và benchmark retrieval 57 case.
+- Khám phá sơ bộ: năm lần cùng query vẫn mất 216,72–540,77 ms dù metadata đã warm; bốn warm run trung bình 230,49 ms và cùng hash ranking, xác nhận encode lặp là hướng đủ triển vọng.
+- Benchmark/tool: cùng một engine chạy năm lần `search(query_text="a person riding a bicycle", top_k=50)`; run 1 cold, run 2-5 warm. Guardrail dùng `tools/benchmark.py --top-k 50` và compile toàn bộ `src/tools`.
+  - Trước: 540,77 / 227,77 / 233,40 / 244,08 / 216,72 ms; warm trung bình 230,49 ms, median 230,59 ms.
+  - Sau: 169,59 / 15,47 / 16,05 / 16,85 / 21,24 ms; warm trung bình 17,40 ms, median 16,45 ms.
+  - Chênh lệch: warm average giảm 92,45%, warm median giảm 92,87%; cả năm run giữ nguyên hash `de06d9ac615155ce1471bc01bbf15b347171deb67e50c6df1cbc5d0d3af914c3` và đủ 50 kết quả.
+  - Guardrail retrieval: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%), trung bình 218,85 ms so với baseline gần nhất 214,64 ms (+1,96%, trong dao động run), accuracy không đổi; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `089f49f` (`chore: checkpoint before semantic embedding cache`).
+- Kết quả: **giữ lại** vì repeated-query latency giảm hơn 92%, ranking/accuracy giữ nguyên và unique-query guardrail không có hồi quy đáng kể. `PROJECT_CONTEXT.md` đã cập nhật.
