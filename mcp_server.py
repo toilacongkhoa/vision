@@ -15,6 +15,7 @@ import math
 import json
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from pathlib import Path
 
@@ -341,10 +342,10 @@ async def search_video_evidence(
                 has_fts = False
 
             if not has_fts:
-                with httpx.Client(timeout=30.0) as client:
-                    for term in clean_terms:
-                        videos: Dict[str, Dict[str, Any]] = {}
-                        try:
+                def fetch_api_term(term: str):
+                    videos: Dict[str, Dict[str, Any]] = {}
+                    try:
+                        with httpx.Client(timeout=30.0) as client:
                             response = client.post(
                                 f"{API_BASE}/api/v1/search/all",
                                 json={
@@ -354,32 +355,36 @@ async def search_video_evidence(
                             )
                             response.raise_for_status()
                             branches = response.json().get("results", {})
-                        except Exception as exc:
-                            skipped_sources.append((term, "api", str(exc)))
-                            term_matches[term] = videos
-                            continue
+                    except Exception as exc:
+                        return term, videos, (term, "api", str(exc))
 
-                        for mode in ("asr", "ocr"):
-                            rows = branches.get(mode, {}).get("results", [])
-                            for row in rows:
-                                try:
-                                    video_id = str(row["video_id"])
-                                    frame_idx = int(row["frame_idx"])
-                                except (KeyError, TypeError, ValueError):
-                                    continue
-                                current = videos.get(video_id)
-                                if current is None:
-                                    videos[video_id] = {
-                                        "mode": mode,
-                                        "frame_idx": frame_idx,
-                                        "hit_count": 1,
-                                        "best_source_hits": 1,
-                                    }
-                                else:
-                                    current["hit_count"] += 1
-                                    if current["mode"] != mode:
-                                        current["mode"] = mode
+                    for mode in ("asr", "ocr"):
+                        rows = branches.get(mode, {}).get("results", [])
+                        for row in rows:
+                            try:
+                                video_id = str(row["video_id"])
+                                frame_idx = int(row["frame_idx"])
+                            except (KeyError, TypeError, ValueError):
+                                continue
+                            current = videos.get(video_id)
+                            if current is None:
+                                videos[video_id] = {
+                                    "mode": mode,
+                                    "frame_idx": frame_idx,
+                                    "hit_count": 1,
+                                    "best_source_hits": 1,
+                                }
+                            else:
+                                current["hit_count"] += 1
+                                if current["mode"] != mode:
+                                    current["mode"] = mode
+                    return term, videos, None
+
+                with ThreadPoolExecutor(max_workers=min(6, len(clean_terms))) as executor:
+                    for term, videos, error in executor.map(fetch_api_term, clean_terms):
                         term_matches[term] = videos
+                        if error:
+                            skipped_sources.append(error)
                 return total_videos, term_matches, skipped_sources
 
             for term in clean_terms:

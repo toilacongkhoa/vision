@@ -390,3 +390,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: 0/1 đúng, lỗi 0/1, trung bình 28.099,74 ms; usage/cost unavailable.
 - Smoke tool-level bổ sung: gọi trực tiếp `search_video_evidence(["học sinh", "giáo viên"])` đã thực hiện hai request fallback thành công và trả candidate/frame thật, gồm `L22_V006, 543` và `L22_V006, 746`.
 - Kết quả: **giữ lại**. Benchmark chính không đổi accuracy nhưng không có hồi quy; smoke xác nhận lỗi chức năng `no such table` đã được xử lý. `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 — Vòng tối ưu 39: song song hóa MCP evidence fallback
+
+- Thay đổi: cập nhật `mcp_server.py`, hàm `search_video_evidence()`, dùng `ThreadPoolExecutor` để gọi song song các request `/api/v1/search/all` cho nhiều term khi DB thiếu FTS.
+- Mục tiêu: giảm latency fallback evidence mà không đổi thuật toán xếp hạng hoặc dữ liệu.
+- Benchmark: `tools/benchmark_chatbot.py --limit 1 --timeout 180`, cùng dataset/cấu hình, frame tolerance ±150 giây.
+  - Trước: 1/1 đúng, lỗi 0/1, trung bình 53.772,97 ms; usage/cost unavailable.
+  - Sau: 1/1 đúng, lỗi 0/1, trung bình 33.347,93 ms; usage/cost unavailable.
+- Smoke tool-level: `search_video_evidence(["học sinh", "giáo viên", "trường học", "đồng phục"])` giảm 12,255 → 6,117 giây; candidate/frame giữ nguyên.
+- Kết quả: **giữ lại**. Không có hồi quy; `PROJECT_CONTEXT.md` đã cập nhật.
