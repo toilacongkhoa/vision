@@ -739,3 +739,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Benchmark/tool: profiler chuẩn `cProfile` và harness SQLite read-only cùng query `học sinh trường học đồng phục sân`; không sửa source, DB hay file cấm.
 - Sửa phụ: không có. Không tạo checkpoint vì hướng bị loại ở bước khám phá trước thay đổi chính thức.
 - Kết quả: **không triển khai / không có thay đổi để rollback**. Hai hướng khả thi cục bộ đều không đủ triển vọng; cold path tiếp tục bị chi phối bởi full-text scan do artifact DB thiếu FTS. `PROJECT_CONTEXT.md` không cần cập nhật.
+
+## 2026-09-21 21:15 +07:00 — Vòng tối ưu 67: thêm benchmark image-search cache
+
+- Thay đổi: thêm `tools/benchmark_image_cache.py`; tool tạo hai JPEG xác định trong memory và gọi production `SQLiteSearchEngine.search_by_image()` để kiểm tra repeated image cùng chuỗi prime top-K lớn → top-K nhỏ. Tool báo load/request latency, vector IDs, aggregate pass/fail/error, hỗ trợ text/JSON và exit khác 0 khi fail.
+- Mục tiêu: tạo phép đo tái lập cho image search trước khi tối ưu repeated input; vòng này không thay đổi runtime.
+- Khám phá/baseline thủ công: 0 scenario tự động chuyên biệt; ba request cùng ảnh 151,67/87,34/93,77 ms với ID/order ổn định; mixed top-K prime-50/small-5 174,70/112,47 ms và small là prefix chính xác.
+- Sau: 2 scenario tự động, 2/2 pass, 0 fail/error. Repeated cold/warm 455,84/438,37 ms; mixed top-K prime-50/small-5 501,99/372,70 ms; vector ID/order đúng; compile `src/tools` exit 0. Dao động latency không được dùng làm kết luận trong vòng tạo benchmark.
+- Sửa phụ: không có. Không sửa file cấm hay runtime.
+- Checkpoint vòng: `3aeeba3` (`chore: checkpoint before image cache benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 2 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.

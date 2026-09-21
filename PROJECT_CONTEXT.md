@@ -88,6 +88,7 @@ vision/
 ├── tools/benchmark_similar.py    # regression benchmark valid/invalid và prefix-cache similar
 ├── tools/benchmark_semantic_cache.py # regression benchmark semantic cache
 ├── tools/benchmark_fuzzy_cache.py # regression benchmark fallback OCR/ASR và cache
+├── tools/benchmark_image_cache.py # regression benchmark repeated/mixed-top-K image search
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs
@@ -104,7 +105,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 ## Tính năng hiện có
 
 - Semantic text search, dịch Việt–Anh có memory/SQLite cache và lọc theo video.
-- Image similarity search, similar-by-vector đã có regression benchmark, và API chạy semantic/OCR/ASR đồng thời. Fallback OCR/ASR có benchmark chuyên biệt cho cold/warm cache, mixed top-K và video filter.
+- Image similarity search và similar-by-vector đều có regression benchmark; image search bao phủ repeated input và mixed top-K. API có thể chạy semantic/OCR/ASR đồng thời. Fallback OCR/ASR có benchmark chuyên biệt cho cold/warm cache, mixed top-K và video filter.
 - OCR/ASR exact-phrase FTS khi DB hỗ trợ, fallback token-substring SQL LIKE với DB hiện tại.
 - Context, frame range, interval, filmstrip phân trang và timestamp → frame index.
 - Chatbot SSE với model routing flash/pro, session isolation theo `session_id`, prewarm, tool-status heartbeat và stop/abort trên frontend.
