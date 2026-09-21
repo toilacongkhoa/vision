@@ -616,3 +616,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm; runtime không thay đổi.
 - Checkpoint vòng: `f00684a` (`chore: checkpoint before similar edge benchmarks`).
 - Kết quả: **giữ lại** vì coverage tăng và toàn bộ scenario pass. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.
+
+## 2026-09-21 20:17 +07:00 — Vòng tối ưu 57: thử lazy-load OpenCLIP
+
+- Thay đổi thử nghiệm: bỏ eager `load_clip_model()` khỏi constructor và thêm khóa lazy initialization thread-safe; encoder chỉ được nạp ở lần encode text/image đầu tiên. Thay đổi này đã được rollback hoàn toàn.
+- Mục tiêu: giảm thời gian khởi tạo engine cho similar-by-vector; metric chính là `load_ms` của benchmark similar, với 57-case semantic accuracy/latency làm guardrail liên quan.
+- Khám phá sơ bộ: xác nhận similar-by-vector chỉ dùng vector matrix, trong khi constructor luôn load/warm OpenCLIP; các hàm encode đã có điểm gọi lazy load nên hướng có thể thử có kiểm soát.
+- Benchmark/tool: `tools/benchmark_similar.py --vector-id 0 --top-k 5 --json` và `tools/benchmark.py --top-k 50`, cùng cấu hình trước/sau; compile và benchmark similar sau rollback để xác nhận checkpoint.
+  - Trước: similar load 1.568,11 ms, valid case 19,22 ms, 3/3 pass. Semantic: 2/57 đúng (3,51%), trung bình 214,64 ms.
+  - Sau thử nghiệm: similar load 128,22 ms (giảm 91,82%), valid case 16,84 ms, 3/3 pass. Semantic vẫn 2/57 đúng nhưng trung bình tăng lên 294,97 ms (tăng 37,42%) vì model load chuyển vào request đầu; lần guardrail lặp tiếp theo không hoàn tất sau log model load.
+  - Sau rollback: similar 3/3 pass, load 1.598,61 ms, valid case 18,98 ms; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `a10be28` (`chore: checkpoint before lazy CLIP loading`). Vì workspace có `plan.md` đã sửa và `chatbot/` chưa track của người dùng, rollback dùng restore có phạm vi duy nhất `src/sqlite_engine.py` về checkpoint thay cho `git reset --hard`, tránh xóa thay đổi ngoài vòng.
+- Kết quả: **rollback** vì metric chính tốt hơn nhưng semantic first-request/average latency hồi quy rõ ràng; không cập nhật `PROJECT_CONTEXT.md`.
