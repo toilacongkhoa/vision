@@ -762,3 +762,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `df2ee03` (`chore: checkpoint before image candidate cache`).
 - Kết quả: **giữ lại** vì latency repeated/mixed top-K cải thiện hơn 99% và correctness/compile không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật chiến lược image cache.
+
+## 2026-09-21 21:21 +07:00 — Vòng tối ưu 69: thêm benchmark runtime metadata path
+
+- Thay đổi: thêm `tools/benchmark_runtime_paths.py`; tool chạy import `src.main` trong subprocess từ project root và từ temp directory, so sánh `video_metadata_cache` với 873 record thật trong artifact. Tool hỗ trợ text/JSON và exit khác 0 khi một launch CWD làm mất metadata.
+- Mục tiêu: tạo phép đo tái lập cho path portability trước khi sửa runtime; vòng này không thay đổi `src/main.py`.
+- Khám phá/baseline thủ công: 0 scenario tự động; project CWD load 873 metadata, temp CWD load 0 và cảnh báo không tìm thấy `video_drive_metadata.json`.
+- Sau: 2 scenario tự động, 1/2 pass, 1 fail, 0 error. Project CWD 873/873; external CWD 0/873; tool exit 1 đúng theo regression đang mở; compile tool exit 0. Không dùng thời gian import OpenCLIP làm metric kết luận.
+- Sửa phụ: không có. Không sửa file cấm hay runtime.
+- Checkpoint vòng: `1091a05` (`chore: checkpoint before runtime path benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 2 scenario và tool phát hiện đúng lỗi CWD. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ và trạng thái regression.

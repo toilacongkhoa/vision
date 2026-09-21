@@ -89,6 +89,7 @@ vision/
 ├── tools/benchmark_semantic_cache.py # regression benchmark semantic cache
 ├── tools/benchmark_fuzzy_cache.py # regression benchmark fallback OCR/ASR và cache
 ├── tools/benchmark_image_cache.py # regression benchmark repeated/mixed-top-K image search
+├── tools/benchmark_runtime_paths.py # regression benchmark metadata path theo launch CWD
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs
@@ -123,7 +124,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
 - FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline không có trong workspace nên hiện phụ thuộc Google/MyMemory và Internet khi cache miss.
-- Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. `video_drive_metadata.json` vẫn được mở theo current working directory thay vì BASE_DIR.
+- Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. `video_drive_metadata.json` vẫn được mở theo current working directory thay vì BASE_DIR; `tools/benchmark_runtime_paths.py` hiện báo 1/2 scenario pass và khóa hồi quy này.
 - Agy tạo một session process cho mỗi client/model route; process vẫn chạy với `--dangerously-skip-permissions`, stderr bị discard và chưa có cleanup toàn cục khi shutdown. Cần bổ sung TTL/eviction nếu có nhiều client đồng thời.
 - TLS verification bị tắt cho Supabase/Drive proxy; CORS mặc định `*` với credentials; chưa có auth/rate limit. MCP `search_image_by_url` tải URL tùy ý, chưa chặn SSRF/content-size trước khi download.
 - Frontend render output Agy bằng `marked.parse(...).innerHTML` không sanitize; tool labels và một số metadata cũng được nối vào HTML, có nguy cơ XSS.
