@@ -570,6 +570,27 @@ class SQLiteSearchEngine:
             cached_candidates = self._fuzzy_candidate_cache.get(cache_key)
             if cached_candidates is not None:
                 self._fuzzy_candidate_cache.move_to_end(cache_key)
+            else:
+                larger_key = next(
+                    (
+                        key
+                        for key in reversed(self._fuzzy_candidate_cache)
+                        if key[0] == field_name
+                        and key[1] == tuple(raw_terms)
+                        and key[2] >= int(top_k)
+                        and key[3] == video_id_filter
+                    ),
+                    None,
+                )
+                if larger_key is not None:
+                    cached_candidates = self._fuzzy_candidate_cache[larger_key][
+                        :top_k
+                    ]
+                    self._fuzzy_candidate_cache.move_to_end(larger_key)
+                    self._fuzzy_candidate_cache[cache_key] = cached_candidates
+                    self._fuzzy_candidate_cache.move_to_end(cache_key)
+                    while len(self._fuzzy_candidate_cache) > self._fuzzy_cache_maxsize:
+                        self._fuzzy_candidate_cache.popitem(last=False)
 
         if cached_candidates is None:
             vid_scores = defaultdict(float)

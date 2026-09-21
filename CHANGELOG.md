@@ -718,3 +718,24 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm hay runtime.
 - Checkpoint vòng: `18b81a4` (`chore: checkpoint before fuzzy cache benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 5 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.
+
+## 2026-09-21 21:09 +07:00 — Vòng tối ưu 65: tái sử dụng prefix cache fallback OCR/ASR
+
+- Thay đổi: cập nhật `_fuzzy_text_search()` trong `src/sqlite_engine.py`; khi cache không có exact key, tìm entry gần đây cùng field, tuple token và video filter có top-K lớn hơn/equal, cắt prefix đã xếp hạng và lưu exact key vào cùng LRU. Matching, scoring, metadata và giới hạn 256 entry không đổi.
+- Mục tiêu: loại lần scan LIKE lặp khi request top-K nhỏ theo sau request top-K lớn cùng truy vấn; metric chính là latency small-5 của hai scenario prefix, với ID/order và 5/5 scenario là guardrail.
+- Khám phá sơ bộ: không cần; benchmark vòng 64 đã cô lập hai lượt scan thừa và xác nhận small-5 là prefix chính xác của prime-50.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_fuzzy_cache.py --top-k 5 --json`, cùng cấu hình trước/sau; compile toàn bộ `src/tools` là guardrail.
+  - Trước: OCR prime-50/small-5 878,33/2.013,32 ms; ASR prime-50/small-5 2.604,52/2.154,74 ms; 5/5 scenario pass, 0 fail/error.
+  - Sau: OCR prime-50/small-5 1.973,89/0,116 ms; ASR prime-50/small-5 2.391,39/0,079 ms; 5/5 scenario pass, 0 fail/error; compile exit 0.
+  - Chênh lệch mục tiêu: OCR small-5 giảm 99,994%; ASR small-5 giảm 99,996%. Toàn bộ vector ID/order giữ nguyên đúng prefix; latency cold/prime dao động và không dùng làm kết luận.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `ea4c3ef` (`chore: checkpoint before fuzzy prefix cache reuse`).
+- Kết quả: **giữ lại** vì metric latency mục tiêu cải thiện rõ ràng và correctness/compile không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật chiến lược prefix cache fallback.
+
+## 2026-09-21 21:13 +07:00 — Vòng tối ưu 66: thăm dò cold fallback OCR/ASR
+
+- Phạm vi dự kiến: giảm cold latency của LIKE fallback OCR/ASR sau khi warm/prefix cache đã được tối ưu; metric dự kiến là latency query cold và hash top-50 candidate.
+- Khám phá sơ bộ chỉ đọc: `cProfile` trên OCR cold cho thấy 1.147/1.169 giây (98,12%) nằm trong hai `sqlite3.Cursor.fetchall`, trong khi Python `sorted` chỉ khoảng 3 ms; vì vậy loại hướng thay sort bằng heap. Thử SQL đánh dấu hit một lần nhưng fetch toàn bộ 177.321 row: OCR 764,89 ms so với 592,16 ms hiện tại (+29,17%); ASR 866,94 ms so với 587,27 ms (+47,62%). Hash top-50 giữ nguyên cho cả hai nhánh.
+- Benchmark/tool: profiler chuẩn `cProfile` và harness SQLite read-only cùng query `học sinh trường học đồng phục sân`; không sửa source, DB hay file cấm.
+- Sửa phụ: không có. Không tạo checkpoint vì hướng bị loại ở bước khám phá trước thay đổi chính thức.
+- Kết quả: **không triển khai / không có thay đổi để rollback**. Hai hướng khả thi cục bộ đều không đủ triển vọng; cold path tiếp tục bị chi phối bởi full-text scan do artifact DB thiếu FTS. `PROJECT_CONTEXT.md` không cần cập nhật.
