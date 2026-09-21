@@ -772,3 +772,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm hay runtime.
 - Checkpoint vòng: `1091a05` (`chore: checkpoint before runtime path benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 2 scenario và tool phát hiện đúng lỗi CWD. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ và trạng thái regression.
+
+## 2026-09-21 21:23 +07:00 — Vòng tối ưu 70: resolve Drive metadata theo BASE_DIR
+
+- Thay đổi: cập nhật `src/main.py` để load `video_drive_metadata.json` qua `BASE_DIR / "video_drive_metadata.json"` thay vì path tương đối theo current working directory.
+- Mục tiêu: giữ endpoint video metadata hoạt động khi app được launch từ service manager, IDE hoặc thư mục bất kỳ; metric chính là pass/count của hai scenario runtime path.
+- Khám phá sơ bộ: không cần; benchmark vòng 69 đã cô lập chính xác path tương đối là nguyên nhân.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_runtime_paths.py --json`, cùng project/temp CWD trước và sau; compile toàn bộ `src/tools` là guardrail.
+  - Trước: 1/2 pass, 1 fail, 0 error; project CWD 873/873, external CWD 0/873; benchmark exit 1.
+  - Sau: 2/2 pass, 0 fail/error; project CWD 873/873, external CWD 873/873; benchmark exit 0, compile exit 0.
+  - Chênh lệch mục tiêu: pass rate 50% → 100%; metadata bị mất khi external CWD giảm 873 → 0 record. Thời gian import OpenCLIP không dùng làm metric kết luận.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `fc8e465` (`chore: checkpoint before metadata path fix`).
+- Kết quả: **giữ lại** vì correctness tăng 1/2 → 2/2 scenario và compile không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật path behavior và bước tiếp theo.

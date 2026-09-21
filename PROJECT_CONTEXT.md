@@ -124,7 +124,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
 - FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline không có trong workspace nên hiện phụ thuộc Google/MyMemory và Internet khi cache miss.
-- Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. `video_drive_metadata.json` vẫn được mở theo current working directory thay vì BASE_DIR; `tools/benchmark_runtime_paths.py` hiện báo 1/2 scenario pass và khóa hồi quy này.
+- Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. Metadata Drive/FPS được resolve theo `BASE_DIR`; `tools/benchmark_runtime_paths.py` khóa hồi quy launch CWD cho metadata Drive.
 - Agy tạo một session process cho mỗi client/model route; process vẫn chạy với `--dangerously-skip-permissions`, stderr bị discard và chưa có cleanup toàn cục khi shutdown. Cần bổ sung TTL/eviction nếu có nhiều client đồng thời.
 - TLS verification bị tắt cho Supabase/Drive proxy; CORS mặc định `*` với credentials; chưa có auth/rate limit. MCP `search_image_by_url` tải URL tùy ý, chưa chặn SSRF/content-size trước khi download.
 - Frontend render output Agy bằng `marked.parse(...).innerHTML` không sanitize; tool labels và một số metadata cũng được nối vào HTML, có nguy cơ XSS.
@@ -162,7 +162,7 @@ python -m src.main
 ## Bước tiếp theo
 
 1. Thêm migration/builder portable cho `keyframes`, `ocr_fts`, `asr_fts` và metadata cache; rebuild/kiểm tra DB artifact để MCP evidence dùng native FTS nhanh hơn fallback hiện tại.
-2. Dùng một config chung cho DB/API base/port trong FastAPI, engine, MCP và frontend; sửa metadata path theo BASE_DIR và health check theo runtime thật.
+2. Dùng một config chung cho DB/API base/port trong FastAPI, engine, MCP và frontend; sửa health check theo runtime thật.
 3. Đồng bộ `.venv` với requirements, thêm startup health cho Agy/MCP/model và giữ lại script verification/test trong source thay vì ignore/xóa.
 4. Tách session Agy theo user hoặc làm stateless, tôn trọng `session_id`, bỏ quyền bypass mặc định, giữ stderr/log và cleanup subprocess khi shutdown.
 5. Sanitize Markdown/HTML, chặn SSRF, bật TLS verification, giới hạn Drive cache, thu hẹp CORS và thêm auth/rate limiting.

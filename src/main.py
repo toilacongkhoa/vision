@@ -138,7 +138,7 @@ def health_check():
 # Load video metadata into memory
 video_metadata_cache = {}
 try:
-    with open("video_drive_metadata.json", "r", encoding="utf-8") as f:
+    with open(BASE_DIR / "video_drive_metadata.json", "r", encoding="utf-8") as f:
         data = json.load(f)
         if "videos" in data:
             video_metadata_cache = data["videos"]
