@@ -327,6 +327,61 @@ async def search_video_evidence(
             total_videos = int(
                 conn.execute("SELECT COUNT(DISTINCT video_id) FROM keyframes").fetchone()[0]
             )
+
+            # The shipped DB may not contain the optional FTS5 tables.  Keep
+            # MCP evidence usable by falling back to the API's existing OCR /
+            # ASR LIKE-search implementation instead of failing the whole
+            # multi-event tool with "no such table".
+            try:
+                conn.execute("SELECT 1 FROM asr_fts LIMIT 1").fetchone()
+                has_fts = True
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc).lower():
+                    raise
+                has_fts = False
+
+            if not has_fts:
+                with httpx.Client(timeout=30.0) as client:
+                    for term in clean_terms:
+                        videos: Dict[str, Dict[str, Any]] = {}
+                        try:
+                            response = client.post(
+                                f"{API_BASE}/api/v1/search/all",
+                                json={
+                                    "query": term,
+                                    "top_k": min(MAX_EVIDENCE_ROWS_PER_SOURCE, 200),
+                                },
+                            )
+                            response.raise_for_status()
+                            branches = response.json().get("results", {})
+                        except Exception as exc:
+                            skipped_sources.append((term, "api", str(exc)))
+                            term_matches[term] = videos
+                            continue
+
+                        for mode in ("asr", "ocr"):
+                            rows = branches.get(mode, {}).get("results", [])
+                            for row in rows:
+                                try:
+                                    video_id = str(row["video_id"])
+                                    frame_idx = int(row["frame_idx"])
+                                except (KeyError, TypeError, ValueError):
+                                    continue
+                                current = videos.get(video_id)
+                                if current is None:
+                                    videos[video_id] = {
+                                        "mode": mode,
+                                        "frame_idx": frame_idx,
+                                        "hit_count": 1,
+                                        "best_source_hits": 1,
+                                    }
+                                else:
+                                    current["hit_count"] += 1
+                                    if current["mode"] != mode:
+                                        current["mode"] = mode
+                        term_matches[term] = videos
+                return total_videos, term_matches, skipped_sources
+
             for term in clean_terms:
                 match_expr = f'"{term.replace(chr(34), chr(34) * 2)}"'
                 videos: Dict[str, Dict[str, Any]] = {}

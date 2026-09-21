@@ -380,3 +380,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Thay đổi: cài dependency đã khai báo trong `requirements.txt`: `mcp==1.29.1` cùng các dependency phụ thuộc vào `.venv`; không sửa dữ liệu cấm hay mã nguồn MCP.
 - Xác minh: `import mcp_server` thành công và đăng ký 9 tool. Smoke chatbot trả `candidates=4`, lỗi 0/1. Kiểm tra đúng câu hỏi học sinh gọi được `call_mcp_tool`/`view_file` và trả `L22_V026` tại các frame `1581`, `1638`, `3147`.
 - Kết quả: **giữ**, không cần rollback. `PROJECT_CONTEXT.md` đã cập nhật; lỗi riêng do DB thiếu `ocr_fts`/`asr_fts` vẫn còn được ghi nhận độc lập.
+
+## 2026-09-21 — Vòng tối ưu 38: fallback MCP evidence khi DB thiếu FTS
+
+- Thay đổi: cập nhật `mcp_server.py`, hàm `search_video_evidence()`, để phát hiện DB không có `asr_fts`/`ocr_fts` và gọi `/api/v1/search/all` lấy nhánh ASR/OCR fallback thay vì dừng với `no such table`.
+- Mục tiêu: giữ khả năng truy hồi evidence cho câu hỏi nhiều sự kiện trên artifact DB hiện tại; không sửa DB hoặc dataset bị cấm.
+- Benchmark: `tools/benchmark_chatbot.py --limit 1 --timeout 180`, cùng dataset/cấu hình trước và sau, frame tolerance ±150 giây.
+  - Trước: 0/1 đúng, lỗi 0/1, trung bình 38.013,72 ms; usage/cost unavailable.
+  - Sau: 0/1 đúng, lỗi 0/1, trung bình 28.099,74 ms; usage/cost unavailable.
+- Smoke tool-level bổ sung: gọi trực tiếp `search_video_evidence(["học sinh", "giáo viên"])` đã thực hiện hai request fallback thành công và trả candidate/frame thật, gồm `L22_V006, 543` và `L22_V006, 746`.
+- Kết quả: **giữ lại**. Benchmark chính không đổi accuracy nhưng không có hồi quy; smoke xác nhận lỗi chức năng `no such table` đã được xử lý. `PROJECT_CONTEXT.md` đã cập nhật.

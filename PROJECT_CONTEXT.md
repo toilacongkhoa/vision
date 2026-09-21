@@ -111,7 +111,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 
 ## Vấn đề ảnh hưởng việc phát triển tiếp
 
-- DB artifact hiện thiếu `ocr_fts`/`asr_fts`: OCR/ASR API phải scan bằng LIKE, còn MCP `search_video_evidence` truy vấn FTS trực tiếp nên lỗi. README đang mô tả DB có FTS nhưng repo không còn migration/builder để tạo chúng.
+- DB artifact hiện thiếu `ocr_fts`/`asr_fts`: OCR/ASR API và MCP `search_video_evidence` phải dùng fallback scan bằng LIKE qua `/api/v1/search/all`, nên evidence vẫn hoạt động nhưng chậm hơn native FTS. README đang mô tả DB có FTS nhưng repo không còn migration/builder để tạo chúng.
 - Path chưa thống nhất hoàn toàn: config có `DB_PATH` nhưng SQLiteSearchEngine vẫn cố định `DATA_ROOT.parent/video_index_v2.db`, còn MCP cố định DB cạnh `mcp_server.py`. `PORT` cũng không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
 - `.venv` hiện chưa đồng bộ hoàn toàn với requirements pins: `mcp==1.29.1` đã được cài để Agy khởi động được `video-researcher`, nhưng CTranslate2, Transformers, SentencePiece và Sacremoses vẫn cần kiểm tra/cài nếu dùng translator offline. `search_video_evidence` vẫn phụ thuộc các bảng FTS chưa có trong DB.
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
@@ -154,7 +154,7 @@ python -m src.main
 
 ## Bước tiếp theo
 
-1. Thêm migration/builder portable cho `keyframes`, `ocr_fts`, `asr_fts` và metadata cache; rebuild/kiểm tra DB artifact để MCP evidence hoạt động.
+1. Thêm migration/builder portable cho `keyframes`, `ocr_fts`, `asr_fts` và metadata cache; rebuild/kiểm tra DB artifact để MCP evidence dùng native FTS nhanh hơn fallback hiện tại.
 2. Dùng một config chung cho DB/API base/port trong FastAPI, engine, MCP và frontend; sửa metadata path theo BASE_DIR và health check theo runtime thật.
 3. Đồng bộ `.venv` với requirements, thêm startup health cho Agy/MCP/model và giữ lại script verification/test trong source thay vì ignore/xóa.
 4. Tách session Agy theo user hoặc làm stateless, tôn trọng `session_id`, bỏ quyền bypass mặc định, giữ stderr/log và cleanup subprocess khi shutdown.
