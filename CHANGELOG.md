@@ -808,3 +808,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm; benchmark chỉ query DB read-only.
 - Checkpoint vòng: `e24ae7e` (`chore: checkpoint before DB_PATH engine fix`).
 - Kết quả: **giữ lại** vì correctness tăng 0/1 → 1/1 và guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật config behavior, run note và vấn đề còn lại.
+
+## 2026-09-21 21:30 +07:00 — Vòng tối ưu 73: mở rộng benchmark DB_PATH cho MCP
+
+- Thay đổi: mở rộng `tools/benchmark_database_config.py` từ một lên hai scenario: engine vẫn query read-only DB thật, scenario MCP import `mcp_server` trong subprocess với `DB_PATH` custom và kiểm tra module constant. Output/exit code aggregate cả hai nhánh.
+- Mục tiêu: tạo phép đo tái lập cho MCP DB override trước khi sửa runtime; vòng này không thay đổi `mcp_server.py`.
+- Khám phá/baseline thủ công: benchmark có 1 scenario engine đang pass; với env `DB_PATH` custom, MCP vẫn trỏ `video_index_v2.db` cạnh source.
+- Sau: 2 scenario tự động, 1/2 pass, 1 fail, 0 error. Engine path/count pass 177.321; MCP expected temp `vision-custom.db` nhưng actual vẫn là DB project; benchmark exit 1 đúng theo regression đang mở; compile tool exit 0.
+- Sửa phụ: không có. Không sửa file cấm hay runtime.
+- Checkpoint vòng: `6c8d6f8` (`chore: checkpoint before MCP database config benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 1 → 2 scenario và tool phát hiện đúng lỗi MCP override. `PROJECT_CONTEXT.md` đã cập nhật coverage và trạng thái regression.
