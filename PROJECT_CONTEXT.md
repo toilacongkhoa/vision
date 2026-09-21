@@ -83,6 +83,9 @@ vision/
 ├── src/supabase_service.py       # Supabase REST client tùy chọn
 ├── .env.example                  # biến môi trường mẫu
 ├── requirements.txt              # exact dependency pins
+├── tools/benchmark.py            # benchmark semantic retrieval KIS/QA/TRAKE
+├── tools/benchmark_chatbot.py    # benchmark chatbot SSE
+├── tools/benchmark_similar.py    # regression benchmark similar-by-vector
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs
@@ -123,6 +126,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - Frontend render output Agy bằng `marked.parse(...).innerHTML` không sanitize; tool labels và một số metadata cũng được nối vào HTML, có nguy cơ XSS.
 - Drive proxy cache tối đa 1000 full file bytes nhưng không giới hạn tổng dung lượng. Khi `r2_url` tồn tại nhưng tải lỗi, frontend/MCP không retry qua Google Drive; Drive chỉ được chọn khi record không có R2 URL.
 - UI còn nhãn `ASR BM25 (Exact Text)` dù runtime không dùng BM25; frontend gửi `enable_rerank` ngoài schema. Form Video Interval vẫn nằm trong HTML nhưng không còn tab để mở; `/search/all` cũng chưa nối UI.
+- Đường `SQLiteSearchEngine.search(query_vector_id=...)` của `/api/v1/search/similar` hiện lỗi `UnboundLocalError` do chưa tạo `top_indices`; `tools/benchmark_similar.py` tái lập lỗi với 0/1 scenario pass.
 - Nhãn version không thống nhất: README/context gọi V3, frontend hiển thị 2.0 và FastAPI khai báo 2.1.0. Không có test suite/CI trong source clone-ready; `.gitignore` còn ignore `scripts/` và `test_*.py`.
 
 ## Chạy local

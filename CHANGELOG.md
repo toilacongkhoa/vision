@@ -551,3 +551,15 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `9443846` (`chore: checkpoint before fuzzy metadata cache reuse`).
 - Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả metadata cache dùng chung cho fuzzy top-K.
+
+## 2026-09-21 19:58 +07:00 — Vòng tối ưu 52: thêm benchmark similar-by-vector
+
+- Thay đổi: thêm `tools/benchmark_similar.py`, benchmark trực tiếp production `SQLiteSearchEngine.search(query_vector_id=...)`, đo thời gian load/case và kiểm tra số kết quả cùng self-match ở vị trí đầu. Tool hỗ trợ output text/JSON và trả exit 1 khi scenario fail/error.
+- Mục tiêu: tạo phép đo tái lập cho đường `/api/v1/search/similar` trước khi tối ưu/sửa logic thành phần này; theo quy trình, vòng này chưa sửa engine.
+- Khám phá sơ bộ: smoke read-only xác nhận `query_vector_id=0`, `top_k=5` ném `UnboundLocalError` vì `top_indices` chưa được gán.
+- Baseline trước khi có tool: 0 automated scenario; smoke thủ công 1 scenario, 0 pass, 1 fail/error, case 0,02 ms, lỗi `UnboundLocalError`.
+- Sau: 1 automated scenario; `tools/benchmark_similar.py --vector-id 0 --top-k 5 --json` báo 0 pass, 1 fail/error, load 2.033,09 ms, case 0,01 ms, exit 1 và cùng lỗi baseline. Compile tool exit 0.
+- Metric cải thiện: coverage tự động 0 → 1 scenario; trạng thái chức năng cố ý chưa đổi và được báo đỏ chính xác, không có kết luận rằng similar search đã tốt hơn.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `7052dfb` (`chore: checkpoint before similar-search benchmark`).
+- Kết quả: **giữ lại benchmark**. `PROJECT_CONTEXT.md` đã cập nhật với công cụ đo và lỗi similar-by-vector đang mở.
