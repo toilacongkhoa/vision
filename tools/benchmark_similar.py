@@ -67,6 +67,30 @@ def run_invalid_case(engine: Any, vector_id: int, top_k: int) -> Dict[str, Any]:
     }
 
 
+def run_prefix_cache_case(engine: Any, vector_id: int, top_k: int) -> Dict[str, Any]:
+    prime_top_k = min(max(top_k * 10, top_k + 1), len(engine.vectors))
+    prime = run_case(engine, vector_id, prime_top_k)
+    cached = run_case(engine, vector_id, top_k)
+    expected_ids = prime.get("returned_vector_ids", [])[:top_k]
+    returned_ids = cached.get("returned_vector_ids", [])
+    passed = (
+        bool(prime.get("passed"))
+        and bool(cached.get("passed"))
+        and returned_ids == expected_ids
+        and cached["elapsed_ms"] < prime["elapsed_ms"]
+    )
+    return {
+        "vector_id": vector_id,
+        "passed": passed,
+        "prime_top_k": prime_top_k,
+        "prime_elapsed_ms": prime["elapsed_ms"],
+        "cached_top_k": top_k,
+        "cached_elapsed_ms": cached["elapsed_ms"],
+        "returned_vector_ids": returned_ids,
+        **({"error": prime.get("error") or cached.get("error")} if "error" in prime or "error" in cached else {}),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vector-id", type=int, default=0)
@@ -90,7 +114,13 @@ def main() -> int:
         run_invalid_case(engine, -1, args.top_k),
         run_invalid_case(engine, len(engine.vectors), args.top_k),
     ]
-    cases = [case, *invalid_cases]
+    prefix_vector_id = (args.vector_id + 1) % len(engine.vectors)
+    prefix_cache_case = run_prefix_cache_case(
+        engine,
+        prefix_vector_id,
+        args.top_k,
+    )
+    cases = [case, *invalid_cases, prefix_cache_case]
     report = {
         "scenarios": len(cases),
         "passed": sum(int(bool(item["passed"])) for item in cases),
@@ -99,6 +129,7 @@ def main() -> int:
         "load_ms": load_ms,
         "case": case,
         "invalid_cases": invalid_cases,
+        "prefix_cache_case": prefix_cache_case,
     }
 
     if args.json:
@@ -124,6 +155,12 @@ def main() -> int:
                 f"results={invalid_case.get('result_count')}, "
                 f"case={invalid_case['elapsed_ms']:.2f} ms"
             )
+        prefix_status = "PASS" if prefix_cache_case["passed"] else "FAIL"
+        print(
+            f"PREFIX CACHE: {prefix_status}, vector_id={prefix_cache_case['vector_id']}, "
+            f"prime={prefix_cache_case['prime_elapsed_ms']:.2f} ms, "
+            f"cached={prefix_cache_case['cached_elapsed_ms']:.2f} ms"
+        )
     return 0 if report["failed"] == 0 else 1
 
 

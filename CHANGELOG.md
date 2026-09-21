@@ -642,3 +642,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `b86b746` (`chore: checkpoint before similar prefix cache reuse`).
 - Kết quả: **giữ lại** vì metric mục tiêu cải thiện lớn và ranking/correctness không đổi. `PROJECT_CONTEXT.md` đã cập nhật chiến lược cache prefix.
+
+## 2026-09-21 20:24 +07:00 — Vòng tối ưu 59: benchmark hồi quy prefix cache similar
+
+- Thay đổi: mở rộng `tools/benchmark_similar.py` bằng scenario dùng vector kế cận, prime top-K lớn rồi gọi top-K nhỏ; kiểm tra cả prefix ID/order và latency cache hit thấp hơn cold prime. Output JSON thêm `prefix_cache_case` và aggregate bao gồm scenario mới.
+- Mục tiêu: khóa hồi quy tối ưu cache-prefix của vòng 58; metric chính là số scenario tự động và tỷ lệ pass.
+- Khám phá sơ bộ: không cần; benchmark hiện có bao phủ valid/invalid nhưng chưa tạo chuỗi mixed-top-K cần thiết để kích hoạt nhánh prefix.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_similar.py --vector-id 0 --top-k 5 --json`, cùng cấu hình trước/sau; compile toàn bộ `src` và tool làm guardrail.
+  - Trước: 3 scenario, 3/3 pass; chưa có phép đo prefix cache; valid case 17,95 ms.
+  - Sau: 4 scenario, 4/4 pass, 0 fail/error; prefix case vector `1` prime top-50 mất 24,80 ms, cached top-5 mất 0,026 ms và trả đúng prefix `[1, 5869, 5577, 568, 2677]`; valid case 17,10 ms.
+  - Chênh lệch mục tiêu: coverage tăng 3 → 4 scenario; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm; runtime không thay đổi.
+- Checkpoint vòng: `3fad707` (`chore: checkpoint before similar prefix benchmark`).
+- Kết quả: **giữ lại** vì coverage tăng và toàn bộ scenario pass. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.
