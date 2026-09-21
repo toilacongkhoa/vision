@@ -389,6 +389,26 @@ class SQLiteSearchEngine:
                 cached_candidates = self._semantic_candidate_cache.get(semantic_cache_key)
                 if cached_candidates is not None:
                     self._semantic_candidate_cache.move_to_end(semantic_cache_key)
+                elif len(clauses) <= 1:
+                    larger_key = next(
+                        (
+                            key
+                            for key in reversed(self._semantic_candidate_cache)
+                            if key[0] == semantic_texts and key[1] >= top_candidates
+                        ),
+                        None,
+                    )
+                    if larger_key is not None:
+                        larger_indices, larger_scores = self._semantic_candidate_cache[larger_key]
+                        cached_candidates = (
+                            larger_indices[:top_candidates],
+                            larger_scores[:top_candidates],
+                        )
+                        self._semantic_candidate_cache.move_to_end(larger_key)
+                        self._semantic_candidate_cache[semantic_cache_key] = cached_candidates
+                        self._semantic_candidate_cache.move_to_end(semantic_cache_key)
+                        while len(self._semantic_candidate_cache) > self._semantic_cache_maxsize:
+                            self._semantic_candidate_cache.popitem(last=False)
 
             if cached_candidates is None:
                 if len(clauses) > 1:

@@ -683,3 +683,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `db75ed7` (`chore: checkpoint before semantic candidate cache`).
 - Kết quả: **giữ lại** vì repeated-query latency giảm hơn 99%, ranking/accuracy không đổi và guardrail latency không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 20:33 +07:00 — Vòng tối ưu 62: tái sử dụng prefix cache semantic top-K
+
+- Thay đổi: khi cache semantic một mệnh đề không có exact key, tái sử dụng prefix của entry gần đây có cùng text và candidate count lớn hơn/equal, rồi lưu exact key trong LRU. Cố ý không áp dụng cho query nhiều mệnh đề/RRF vì thay cutoff candidate có thể đổi fused ranking.
+- Mục tiêu: loại scoring/ranking lặp khi semantic top-K nhỏ theo sau top-K lớn cùng query; metric chính là latency top-5 sau prime top-50, với ID/order làm guardrail.
+- Khám phá sơ bộ: harness xác nhận sau khi prime top-50, top-5 vẫn mất 15,22 ms dù embedding đã cache; năm ID khớp chính xác prefix top-50 nên cosine path đủ điều kiện tái sử dụng an toàn.
+- Benchmark/tool: cùng một engine chạy `search(query_text="a person riding a bicycle", top_k=50)` rồi `top_k=5`, cùng cấu hình trước/sau; guardrail dùng `tools/benchmark.py --top-k 50` và compile.
+  - Trước: cold top-50 171,86 ms; top-5 15,220 ms; IDs `[17448, 169413, 151961, 17450, 169432]`.
+  - Sau: cold top-50 153,97 ms; top-5 0,045 ms; IDs và hash top-5 không đổi.
+  - Chênh lệch mục tiêu: top-5 giảm 99,70%; cold prime không hồi quy trong phép đo trực tiếp.
+  - Guardrail retrieval hoàn tất lần đầu: accuracy giữ nguyên KIS 1/39, QA hoàn chỉnh 1/16 (text_answer 6/16), TRAKE 0/2, tổng 2/57; average 249,95 ms bị kéo bởi outlier case đầu 2.712,3 ms, còn 56 case sau trung bình 205,98 ms. Lần lặp thứ hai chỉ xuất log khởi tạo model rồi không trả case output, nên không dùng làm kết luận latency. Compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `123e282` (`chore: checkpoint before semantic prefix cache reuse`).
+- Kết quả: **giữ lại** dựa trên phép đo trực tiếp (−99,70%), cold prime và ranking không hồi quy; accuracy guardrail giữ nguyên. Ghi nhận full-suite latency có outlier/độ tin cậy thấp để không dùng số average đó cho vòng sau. `PROJECT_CONTEXT.md` đã cập nhật.
