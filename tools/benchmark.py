@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = PROJECT_ROOT / "answerAndQuestion.jsonl"
 FPS_MAP_PATH = PROJECT_ROOT / "video_fps_map.json"
 TOLERANCE_SECONDS = 150.0
+RECALL_CUTOFFS = (1, 5, 10, 50)
 
 
 def load_cases(path: Path) -> List[Dict[str, Any]]:
@@ -65,6 +66,37 @@ def result_pairs(results: Iterable[Dict[str, Any]]) -> List[Tuple[str, int]]:
         except (TypeError, ValueError):
             continue
     return pairs
+
+
+def first_matching_rank(
+    expected: Tuple[str, int],
+    results: Iterable[Dict[str, Any]],
+    fps_map: Dict[str, float],
+    tolerance_seconds: float,
+) -> Optional[int]:
+    """Return the one-based rank of the first location match, or ``None``."""
+    for rank, result in enumerate(results, start=1):
+        try:
+            returned = pair(result)
+        except (TypeError, ValueError):
+            continue
+        if within_time_tolerance(expected, returned, fps_map, tolerance_seconds):
+            return rank
+    return None
+
+
+def percentile(values: Iterable[float], percentile_value: float) -> Optional[float]:
+    """Return a linearly interpolated percentile without adding dependencies."""
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    position = (len(ordered) - 1) * percentile_value / 100.0
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = position - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
 def normalize_text(value: Any) -> str:
@@ -130,41 +162,89 @@ def benchmark_case(
         expected = [pair(item) for item in answer]
         events = split_trake_events(case["query"])
         event_hits: List[bool] = []
+        event_ranks: List[Optional[int]] = []
         for event_index, event in enumerate(events):
             results = search(event)
-            event_hits.append(
-                event_index < len(expected)
-                and any(
-                    within_time_tolerance(expected[event_index], returned, fps_map, tolerance_seconds)
-                    for returned in result_pairs(results)
-                )
+            rank = (
+                first_matching_rank(expected[event_index], results, fps_map, tolerance_seconds)
+                if event_index < len(expected)
+                else None
             )
+            event_ranks.append(rank)
+            event_hits.append(rank is not None)
         correct = len(event_hits) == len(expected) and all(event_hits)
+        target_ranks = event_ranks[: len(expected)]
+        target_ranks.extend([None] * (len(expected) - len(target_ranks)))
+        elapsed_ms = (time.perf_counter() - started) * 1000
         return {
             "id": case["id"],
             "type": case_type,
             "correct": correct,
             "event_hits": event_hits,
+            "event_ranks": target_ranks,
             "expected_events": expected,
-            "elapsed_ms": (time.perf_counter() - started) * 1000,
+            "elapsed_ms": elapsed_ms,
+            "time_to_first_correct_ms": elapsed_ms if correct else None,
         }
 
     expected = pair(answer)
     results = search(case["query"])
-    location_correct = any(
-        within_time_tolerance(expected, returned, fps_map, tolerance_seconds)
-        for returned in result_pairs(results)
-    )
+    location_rank = first_matching_rank(expected, results, fps_map, tolerance_seconds)
+    location_correct = location_rank is not None
     text_correct = text_answer_matches(answer.get("text_answer"), results) if case_type == "QA" else None
+    correct = location_correct and (text_correct if text_correct is not None else True)
+    elapsed_ms = (time.perf_counter() - started) * 1000
     return {
         "id": case["id"],
         "type": case_type,
-        "correct": location_correct and (text_correct if text_correct is not None else True),
+        "correct": correct,
         "location_correct": location_correct,
+        "location_rank": location_rank,
         "text_correct": text_correct,
         "expected": expected,
-        "elapsed_ms": (time.perf_counter() - started) * 1000,
+        "elapsed_ms": elapsed_ms,
+        "time_to_first_correct_ms": elapsed_ms if correct else None,
     }
+
+
+def rank_targets(record: Dict[str, Any]) -> List[Optional[int]]:
+    """Return independently ranked competition targets for Recall/MRR."""
+    if record.get("type") == "TRAKE":
+        return list(record.get("event_ranks", []))
+    return [record.get("location_rank")]
+
+
+def format_rank_metrics(records: Iterable[Dict[str, Any]], top_k: int) -> str:
+    targets = [rank for record in records for rank in rank_targets(record)]
+    total = len(targets)
+    cutoffs = sorted({cutoff for cutoff in RECALL_CUTOFFS if cutoff <= top_k} | {top_k})
+    recall_parts = []
+    for cutoff in cutoffs:
+        hits = sum(rank is not None and rank <= cutoff for rank in targets)
+        percentage = 100 * hits / total if total else 0.0
+        recall_parts.append(f"R@{cutoff} {hits}/{total} ({percentage:.2f}%)")
+    mrr = sum(1.0 / rank for rank in targets if rank is not None) / total if total else 0.0
+    return f"{', '.join(recall_parts)}, MRR {mrr:.4f}"
+
+
+def format_latency_metrics(records: Iterable[Dict[str, Any]]) -> str:
+    records_list = list(records)
+    elapsed = [record["elapsed_ms"] for record in records_list if record.get("elapsed_ms") is not None]
+    ttfc = [
+        record["time_to_first_correct_ms"]
+        for record in records_list
+        if record.get("time_to_first_correct_ms") is not None
+    ]
+    p50 = percentile(elapsed, 50) or 0.0
+    p95 = percentile(elapsed, 95) or 0.0
+    if not ttfc:
+        return f"latency p50/p95 {p50:.2f}/{p95:.2f} ms, TTFC unavailable (no correct case)"
+    ttfc_p50 = percentile(ttfc, 50) or 0.0
+    ttfc_p95 = percentile(ttfc, 95) or 0.0
+    return (
+        f"latency p50/p95 {p50:.2f}/{p95:.2f} ms, "
+        f"TTFC p50/p95 {ttfc_p50:.2f}/{ttfc_p95:.2f} ms ({len(ttfc)} correct cases)"
+    )
 
 
 def main() -> int:
@@ -189,7 +269,11 @@ def main() -> int:
         records.append(record)
         status = "OK" if record["correct"] else "MISS"
         elapsed = "error" if record["elapsed_ms"] is None else f"{record['elapsed_ms']:.1f} ms"
-        print(f"[{index}/{len(cases)}] {case['type']:<5} {status:<4} {elapsed} {case['id']}")
+        if case["type"] == "TRAKE":
+            rank_label = f"event_ranks={record.get('event_ranks')}"
+        else:
+            rank_label = f"rank={record.get('location_rank')}"
+        print(f"[{index}/{len(cases)}] {case['type']:<5} {status:<4} {elapsed} {rank_label} {case['id']}")
 
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for record in records:
@@ -208,9 +292,17 @@ def main() -> int:
             location_correct = sum(bool(record.get("location_correct")) for record in group)
             text_correct = sum(bool(record.get("text_correct")) for record in group)
             details = f", location {location_correct}/{len(group)}, text_answer {text_correct}/{len(group)}"
+        if case_type == "TRAKE":
+            event_targets = [rank for record in group for rank in rank_targets(record)]
+            event_hits = sum(rank is not None for rank in event_targets)
+            details = f", ordered sequence {correct}/{len(group)}, event hits {event_hits}/{len(event_targets)}"
         print(f"{case_type}: {correct}/{len(group)} correct ({(100 * correct / len(group)) if group else 0:.2f}%){details}, average {average:.2f} ms")
+        print(f"  Ranking: {format_rank_metrics(group, args.top_k)}")
+        print(f"  Timing: {format_latency_metrics(group)}")
     average = sum(timed) / len(timed) if timed else 0.0
     print(f"TOTAL: {total_correct}/{len(records)} correct ({(100 * total_correct / len(records)) if records else 0:.2f}%), average {average:.2f} ms")
+    print(f"  Ranking: {format_rank_metrics(records, args.top_k)}")
+    print(f"  Timing: {format_latency_metrics(records)}")
     errors = [record for record in records if "error" in record]
     if errors:
         print(f"ERRORS: {len(errors)}")

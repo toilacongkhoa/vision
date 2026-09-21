@@ -107,6 +107,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 ## Tính năng hiện có
 
 - Semantic text search, dịch Việt–Anh có memory/SQLite cache và lọc theo video.
+- `tools/benchmark.py` đánh giá retrieval KIS/Q&A/TRAKE trên 57 case và báo đúng/sai, location rank, Recall@1/5/10/50, MRR, latency p50/p95, TTFC của case đúng; TRAKE tách event-rank khỏi ordered-sequence correctness. Tolerance ±150 giây là cấu hình benchmark hiện tại, không phải luật Chung kết 2026 đã xác nhận.
 - Image similarity search và similar-by-vector đều có regression benchmark; image search bao phủ repeated input và mixed top-K. API có thể chạy semantic/OCR/ASR đồng thời. Fallback OCR/ASR có benchmark chuyên biệt cho cold/warm cache, mixed top-K và video filter.
 - OCR/ASR exact-phrase FTS khi DB hỗ trợ, fallback token-substring SQL LIKE với DB hiện tại.
 - Context, frame range, interval, filmstrip phân trang và timestamp → frame index.

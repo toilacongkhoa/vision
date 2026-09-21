@@ -831,3 +831,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm; benchmark engine chỉ query DB read-only.
 - Checkpoint vòng: `18a26eb` (`chore: checkpoint before MCP DB_PATH fix`).
 - Kết quả: **giữ lại** vì correctness tăng 1/2 → 2/2 và MCP/compile guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật config behavior và loại DB path khỏi bước tiếp theo.
+
+## 2026-09-21 21:58 +07:00 — Vòng tối ưu 75: bổ sung metric xếp hạng cho benchmark thi chính
+
+- Query type/luồng thi: KIS, Q&A và TRAKE; phục vụ đánh giá candidate ranking cho cả operator thủ công và agent tự động. Đây là vòng P0 chỉ sửa benchmark vì phép đo trước đó chưa phân biệt đáp án đúng đứng đầu hay cuối top-50.
+- Cổng tác động cuộc thi: mục tiêu là đo Recall@K, MRR, location/event rank, ordered-sequence correctness, latency p50/p95 và thời gian hoàn tất truy hồi đúng (TTFC). Nếu thiếu các metric này, một thay đổi đẩy đáp án đúng xuống sâu trong top-50 vẫn có thể được coi là không hồi quy, làm tăng thời gian xác minh khi thi. KIS/Q&A/TRAKE là workload định hướng từ tài liệu; tolerance ±150 giây vẫn chỉ là cấu hình benchmark, không coi là luật 2026 đã xác nhận.
+- Thay đổi: cập nhật `tools/benchmark.py`; ghi rank 1-based đầu tiên khớp location cho KIS/Q&A, event-rank cho từng sự kiện TRAKE, Recall@1/5/10/50, MRR, p50/p95 latency và TTFC trên các case hoàn chỉnh đúng. TRAKE tiếp tục yêu cầu đủ chuỗi sự kiện và báo riêng event hit; runtime retrieval không thay đổi.
+- Benchmark/config quyết định: `.venv\Scripts\python.exe tools\benchmark.py --top-k 50`, đủ 57 case, cùng pipeline trực tiếp và frame tolerance ±150 giây trước/sau.
+  - Trước: KIS 1/39, Q&A hoàn chỉnh 1/16 (location 1/16, text-answer 6/16), TRAKE 0/2, tổng 2/57 (3,51%), average 587,02 ms; không có rank, Recall@K, MRR, p50/p95 hoặc TTFC.
+  - Sau: accuracy giữ nguyên KIS 1/39, Q&A 1/16, TRAKE 0/2, tổng 2/57 (3,51%); average 569,43 ms, p50/p95 411,59/1.377,37 ms, 0 lỗi. Trên 63 target độc lập: R@1 0/63, R@5 1/63, R@10 2/63, R@50 2/63, MRR 0,0079. Hai hit hiện có ở KIS rank 3 và Q&A rank 6; TTFC p50/p95 1.206,56/1.345,31 ms. TRAKE có 0/8 event hit và 0/2 ordered sequence.
+  - Dao động average trước/sau không được coi là cải thiện runtime vì vòng này không sửa runtime; metric quyết định là coverage xếp hạng 0 → 63 target cùng accuracy/error được bảo toàn.
+- Guardrail: `tools/benchmark_semantic_cache.py --top-k 5 --json` đạt 3/3 scenario, 0 lỗi; compile `tools/benchmark.py` exit 0; smoke helper percentile pass. Output correctness KIS/Q&A/TRAKE giữ nguyên so với baseline.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `51fcb7a` (`chore: checkpoint before competition retrieval metrics`).
+- Kết quả: **giữ lại** vì benchmark thi chính chuyển từ không quan sát được rank sang báo đủ 63 target, Recall@K/MRR/latency distribution/TTFC, trong khi accuracy và guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.
