@@ -317,3 +317,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (319,39 ms), QA hoàn chỉnh 1/16 (331,45 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (367,19 ms); tổng 2/57 (3,51%); trung bình 324,45 ms.
   - Sau: KIS 1/39 (206,73 ms), QA hoàn chỉnh 1/16 (223,47 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (344,62 ms); tổng 2/57 (3,51%); trung bình 216,27 ms.
 - Kết quả: **giữ lại**, latency tổng giảm 33,34%, độ chính xác không đổi.
+
+## 2026-09-21 — Vòng tối ưu 32: tái sử dụng chỉ số vector đã chuyển kiểu
+
+- Thay đổi: trong đường semantic của `SQLiteSearchEngine.search()` tại `src/sqlite_engine.py`, chuyển `top_indices` sang `int` một lần rồi dùng lại khi kiểm tra metadata cache và dựng kết quả.
+- Mục tiêu: loại các lần gọi `int(idx)` lặp lại trên mỗi truy vấn, không thay đổi ranking, cache key hoặc số lượng kết quả.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (319,39 ms), QA hoàn chỉnh 1/16 (331,45 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (367,19 ms); tổng 2/57 (3,51%); trung bình 324,45 ms.
+  - Sau: KIS 1/39 (231,17 ms), QA hoàn chỉnh 1/16 (261,58 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (356,45 ms); tổng 2/57 (3,51%); trung bình 244,10 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 24,76%, độ chính xác không đổi.

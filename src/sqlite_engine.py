@@ -307,6 +307,8 @@ class SQLiteSearchEngine:
             top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
             scores = scores_all[top_indices]
 
+        top_indices = [int(idx) for idx in top_indices]
+
         results = []
         if self.metadata_cache is not None:
             for idx, score in zip(top_indices, scores):
@@ -322,7 +324,7 @@ class SQLiteSearchEngine:
                         break
             return results
 
-        top_candidates_indices = [int(idx) for idx in top_indices]
+        top_candidates_indices = top_indices
         uncached_indices = [idx for idx in top_candidates_indices if idx not in self._formatted_result_cache]
         if uncached_indices:
             with self._get_db() as conn:
@@ -339,8 +341,7 @@ class SQLiteSearchEngine:
                     self._formatted_result_cache[row['vector_id']] = self._format_result(row['raw_json'], 1.0)
 
         for idx, score in zip(top_indices, scores):
-            idx_int = int(idx)
-            cached = self._formatted_result_cache.get(idx_int)
+            cached = self._formatted_result_cache.get(idx)
             if cached is not None:
                 item = cached.copy()
                 if video_id_filter and item.get("video_id") != video_id_filter:
