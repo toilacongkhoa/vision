@@ -507,3 +507,18 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Baseline vòng 47: OCR 1.065,67 ms, ASR 1.275,33 ms. SQL top-K giúp OCR 20,94% nhưng làm ASR chậm hơn 59,92%; `/search/all` bị nhánh ASR chậm nhất chi phối.
 - Sửa phụ: không có. Không sửa source, file cấm hay `PROJECT_CONTEXT.md`; chưa tạo checkpoint vì hướng bị loại ở bước khám phá.
 - Kết quả: **không triển khai / không có thay đổi để rollback** do hồi quy ASR nghiêm trọng dù candidate không đổi.
+
+## 2026-09-21 16:59 +07:00 — Vòng tối ưu 49: cache LRU candidate fallback OCR/ASR
+
+- Thay đổi: thêm cache LRU thread-safe, tối đa 256 entry trong `SQLiteSearchEngine`; key gồm field OCR/ASR, tuple token chuẩn hóa, `top_k` và `video_id_filter`. Cache chỉ giữ tuple `(vector_id, score)`; metadata top-K vẫn batch-read mỗi request để không giữ hoặc chia sẻ dict kết quả mutable.
+- Mục tiêu: giảm latency khi Agy/MCP hoặc người dùng lặp lại cùng truy vấn fallback trên DB read-only, không thay đổi cold-path matching/ranking.
+- Khám phá sơ bộ: không cần; workload ba request lặp cố định đo trực tiếp được cold/warm và cache có giới hạn rõ ràng.
+- Benchmark/tool: ba lần liên tiếp `POST /api/v1/search/all`, query `học sinh giáo viên trường học đồng phục`, `top_k=50`; run 1 là cold, run 2-3 là warm; guardrail là SHA-256 của danh sách `(video_id, frame_idx)` theo thứ tự. Kiểm tra hệ thống: compile, health và hai smoke ASR lặp với filter `L22_V019`, `top_k=3`.
+  - Trước: wall 1.720,87 / 1.482,13 / 1.489,23 ms, trung bình 1.564,08 ms; warm trung bình 1.485,68 ms; OCR trung bình 1.068,67 ms; ASR trung bình 1.300,00 ms.
+  - Sau: wall 1.732,63 / 543,23 / 379,79 ms, trung bình 885,22 ms; warm trung bình 461,51 ms; OCR trung bình 448,33 ms; ASR trung bình 479,67 ms.
+  - Chênh lệch: trung bình ba run giảm 43,40%; warm giảm 68,94%; OCR giảm 58,05%; ASR giảm 63,10%. Cold wall tăng 0,68%, nằm trong dao động và không có hồi quy chức năng.
+  - Candidate guardrail giữ nguyên ở cả ba run: OCR `6f3b10b2de46db1dd8476afc6c94106b72e9f93ad87e8081f44f0975ce1f3e09`, ASR `38f12cdd4b47149ecf8867a20eb723c05b3b95eed64fa20e600e1336801ef3b3`.
+  - Guardrail hệ thống: compile exit 0; health `healthy`; hai smoke filter đều trả 3 kết quả và cùng top `L22_V019, 1727`.
+- Sửa phụ: không có.
+- Checkpoint vòng: `7551bb0` (`chore: checkpoint before bounded fuzzy candidate cache`).
+- Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả cache candidate fallback và đặc tính cold query.

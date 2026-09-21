@@ -10,6 +10,7 @@ import sqlite3
 import json
 import re
 import threading
+from collections import OrderedDict, defaultdict
 
 _CLAUSE_SPLIT_RE = re.compile(r',|;|\n| and ')
 
@@ -40,6 +41,9 @@ class SQLiteSearchEngine:
         self.faiss_index = None
         self.metadata_cache = None
         self._formatted_result_cache: Dict[int, Dict[str, Any]] = {}
+        self._fuzzy_candidate_cache = OrderedDict()
+        self._fuzzy_cache_lock = threading.Lock()
+        self._fuzzy_cache_maxsize = 256
         self._db_local = threading.local()
         self._score_local = threading.local()
         
@@ -427,50 +431,62 @@ class SQLiteSearchEngine:
         return results
 
     def _fuzzy_text_search(self, query_text: str, field_name: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-        from collections import defaultdict
-        
         raw_terms = [t for t in re.findall(r'\b\w+\b', query_text.lower()) if len(t) >= 2]
         if not raw_terms:
             raw_terms = [query_text.lower()]
-            
-        vid_scores = defaultdict(float)
-        
-        with self._get_db() as conn:
-            cur = conn.cursor()
-            patterns = [f"%{term}%" for term in raw_terms]
-            hit_columns = ", ".join(
-                f"{field_name} LIKE ? AS hit_{index}"
-                for index in range(len(patterns))
-            )
-            where_terms = " OR ".join(f"{field_name} LIKE ?" for _ in patterns)
-            params: List[Any] = [*patterns]
-            if video_id_filter:
-                where_clause = f"video_id = ? AND ({where_terms})"
-                params.append(video_id_filter)
-            else:
-                where_clause = f"({where_terms})"
-            params.extend(patterns)
-            cur.execute(
-                f"SELECT vector_id, {hit_columns} "
-                f"FROM keyframes WHERE {where_clause}",
-                params,
-            )
-            matching_rows = cur.fetchall()
 
-            # Preserve the old per-term insertion order so equal-score results
-            # remain identical while the table itself is scanned only once.
-            for term_index in range(len(raw_terms)):
-                hit_column = f"hit_{term_index}"
-                for row in matching_rows:
-                    if not row[hit_column]:
-                        continue
-                    v_id = row['vector_id']
-                    vid_scores[v_id] += 1.0
-                         
-        if not vid_scores:
+        cache_key = (field_name, tuple(raw_terms), int(top_k), video_id_filter)
+        with self._fuzzy_cache_lock:
+            cached_candidates = self._fuzzy_candidate_cache.get(cache_key)
+            if cached_candidates is not None:
+                self._fuzzy_candidate_cache.move_to_end(cache_key)
+
+        if cached_candidates is None:
+            vid_scores = defaultdict(float)
+            with self._get_db() as conn:
+                cur = conn.cursor()
+                patterns = [f"%{term}%" for term in raw_terms]
+                hit_columns = ", ".join(
+                    f"{field_name} LIKE ? AS hit_{index}"
+                    for index in range(len(patterns))
+                )
+                where_terms = " OR ".join(f"{field_name} LIKE ?" for _ in patterns)
+                params: List[Any] = [*patterns]
+                if video_id_filter:
+                    where_clause = f"video_id = ? AND ({where_terms})"
+                    params.append(video_id_filter)
+                else:
+                    where_clause = f"({where_terms})"
+                params.extend(patterns)
+                cur.execute(
+                    f"SELECT vector_id, {hit_columns} "
+                    f"FROM keyframes WHERE {where_clause}",
+                    params,
+                )
+                matching_rows = cur.fetchall()
+
+                # Preserve the old per-term insertion order so equal-score
+                # results remain identical while scanning the table once.
+                for term_index in range(len(raw_terms)):
+                    hit_column = f"hit_{term_index}"
+                    for row in matching_rows:
+                        if not row[hit_column]:
+                            continue
+                        vid_scores[row['vector_id']] += 1.0
+
+            cached_candidates = tuple(
+                sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+            )
+            with self._fuzzy_cache_lock:
+                self._fuzzy_candidate_cache[cache_key] = cached_candidates
+                self._fuzzy_candidate_cache.move_to_end(cache_key)
+                while len(self._fuzzy_candidate_cache) > self._fuzzy_cache_maxsize:
+                    self._fuzzy_candidate_cache.popitem(last=False)
+
+        if not cached_candidates:
             return []
-            
-        sorted_vids = sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+
+        sorted_vids = cached_candidates
         selected_ids = [v_id for v_id, _ in sorted_vids]
         placeholders = ','.join(['?'] * len(selected_ids))
         with self._get_db() as conn:
