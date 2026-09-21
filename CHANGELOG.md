@@ -308,3 +308,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39 (313,75 ms), QA hoàn chỉnh 1/16 (238,85 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (264,50 ms); tổng 2/57 (3,51%); trung bình 291,00 ms.
   - Sau: KIS 1/39 (219,01 ms), QA hoàn chỉnh 1/16 (221,43 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (410,79 ms); tổng 2/57 (3,51%); trung bình 226,42 ms. Lần chạy xác nhận thứ hai: 237,26 ms.
 - Kết quả: **giữ lại**, latency lần đo chính giảm 22,19%, độ chính xác không đổi.
+
+## 2026-09-21 — Vòng tối ưu 31: pre-compile regex nhận diện tiếng Việt
+
+- Thay đổi: thêm `_VI_CHAR_RE` ở cấp module trong `src/fast_translator.py` và dùng `.search()` trên regex đã biên dịch trong `FastTranslator.is_vietnamese()`.
+- Mục tiêu: loại chi phí xử lý pattern lặp lại khi nhận diện truy vấn tiếng Việt, không thay đổi điều kiện nhận diện, bản dịch hoặc retrieval.
+- Benchmark trực tiếp qua pipeline `SQLiteSearchEngine`, toàn bộ 57 câu hiện có, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Trước: KIS 1/39 (319,39 ms), QA hoàn chỉnh 1/16 (331,45 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (367,19 ms); tổng 2/57 (3,51%); trung bình 324,45 ms.
+  - Sau: KIS 1/39 (206,73 ms), QA hoàn chỉnh 1/16 (223,47 ms; location 1/16, text_answer 6/16), TRAKE 0/2 (344,62 ms); tổng 2/57 (3,51%); trung bình 216,27 ms.
+- Kết quả: **giữ lại**, latency tổng giảm 33,34%, độ chính xác không đổi.

@@ -21,6 +21,10 @@ except Exception:
     GoogleTranslator = None
     MyMemoryTranslator = None
 
+_VI_CHAR_RE = re.compile(
+    r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]'
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 class FastTranslator:
@@ -85,10 +89,7 @@ class FastTranslator:
         return conn
 
     def is_vietnamese(self, text: str) -> bool:
-        return bool(re.search(
-            r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]',
-            text
-        ))
+        return _VI_CHAR_RE.search(text) is not None
 
     def translate(self, text: str) -> str:
         text_clean = text.strip()
