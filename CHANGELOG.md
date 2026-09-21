@@ -364,3 +364,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Benchmark Track B trước: full `tools/benchmark_chatbot.py` ghi 0/57 đúng, lỗi 48/57 (84,21%), trung bình 607,62 ms; API/model khi đó không ổn định và usage/cost unavailable.
 - Smoke test sau thay đổi: 1 câu, 0/1 đúng, lỗi 1/1, trung bình 10.057,86 ms, không có usage/cost. Antigravity CLI báo chưa đăng nhập nên không thể dùng kết quả này để đánh giá chất lượng session isolation.
 - Kết quả: **giữ thay đổi**, vì đây là sửa lỗi cô lập context; cần đăng nhập/cấu hình Antigravity rồi chạy lại full benchmark để xác nhận chất lượng chatbot.
+
+## 2026-09-21 — Vòng tối ưu 37: nhận diện tiếng Việt không dấu
+
+- Thay đổi thử nghiệm: bổ sung heuristic nhận diện một số cụm tiếng Việt không dấu trong `src/fast_translator.py`, hàm `FastTranslator.is_vietnamese()`.
+- Mục tiêu: để truy vấn tiếng Việt không dấu không bị bỏ qua bước dịch trước khi vào retrieval pipeline.
+- Benchmark: `tools/benchmark.py`, toàn bộ 57 câu trong `answerAndQuestion.jsonl`, `top_k=50`, frame tolerance ±150 giây.
+  - Trước: KIS 1/39, QA 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 251,36 ms.
+  - Sau: KIS 1/39, QA 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 248,33 ms.
+- Kết quả: **đã rollback** về commit backup `f340c10`; độ chính xác không đổi và mức nhanh hơn 1,20% không đủ rõ ràng so với dao động benchmark. `PROJECT_CONTEXT.md` không cần cập nhật vì thay đổi không được giữ.
