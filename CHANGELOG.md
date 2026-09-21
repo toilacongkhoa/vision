@@ -669,3 +669,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `089f49f` (`chore: checkpoint before semantic embedding cache`).
 - Kết quả: **giữ lại** vì repeated-query latency giảm hơn 92%, ranking/accuracy giữ nguyên và unique-query guardrail không có hồi quy đáng kể. `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 20:29 +07:00 — Vòng tối ưu 61: cache LRU candidate semantic
+
+- Thay đổi: thêm cache LRU thread-safe tối đa 256 entry cho candidate IDs/scores đã xếp hạng của semantic query; key gồm tuple text/mệnh đề đã dịch và số candidate. Cache lưu tuple immutable, còn metadata/payload tiếp tục qua cache/pipeline chung.
+- Mục tiêu: loại dot product, `argpartition` và RRF lặp lại sau khi embedding đã cache; metric chính là warm average/median của bốn run sau cold run, guardrail là hash 50 ID và benchmark 57 case.
+- Khám phá sơ bộ: không cần; sau vòng 60, warm query vẫn mất trung bình 17,22 ms trong scoring/ranking dù embedding không còn encode lại.
+- Benchmark/tool: cùng một engine chạy năm lần `search(query_text="a person riding a bicycle", top_k=50)`; run 1 cold, run 2-5 warm. Guardrail dùng `tools/benchmark.py --top-k 50` và compile toàn bộ `src/tools`.
+  - Trước: 168,80 / 16,34 / 17,08 / 17,21 / 18,24 ms; warm trung bình 17,216 ms, median 17,145 ms.
+  - Sau: 142,75 / 0,119 / 0,067 / 0,047 / 0,044 ms; warm trung bình 0,069 ms, median 0,057 ms.
+  - Chênh lệch: warm average giảm 99,60%, warm median giảm 99,67%; cả năm run giữ nguyên hash `de06d9ac615155ce1471bc01bbf15b347171deb67e50c6df1cbc5d0d3af914c3` và đủ 50 kết quả.
+  - Guardrail retrieval: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%), trung bình 213,13 ms so với 218,85 ms vòng trước; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `db75ed7` (`chore: checkpoint before semantic candidate cache`).
+- Kết quả: **giữ lại** vì repeated-query latency giảm hơn 99%, ranking/accuracy không đổi và guardrail latency không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật.

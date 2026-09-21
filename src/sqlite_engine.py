@@ -50,6 +50,9 @@ class SQLiteSearchEngine:
         self._text_embedding_cache = OrderedDict()
         self._text_embedding_cache_lock = threading.Lock()
         self._text_embedding_cache_maxsize = 256
+        self._semantic_candidate_cache = OrderedDict()
+        self._semantic_cache_lock = threading.Lock()
+        self._semantic_cache_maxsize = 256
         self._fts_table_cache: Dict[str, bool] = {}
         self._fts_table_lock = threading.Lock()
         self._db_local = threading.local()
@@ -379,43 +382,62 @@ class SQLiteSearchEngine:
                 
             import re
             clauses = [c.strip() for c in _CLAUSE_SPLIT_RE.split(translated_text) if c.strip()]
-            if len(clauses) > 1:
-                vecs = self._encode_texts_cached(tuple(clauses))
-                top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-                rrf_k = 60.0
-                candidate_index_parts = []
-                candidate_score_parts = []
-                for clause_vec in vecs:
-                    clause_scores = self._score_vectors(clause_vec)
-                    clause_indices = np.argpartition(clause_scores, -top_candidates)[-top_candidates:]
-                    clause_indices = clause_indices[np.argsort(clause_scores[clause_indices])[::-1]]
-                    ranks = np.arange(1, len(clause_indices) + 1, dtype=np.float32)
-                    candidate_index_parts.append(clause_indices)
-                    candidate_score_parts.append(1.0 / (rrf_k + ranks))
+            top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
+            semantic_texts = tuple(clauses) if len(clauses) > 1 else (translated_text,)
+            semantic_cache_key = (semantic_texts, top_candidates)
+            with self._semantic_cache_lock:
+                cached_candidates = self._semantic_candidate_cache.get(semantic_cache_key)
+                if cached_candidates is not None:
+                    self._semantic_candidate_cache.move_to_end(semantic_cache_key)
 
-                candidate_indices = np.concatenate(candidate_index_parts)
-                candidate_scores = np.concatenate(candidate_score_parts)
-                unique_indices, inverse = np.unique(candidate_indices, return_inverse=True)
-                fused_scores = np.zeros(len(unique_indices), dtype=np.float32)
-                np.add.at(fused_scores, inverse, candidate_scores)
-                selected = np.argpartition(fused_scores, -top_candidates)[-top_candidates:]
-                selected = selected[np.argsort(fused_scores[selected])[::-1]]
-                top_indices = unique_indices[selected]
-                scores = fused_scores[selected]
-            else:
-                query_vec = self._encode_texts_cached((translated_text,))[0]
-                top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-                if self.faiss_index is not None:
-                    scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
-                    scores = scores_matrix[0]
-                    top_indices = indices_matrix[0]
+            if cached_candidates is None:
+                if len(clauses) > 1:
+                    vecs = self._encode_texts_cached(tuple(clauses))
+                    rrf_k = 60.0
+                    candidate_index_parts = []
+                    candidate_score_parts = []
+                    for clause_vec in vecs:
+                        clause_scores = self._score_vectors(clause_vec)
+                        clause_indices = np.argpartition(clause_scores, -top_candidates)[-top_candidates:]
+                        clause_indices = clause_indices[np.argsort(clause_scores[clause_indices])[::-1]]
+                        ranks = np.arange(1, len(clause_indices) + 1, dtype=np.float32)
+                        candidate_index_parts.append(clause_indices)
+                        candidate_score_parts.append(1.0 / (rrf_k + ranks))
+
+                    candidate_indices = np.concatenate(candidate_index_parts)
+                    candidate_scores = np.concatenate(candidate_score_parts)
+                    unique_indices, inverse = np.unique(candidate_indices, return_inverse=True)
+                    fused_scores = np.zeros(len(unique_indices), dtype=np.float32)
+                    np.add.at(fused_scores, inverse, candidate_scores)
+                    selected = np.argpartition(fused_scores, -top_candidates)[-top_candidates:]
+                    selected = selected[np.argsort(fused_scores[selected])[::-1]]
+                    top_indices = unique_indices[selected]
+                    scores = fused_scores[selected]
                 else:
-                    scores_all = self._score_vectors(query_vec)
-                    # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
-                    top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
-                    # Sort only the top_candidates
-                    top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
-                    scores = scores_all[top_indices]
+                    query_vec = self._encode_texts_cached((translated_text,))[0]
+                    if self.faiss_index is not None:
+                        scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
+                        scores = scores_matrix[0]
+                        top_indices = indices_matrix[0]
+                    else:
+                        scores_all = self._score_vectors(query_vec)
+                        # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
+                        top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
+                        # Sort only the top_candidates
+                        top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
+                        scores = scores_all[top_indices]
+
+                cached_candidates = (
+                    tuple(int(idx) for idx in top_indices),
+                    tuple(float(score) for score in scores),
+                )
+                with self._semantic_cache_lock:
+                    self._semantic_candidate_cache[semantic_cache_key] = cached_candidates
+                    self._semantic_candidate_cache.move_to_end(semantic_cache_key)
+                    while len(self._semantic_candidate_cache) > self._semantic_cache_maxsize:
+                        self._semantic_candidate_cache.popitem(last=False)
+
+            top_indices, scores = cached_candidates
 
         top_indices = [int(idx) for idx in top_indices]
 
