@@ -490,20 +490,30 @@ class SQLiteSearchEngine:
 
         sorted_vids = cached_candidates
         selected_ids = [v_id for v_id, _ in sorted_vids]
-        placeholders = ','.join(['?'] * len(selected_ids))
-        with self._get_db() as conn:
-            rows = conn.execute(
-                f"SELECT vector_id, raw_json FROM keyframes "
-                f"WHERE vector_id IN ({placeholders})",
-                selected_ids,
-            ).fetchall()
-        raw_json_by_id = {row['vector_id']: row['raw_json'] for row in rows}
+        uncached_ids = [
+            v_id for v_id in selected_ids
+            if v_id not in self._formatted_result_cache
+        ]
+        if uncached_ids:
+            placeholders = ','.join(['?'] * len(uncached_ids))
+            with self._get_db() as conn:
+                rows = conn.execute(
+                    f"SELECT vector_id, raw_json FROM keyframes "
+                    f"WHERE vector_id IN ({placeholders})",
+                    uncached_ids,
+                ).fetchall()
+            for row in rows:
+                self._formatted_result_cache[row['vector_id']] = self._format_result(
+                    row['raw_json'], 1.0
+                )
 
         results = []
         for v_id, score in sorted_vids:
-            raw_json = raw_json_by_id.get(v_id)
-            if raw_json is not None:
-                results.append(self._format_result(raw_json, (score / len(raw_terms))))
+            cached = self._formatted_result_cache.get(v_id)
+            if cached is not None:
+                item = cached.copy()
+                item['score'] = float(round((score / len(raw_terms)) * 100, 2))
+                results.append(item)
         return results
 
     def _has_fts_table(self, table_name: str) -> bool:

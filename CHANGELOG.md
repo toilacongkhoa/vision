@@ -537,3 +537,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `54b9308` (`chore: checkpoint before FTS availability cache`).
 - Kết quả: **giữ lại** vì warm branch latency giảm rõ ràng và không có hồi quy candidate/hệ thống. `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 17:07 +07:00 — Vòng tối ưu 51: tái sử dụng metadata đã format cho fuzzy top-K
+
+- Thay đổi: cập nhật `_fuzzy_text_search()` để chỉ batch-fetch/parse `raw_json` cho các candidate chưa có trong `_formatted_result_cache`; warm request copy metadata đã format và chỉ gắn lại score riêng của truy vấn. Đây là cùng cache metadata engine đã dùng cho semantic/image results.
+- Mục tiêu: loại đọc SQLite và parse JSON lặp lại trên warm OCR/ASR fallback, không thay đổi candidate cache, matching, ranking hoặc payload.
+- Khám phá sơ bộ: không cần; sau vòng 50, warm branch còn chủ yếu batch-read và format lại cùng top-K metadata.
+- Benchmark/tool: candidate/FTS cache được prime một lần, sau đó chạy năm lần `POST /api/v1/search/all` với query `học sinh giáo viên trường học đồng phục`, `top_k=50`; metric chính là branch `elapsed_ms`, guardrail là hash candidate. Compile, health và smoke ASR có filter chạy bổ sung.
+  - Trước: OCR 17 / 6 / 8 / 16 / 7 ms, median 8 ms, trung bình 10,8 ms; ASR 11 / 12 / 14 / 10 / 16 ms, median 12 ms, trung bình 12,6 ms; wall trung bình 401,68 ms.
+  - Sau: OCR 1 / 1 / 1 / 0 / 1 ms, median 1 ms, trung bình 0,8 ms; ASR 1 / 1 / 1 / 0 / 1 ms, median 1 ms, trung bình 0,8 ms; wall trung bình 270,30 ms.
+  - Chênh lệch: median OCR giảm 87,50%, median ASR giảm 91,67%; average OCR giảm 92,59%, average ASR giảm 93,65%; wall trung bình giảm 32,71%.
+  - Candidate guardrail không đổi ở cả năm run: OCR `6f3b10b2de46db1dd8476afc6c94106b72e9f93ad87e8081f44f0975ce1f3e09`, ASR `38f12cdd4b47149ecf8867a20eb723c05b3b95eed64fa20e600e1336801ef3b3`. Compile exit 0; health `healthy`; smoke ASR filter trả 3 kết quả với top `L22_V019, 1727`.
+- Sửa phụ: không có.
+- Checkpoint vòng: `9443846` (`chore: checkpoint before fuzzy metadata cache reuse`).
+- Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả metadata cache dùng chung cho fuzzy top-K.
