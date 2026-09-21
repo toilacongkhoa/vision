@@ -30,25 +30,6 @@ mcp = FastMCP("VideoRetrievalSystem")
 API_BASE = "http://127.0.0.1:8000"
 DB_PATH = Path(__file__).resolve().with_name("video_index_v2.db")
 MAX_EVIDENCE_ROWS_PER_SOURCE = 500
-ALLOWED_EXTERNAL_IMAGE_HOSTS = frozenset(
-    {
-        "pub-63867f61a3cb4f34a8b442399021fbbd.r2.dev",
-        "lh3.googleusercontent.com",
-    }
-)
-MAX_EXTERNAL_IMAGE_BYTES = 10 * 1024 * 1024
-
-
-def _validate_external_image_url(image_url: str) -> httpx.URL:
-    parsed = httpx.URL(image_url)
-    if (
-        parsed.scheme != "https"
-        or parsed.host not in ALLOWED_EXTERNAL_IMAGE_HOSTS
-        or parsed.username is not None
-        or parsed.password is not None
-    ):
-        raise ValueError(f"unsupported image host or URL scheme: {parsed.host}")
-    return parsed
 
 
 def _build_vision_probe(variant: str) -> bytes:
@@ -564,22 +545,11 @@ async def search_image_by_url(image_url: str, top_k: int = 10, video_id: Optiona
     Hệ thống sẽ tải ảnh đó về và so sánh bằng AI.
     """
     try:
-        _validate_external_image_url(image_url)
-        async with httpx.AsyncClient(follow_redirects=False) as client:
-            # 1. Tải ảnh từ host được phép, giới hạn kích thước trước khi gửi tiếp.
-            async with client.stream("GET", image_url, timeout=15.0) as img_resp:
-                img_resp.raise_for_status()
-                content_length = img_resp.headers.get("content-length")
-                if content_length and int(content_length) > MAX_EXTERNAL_IMAGE_BYTES:
-                    raise ValueError("image response exceeds the 10 MB limit")
-                chunks = []
-                total_bytes = 0
-                async for chunk in img_resp.aiter_bytes():
-                    total_bytes += len(chunk)
-                    if total_bytes > MAX_EXTERNAL_IMAGE_BYTES:
-                        raise ValueError("image response exceeds the 10 MB limit")
-                    chunks.append(chunk)
-                image_bytes = b"".join(chunks)
+        async with httpx.AsyncClient() as client:
+            # 1. Tải ảnh từ URL bên ngoài về RAM
+            img_resp = await client.get(image_url, timeout=15.0)
+            img_resp.raise_for_status()
+            image_bytes = img_resp.content
 
             # 2. Gửi ảnh (multipart/form-data) cho Backend của mình để search
             files = {"file": ("image.jpg", image_bytes, "image/jpeg")}

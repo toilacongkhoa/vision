@@ -443,3 +443,9 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `c2427f6` (`chore: add MCP image URL security scan`).
 - Kết quả: **giữ lại**. Finding bảo mật giảm 2 → 0 và smoke/compile đều pass. `PROJECT_CONTEXT.md` đã cập nhật để phản ánh policy URL mới; các endpoint tải URL khác vẫn ngoài phạm vi vòng này.
+
+## 2026-09-21 — Rollback vòng tối ưu 43
+
+- Theo yêu cầu, đã bỏ thay đổi bảo mật của vòng 43: khôi phục `mcp_server.py` và `PROJECT_CONTEXT.md` về trạng thái trước vòng, đồng thời xóa scanner `tools/security_scan.py`.
+- Giữ nguyên các mục lịch sử vòng 43 ở trên để không xóa lịch sử benchmark; vòng 42 vẫn được giữ.
+- Commit gốc của vòng 43: checkpoint `c2427f6`, commit giữ `2cc5f02`.
