@@ -629,3 +629,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `a10be28` (`chore: checkpoint before lazy CLIP loading`). Vì workspace có `plan.md` đã sửa và `chatbot/` chưa track của người dùng, rollback dùng restore có phạm vi duy nhất `src/sqlite_engine.py` về checkpoint thay cho `git reset --hard`, tránh xóa thay đổi ngoài vòng.
 - Kết quả: **rollback** vì metric chính tốt hơn nhưng semantic first-request/average latency hồi quy rõ ràng; không cập nhật `PROJECT_CONTEXT.md`.
+
+## 2026-09-21 20:21 +07:00 — Vòng tối ưu 58: tái sử dụng prefix cache similar top-K
+
+- Thay đổi: khi cache similar không có exact `(vector_id, top_candidates)`, tìm entry gần đây của cùng vector có candidate count lớn hơn/equal, cắt prefix đã xếp hạng và lưu lại exact key trong cùng LRU thread-safe. Không đổi scoring, metadata hay giới hạn 256 entry.
+- Mục tiêu: loại dot product/argpartition lặp khi request top-K nhỏ theo sau request top-K lớn của cùng vector; metric chính là latency top-5 sau khi prime top-50, với toàn bộ ID/order làm guardrail.
+- Khám phá sơ bộ: harness xác nhận top-50 đã cache nhưng top-5 vẫn mất 17,25 ms do cache key exact; prefix đầu của top-50 trùng chính xác kết quả top-5.
+- Benchmark/tool: cùng một harness production engine chạy `search(query_vector_id=0, top_k=50)` rồi `top_k=5`; cùng cấu hình trước/sau. Guardrail dùng benchmark similar chuẩn ba scenario và compile.
+  - Trước: prime top-50 32,60 ms; request top-5 17,25 ms; IDs `[0, 2904, 6972, 12228, 2416]`.
+  - Sau: prime top-50 34,42 ms; request top-5 0,096 ms; IDs không đổi `[0, 2904, 6972, 12228, 2416]`.
+  - Chênh lệch mục tiêu: latency top-5 giảm 99,44%. Benchmark chuẩn 3/3 pass, 0 fail/error; valid case 26,29 ms; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `b86b746` (`chore: checkpoint before similar prefix cache reuse`).
+- Kết quả: **giữ lại** vì metric mục tiêu cải thiện lớn và ranking/correctness không đổi. `PROJECT_CONTEXT.md` đã cập nhật chiến lược cache prefix.

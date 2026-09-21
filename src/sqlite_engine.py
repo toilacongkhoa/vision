@@ -296,6 +296,26 @@ class SQLiteSearchEngine:
                 cached_candidates = self._similar_candidate_cache.get(cache_key)
                 if cached_candidates is not None:
                     self._similar_candidate_cache.move_to_end(cache_key)
+                else:
+                    larger_key = next(
+                        (
+                            key
+                            for key in reversed(self._similar_candidate_cache)
+                            if key[0] == int(query_vector_id) and key[1] >= top_candidates
+                        ),
+                        None,
+                    )
+                    if larger_key is not None:
+                        larger_indices, larger_scores = self._similar_candidate_cache[larger_key]
+                        cached_candidates = (
+                            larger_indices[:top_candidates],
+                            larger_scores[:top_candidates],
+                        )
+                        self._similar_candidate_cache.move_to_end(larger_key)
+                        self._similar_candidate_cache[cache_key] = cached_candidates
+                        self._similar_candidate_cache.move_to_end(cache_key)
+                        while len(self._similar_candidate_cache) > self._similar_cache_maxsize:
+                            self._similar_candidate_cache.popitem(last=False)
 
             if cached_candidates is None:
                 if self.faiss_index is not None:
