@@ -410,3 +410,12 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: 1/1 đúng, lỗi 0/1, trung bình 45.876,98 ms; usage/cost unavailable.
 - Smoke tool-level: latency giảm 8,097 → 6,954 giây nhưng candidate thay đổi từ `L21_V001/L21_V009/L22_V003` sang `L25_V002/L25_V003/L25_V004`, nên không đủ bằng chứng giữ chất lượng recall.
 - Kết quả: **đã rollback** về checkpoint `0dbbe1b` vì latency chatbot tăng 35,0% và kết quả candidate thay đổi. `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
+
+## 2026-09-21 — Vòng tối ưu 41: rerank theo độ phủ video cho multi-clause
+
+- Thay đổi thử nghiệm: trong `src/sqlite_engine.py`, nhánh semantic nhiều mệnh đề thử gom điểm RRF theo `video_id`, rồi ưu tiên các frame thuộc video phủ nhiều mệnh đề hơn.
+- Mục tiêu: tăng recall cho truy vấn nhiều sự kiện bằng cách ưu tiên cùng một video có bằng chứng cho nhiều vế, thay vì chỉ xếp hạng độc lập theo từng frame.
+- Benchmark: `tools/benchmark.py --top-k 50`, toàn bộ 57 câu, frame tolerance ±150 giây.
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 464,96 ms.
+  - Sau: KIS 0/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 1/57 (1,75%); trung bình 281,12 ms.
+- Kết quả: **đã rollback** về checkpoint `f4ec99d`. Latency giảm nhưng KIS giảm 1 câu đúng, là hồi quy accuracy. `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
