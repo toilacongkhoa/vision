@@ -336,3 +336,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau lần đo chính: KIS 1/39, QA hoàn chỉnh 1/16, TRAKE 0/2; tổng 2/57 (3,51%); trung bình 273,18 ms.
   - Lần chạy xác nhận: KIS 1/39, QA hoàn chỉnh 1/16, TRAKE 0/2; tổng 2/57 (3,51%); trung bình 259,24 ms.
 - Kết quả: **giữ lại**, độ chính xác không đổi và latency xác nhận giảm 55,66% so với baseline.
+
+## 2026-09-21 — Vòng tối ưu 34 (Track A): thêm ranking vector tổng hợp vào RRF
+
+- Thay đổi thử nghiệm: thêm ranking của vector trung bình toàn bộ mệnh đề vào Reciprocal Rank Fusion trong `src/sqlite_engine.py`, bên cạnh ranking riêng của từng mệnh đề.
+- Mục tiêu: giữ tín hiệu ngữ nghĩa toàn câu để cải thiện recall mà không bỏ lợi ích RRF cho truy vấn nhiều sự kiện.
+- Benchmark Track A trực tiếp qua `tools/benchmark.py`, toàn bộ 57 câu, `top_k=50`, frame tolerance 150 giây (±2.5 phút):
+  - Baseline đã giữ từ vòng 33: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 259,24 ms.
+  - Sau lần đo chính: tổng 2/57 (3,51%); trung bình 288,70 ms.
+  - Lần chạy xác nhận: tổng 2/57 (3,51%); trung bình 286,74 ms.
+- Kết quả: **đã rollback** về commit backup `13c1bb1` vì độ chính xác không cải thiện và latency xác nhận tăng 10,61% so với baseline giữ lại.
