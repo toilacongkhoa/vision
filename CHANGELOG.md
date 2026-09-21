@@ -590,3 +590,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `d506464` (`chore: checkpoint before similar candidate cache`).
 - Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả cache candidate similar-by-vector.
+
+## 2026-09-21 20:09 +07:00 — Vòng tối ưu 55: chặn vector ID ngoài phạm vi
+
+- Thay đổi: cập nhật `SQLiteSearchEngine.search()` để trả danh sách rỗng ngay khi `query_vector_id` âm hoặc lớn hơn/equal số vector, thay vì rơi sang nhánh encode chuỗi rỗng rồi trả semantic result không liên quan.
+- Mục tiêu: sửa tính đúng đắn của similar-by-vector ở input biên; metric chính là số case invalid trả rỗng và tổng kết quả ngoài ý muốn.
+- Khám phá sơ bộ: không cần; điều kiện nhánh hiện tại cho thấy ID không hợp lệ đi thẳng vào nhánh text-search.
+- Benchmark/tool: cùng một harness Python gọi production engine với `query_vector_id=-1` và `query_vector_id=len(engine.vectors)`, `top_k=5`; pass khi kết quả chính xác là `[]`. Guardrail dùng `tools/benchmark_similar.py --vector-id 0 --top-k 5 --json` và compile toàn bộ `src` cùng benchmark.
+  - Trước: 0/2 case pass; mỗi case trả 5 semantic result, tổng 10 kết quả ngoài ý muốn; hai case cùng có top IDs `[3368, 137291, 16288]`.
+  - Sau: 2/2 case pass; cả hai trả 0 kết quả, không lỗi; tổng kết quả ngoài ý muốn giảm 10 → 0.
+  - Guardrail valid-vector: 1/1 pass, 0 error, 5 kết quả, top vector ID `0`, case 16,59 ms; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `8b467b3` (`chore: checkpoint before invalid vector handling`).
+- Kết quả: **giữ lại** vì correctness tăng 0/2 → 2/2 và valid-vector không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật hành vi input ngoài phạm vi.

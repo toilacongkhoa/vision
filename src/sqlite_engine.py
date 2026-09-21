@@ -285,7 +285,10 @@ class SQLiteSearchEngine:
         if self.vectors is None or len(self.vectors) == 0:
             return []
 
-        if query_vector_id is not None and 0 <= query_vector_id < len(self.vectors):
+        if query_vector_id is not None:
+            if not 0 <= query_vector_id < len(self.vectors):
+                return []
+
             query_vec = self.vectors[query_vector_id]
             top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
             cache_key = (int(query_vector_id), top_candidates)
