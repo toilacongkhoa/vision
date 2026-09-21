@@ -845,3 +845,14 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `51fcb7a` (`chore: checkpoint before competition retrieval metrics`).
 - Kết quả: **giữ lại** vì benchmark thi chính chuyển từ không quan sát được rank sang báo đủ 63 target, Recall@K/MRR/latency distribution/TTFC, trong khi accuracy và guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật mô tả benchmark.
+
+## 2026-09-21 22:06 +07:00 — Vòng tối ưu 76: thăm dò biểu diễn truy vấn tiếng Việt cho KIS/Q&A
+
+- Query type/luồng thi: KIS và Q&A semantic retrieval; TRAKE dự kiến làm guardrail. Mục tiêu qua cổng là tăng Recall@5/10/50 và MRR bằng biểu diễn query tương thích với vector OpenCLIP tiếng Anh.
+- Tác động cuộc thi: baseline vòng 75 chỉ đạt R@10 2/63 và R@50 2/63; nếu không có candidate đúng, operator/agent không thể xác minh hoặc trả submission. Mô tả sự kiện tiếng Việt là workload phù hợp tài liệu Chung kết, dù nhãn/phân bố query cụ thể chưa chính thức.
+- Khám phá read-only: đối chiếu 57 query với `translation_cache.db` cho thấy chỉ 1/57 query khớp cache toàn câu. Workspace chỉ có cache Hugging Face của OpenCLIP image/text tiếng Anh; không có model dịch offline hoặc `ctranslate2`, `transformers`, `sentencepiece`, `sacremoses`, `sentence_transformers`. Direct Google Translate trong sandbox thất bại do network bị chặn.
+- Hướng bị loại: không hard-code bản dịch từ dataset vì sẽ overfit benchmark; không tải/đổi model đa ngôn ngữ lớn khi chưa có ablation nhỏ chứng minh; không gửi query dataset ra Google Translate vì thao tác data-egress chưa được người dùng ủy quyền rõ ràng và yêu cầu quyền đã bị từ chối.
+- Benchmark/config: chưa chuyển sang Bước 4; không chạy baseline chính thức vì mọi hướng triển khai an toàn bị loại ngay ở Bước 3. Tham chiếu gần nhất vẫn là vòng 75: R@1 0/63, R@5 1/63, R@10 2/63, R@50 2/63, MRR 0,0079; accuracy 2/57.
+- Guardrail/sửa phụ: không sửa runtime, benchmark hay file cấm; không có guardrail cần chạy lại. `translation_cache.db` chỉ được đọc để đếm/match.
+- Checkpoint: không tạo vì không có thay đổi chính thức sau khám phá.
+- Kết quả: **không triển khai / không có gì để rollback**. `PROJECT_CONTEXT.md` cập nhật nút thắt translation. Chuỗi dừng để tránh mở vòng ngoài phạm vi; bước có bằng chứng tiếp theo cần quyền gửi query sang dịch vụ dịch bên thứ ba hoặc quyết định/download một model offline mới sau thử nghiệm được phê duyệt.

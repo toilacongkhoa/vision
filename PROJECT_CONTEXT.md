@@ -100,7 +100,7 @@ vision/
 └── models/opus-mt-vi-en-ct2/     # optional offline translator, hiện không có
 ~~~
 
-Dữ liệu hiện tại: all_vectors.npy có shape 177321 x 512 float32 và đã normalized; video_index_v2.db có 177321 rows, 873 video, vector_id liên tục 0..177320 nhưng chỉ có bảng `keyframes`; metadata video/FPS đều có 873 video. `translation_cache.db` hiện có 1 entry. `frame_map_supabase.json` vẫn tồn tại như artifact local bị ignore nhưng không được source runtime tham chiếu.
+Dữ liệu hiện tại: all_vectors.npy có shape 177321 x 512 float32 và đã normalized; video_index_v2.db có 177321 rows, 873 video, vector_id liên tục 0..177320 nhưng chỉ có bảng `keyframes`; metadata video/FPS đều có 873 video. `translation_cache.db` hiện có 57 entry, nhưng chỉ 1/57 query của benchmark thi chính khớp cache toàn câu. `frame_map_supabase.json` vẫn tồn tại như artifact local bị ignore nhưng không được source runtime tham chiếu.
 
 Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py`, `src/search_engine.py`, indexer/GDrive mapper/Gemini/uploader) đã bị xóa khỏi source tracked; `scripts/` hiện chỉ còn pycache local bị ignore.
 
@@ -125,7 +125,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - `.venv` hiện chưa đồng bộ hoàn toàn với requirements pins: `mcp==1.29.1` đã được cài để Agy khởi động được `video-researcher`, nhưng CTranslate2, Transformers, SentencePiece và Sacremoses vẫn cần kiểm tra/cài nếu dùng translator offline. `search_video_evidence` vẫn phụ thuộc các bảng FTS chưa có trong DB.
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
-- FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline không có trong workspace nên hiện phụ thuộc Google/MyMemory và Internet khi cache miss.
+- FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline và các dependency dịch offline không có trong workspace; khi cache miss, runtime phụ thuộc Google/MyMemory và Internet, rồi âm thầm dùng nguyên văn tiếng Việt nếu cả hai thất bại. Chỉ 1/57 query benchmark hiện khớp cache toàn câu, nên môi trường không có network đưa phần lớn tiếng Việt trực tiếp vào OpenCLIP tiếng Anh. Việc gửi query thi ra dịch vụ bên thứ ba cần được cho phép riêng; chưa có ablation an toàn để chọn/download model đa ngôn ngữ mới.
 - Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. Metadata Drive/FPS được resolve theo `BASE_DIR`; `tools/benchmark_runtime_paths.py` khóa hồi quy launch CWD cho metadata Drive.
 - Agy tạo một session process cho mỗi client/model route; process vẫn chạy với `--dangerously-skip-permissions`, stderr bị discard và chưa có cleanup toàn cục khi shutdown. Cần bổ sung TTL/eviction nếu có nhiều client đồng thời.
 - TLS verification bị tắt cho Supabase/Drive proxy; CORS mặc định `*` với credentials; chưa có auth/rate limit. MCP `search_image_by_url` tải URL tùy ý, chưa chặn SSRF/content-size trước khi download.
