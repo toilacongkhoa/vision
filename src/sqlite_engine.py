@@ -290,17 +290,26 @@ class SQLiteSearchEngine:
             if len(clauses) > 1:
                 vecs = self.encode_text_batch(clauses)
                 top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-                fused_scores = np.zeros(len(self.vectors), dtype=np.float32)
                 rrf_k = 60.0
+                candidate_index_parts = []
+                candidate_score_parts = []
                 for clause_vec in vecs:
                     clause_scores = self._score_vectors(clause_vec)
                     clause_indices = np.argpartition(clause_scores, -top_candidates)[-top_candidates:]
                     clause_indices = clause_indices[np.argsort(clause_scores[clause_indices])[::-1]]
                     ranks = np.arange(1, len(clause_indices) + 1, dtype=np.float32)
-                    fused_scores[clause_indices] += 1.0 / (rrf_k + ranks)
-                top_indices = np.argpartition(fused_scores, -top_candidates)[-top_candidates:]
-                top_indices = top_indices[np.argsort(fused_scores[top_indices])[::-1]]
-                scores = fused_scores[top_indices]
+                    candidate_index_parts.append(clause_indices)
+                    candidate_score_parts.append(1.0 / (rrf_k + ranks))
+
+                candidate_indices = np.concatenate(candidate_index_parts)
+                candidate_scores = np.concatenate(candidate_score_parts)
+                unique_indices, inverse = np.unique(candidate_indices, return_inverse=True)
+                fused_scores = np.zeros(len(unique_indices), dtype=np.float32)
+                np.add.at(fused_scores, inverse, candidate_scores)
+                selected = np.argpartition(fused_scores, -top_candidates)[-top_candidates:]
+                selected = selected[np.argsort(fused_scores[selected])[::-1]]
+                top_indices = unique_indices[selected]
+                scores = fused_scores[selected]
             else:
                 query_vec = self.encode_text(translated_text)
                 top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))

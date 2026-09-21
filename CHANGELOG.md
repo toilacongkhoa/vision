@@ -419,3 +419,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 464,96 ms.
   - Sau: KIS 0/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 1/57 (1,75%); trung bình 281,12 ms.
 - Kết quả: **đã rollback** về checkpoint `f4ec99d`. Latency giảm nhưng KIS giảm 1 câu đúng, là hồi quy accuracy. `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
+
+## 2026-09-21 16:15 +07:00 — Vòng tối ưu 42: tích lũy RRF trên tập ứng viên
+
+- Thay đổi: cập nhật nhánh semantic nhiều mệnh đề trong `src/sqlite_engine.py`; thay mảng điểm RRF kích thước toàn bộ 177.321 vector bằng tích lũy thưa trên hợp các ứng viên top-k của từng mệnh đề, rồi vẫn dùng `argpartition` để lấy top-k cuối. Công thức RRF, nhánh đơn mệnh đề và dữ liệu không đổi.
+- Mục tiêu: giảm latency tính và chọn kết quả RRF cho truy vấn nhiều mệnh đề.
+- Khám phá sơ bộ: không cần; chỉ có một hướng triển vọng cho mục tiêu này và hướng này khác các thử nghiệm ranking RRF đã rollback trước đó.
+- Benchmark: `tools/benchmark.py --top-k 50`, pipeline trực tiếp `SQLiteSearchEngine`, toàn bộ 57 câu trong `answerAndQuestion.jsonl`, frame tolerance ±150 giây. Kiểm tra bổ sung: `.venv\\Scripts\\python.exe -m compileall -q src mcp_server.py`.
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 333,08 ms.
+  - Sau lần đo chính: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 255,73 ms.
+  - Lần chạy xác nhận: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 270,69 ms; benchmark exit 0, compile exit 0.
+- Sửa phụ: không có.
+- Checkpoint vòng: `7e6a0c0` (`chore: checkpoint before sparse RRF candidate accumulation`).
+- Kết quả: **giữ lại**. Latency lần đo chính giảm 23,22% và lần xác nhận giảm 18,73% so với baseline; accuracy và các metric guardrail không đổi. `PROJECT_CONTEXT.md` không cần cập nhật vì API, kiến trúc và cách chạy không thay đổi.
