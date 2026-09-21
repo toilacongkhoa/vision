@@ -400,3 +400,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau: 1/1 đúng, lỗi 0/1, trung bình 33.347,93 ms; usage/cost unavailable.
 - Smoke tool-level: `search_video_evidence(["học sinh", "giáo viên", "trường học", "đồng phục"])` giảm 12,255 → 6,117 giây; candidate/frame giữ nguyên.
 - Kết quả: **giữ lại**. Không có hồi quy; `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 — Vòng tối ưu 40: thử fallback LIKE cục bộ cho MCP evidence
+
+- Thay đổi thử nghiệm: trong `mcp_server.py`, thay các request fallback `/api/v1/search/all` bằng truy vấn `LIKE` cục bộ trên các cột `asr_text`/`ocr_text` của DB hiện có, nhằm bỏ HTTP round trip và nhánh semantic không được dùng.
+- Mục tiêu: giảm latency `search_video_evidence` khi DB thiếu `asr_fts`/`ocr_fts`.
+- Benchmark: `tools/benchmark_chatbot.py --limit 1 --timeout 180`, cùng dataset/cấu hình, frame tolerance ±150 giây.
+  - Trước: 1/1 đúng, lỗi 0/1, trung bình 33.998,89 ms; usage/cost unavailable.
+  - Sau: 1/1 đúng, lỗi 0/1, trung bình 45.876,98 ms; usage/cost unavailable.
+- Smoke tool-level: latency giảm 8,097 → 6,954 giây nhưng candidate thay đổi từ `L21_V001/L21_V009/L22_V003` sang `L25_V002/L25_V003/L25_V004`, nên không đủ bằng chứng giữ chất lượng recall.
+- Kết quả: **đã rollback** về checkpoint `0dbbe1b` vì latency chatbot tăng 35,0% và kết quả candidate thay đổi. `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
