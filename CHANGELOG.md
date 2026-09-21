@@ -449,3 +449,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Theo yêu cầu, đã bỏ thay đổi bảo mật của vòng 43: khôi phục `mcp_server.py` và `PROJECT_CONTEXT.md` về trạng thái trước vòng, đồng thời xóa scanner `tools/security_scan.py`.
 - Giữ nguyên các mục lịch sử vòng 43 ở trên để không xóa lịch sử benchmark; vòng 42 vẫn được giữ.
 - Commit gốc của vòng 43: checkpoint `c2427f6`, commit giữ `2cc5f02`.
+
+## 2026-09-21 16:32 +07:00 — Vòng tối ưu 44: thử batch similarity cho RRF
+
+- Thay đổi thử nghiệm: trong `src/sqlite_engine.py`, nhánh semantic nhiều mệnh đề thử thay nhiều phép matrix-vector bằng một phép matrix-matrix `vectors @ clause_vectors.T`, sau đó giữ nguyên hợp ứng viên và công thức RRF.
+- Mục tiêu: giảm latency tính similarity cho truy vấn nhiều mệnh đề.
+- Khám phá sơ bộ: không cần; đây là hướng khác với tích lũy RRF sparse của vòng 42 và được đo trực tiếp bằng Track A.
+- Benchmark: `tools/benchmark.py --top-k 50`, pipeline trực tiếp `SQLiteSearchEngine`, toàn bộ 57 câu, frame tolerance ±150 giây. Kiểm tra sau rollback: `.venv\\Scripts\\python.exe -m compileall -q src`.
+  - Trước: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 251,71 ms.
+  - Sau: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 283,86 ms.
+  - Chênh lệch: latency tăng 12,78%, accuracy không đổi; benchmark không báo lỗi, compile sau rollback exit 0.
+- Sửa phụ: không có.
+- Checkpoint vòng: `df2d49d` (`chore: checkpoint before batched RRF scoring`).
+- Kết quả: **đã rollback** về checkpoint trong phạm vi `src/sqlite_engine.py`; `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
