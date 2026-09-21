@@ -563,3 +563,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `7052dfb` (`chore: checkpoint before similar-search benchmark`).
 - Kết quả: **giữ lại benchmark**. `PROJECT_CONTEXT.md` đã cập nhật với công cụ đo và lỗi similar-by-vector đang mở.
+
+## 2026-09-21 20:01 +07:00 — Vòng tối ưu 53: sửa ranking similar-by-vector
+
+- Thay đổi: cập nhật nhánh `query_vector_id` trong `SQLiteSearchEngine.search()` tại `src/sqlite_engine.py` để tính cosine score, chọn `top_k` bằng `argpartition` và sắp xếp candidate trước khi dùng pipeline metadata chung. Nhánh FAISS tương ứng vẫn được giữ tương thích dù runtime hiện tắt FAISS.
+- Mục tiêu: khôi phục chức năng `/api/v1/search/similar`; metric chính là pass/error, số kết quả và self-match của `tools/benchmark_similar.py`.
+- Khám phá sơ bộ: không cần; benchmark vòng 52 đã cô lập nguyên nhân `top_indices`/`scores` chưa được gán trong nhánh vector ID.
+- Benchmark: `.venv\Scripts\python.exe tools\benchmark_similar.py --vector-id 0 --top-k 5 --json`, cùng cấu hình trước/sau. Guardrail: compile toàn bộ `src` và tool; chạy `tools/benchmark.py --top-k 50` trên đủ 57 case.
+  - Trước: 0/1 pass, 1 fail, 1 error; case 0,02 ms rồi crash với `UnboundLocalError`.
+  - Sau: 1/1 pass, 0 fail, 0 error; case 29,30 ms; trả đủ 5 kết quả, top vector ID `0`, thứ tự đầu `[0, 2904, 6972, 12228, 2416]`; benchmark exit 0.
+  - Guardrail retrieval: KIS 1/39, QA hoàn chỉnh 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%), trung bình 216,03 ms; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `fcc12bf` (`chore: checkpoint before similar-search fix`).
+- Kết quả: **giữ lại** vì chức năng tăng 0/1 → 1/1 pass, lỗi giảm 1 → 0 và semantic guardrail giữ nguyên accuracy. `PROJECT_CONTEXT.md` đã cập nhật để bỏ lỗi đang mở và ghi benchmark regression.

@@ -284,6 +284,18 @@ class SQLiteSearchEngine:
 
         if query_vector_id is not None and 0 <= query_vector_id < len(self.vectors):
             query_vec = self.vectors[query_vector_id]
+            top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
+            if self.faiss_index is not None:
+                scores_matrix, indices_matrix = self.faiss_index.search(
+                    query_vec.reshape(1, -1), top_candidates
+                )
+                scores = scores_matrix[0]
+                top_indices = indices_matrix[0]
+            else:
+                scores_all = self._score_vectors(query_vec)
+                top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
+                top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
+                scores = scores_all[top_indices]
         else:
             try:
                 from .fast_translator import fast_translator
