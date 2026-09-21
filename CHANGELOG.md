@@ -373,3 +373,10 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Trước: KIS 1/39, QA 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 251,36 ms.
   - Sau: KIS 1/39, QA 1/16 (location 1/16, text_answer 6/16), TRAKE 0/2; tổng 2/57 (3,51%); trung bình 248,33 ms.
 - Kết quả: **đã rollback** về commit backup `f340c10`; độ chính xác không đổi và mức nhanh hơn 1,20% không đủ rõ ràng so với dao động benchmark. `PROJECT_CONTEXT.md` không cần cập nhật vì thay đổi không được giữ.
+
+## 2026-09-21 — Sửa lỗi MCP runtime của chatbot
+
+- Nguyên nhân: Antigravity đã có entry `video-researcher`, nhưng `.venv` thiếu `mcp`, khiến lệnh `C:\Users\ADMIN\error_on_line_23\vision\.venv\Scripts\python.exe mcp_server.py` thất bại với `ModuleNotFoundError: No module named 'mcp'`. Vì vậy Agy báo các công cụ truy vấn và kiểm tra video không khả dụng.
+- Thay đổi: cài dependency đã khai báo trong `requirements.txt`: `mcp==1.29.1` cùng các dependency phụ thuộc vào `.venv`; không sửa dữ liệu cấm hay mã nguồn MCP.
+- Xác minh: `import mcp_server` thành công và đăng ký 9 tool. Smoke chatbot trả `candidates=4`, lỗi 0/1. Kiểm tra đúng câu hỏi học sinh gọi được `call_mcp_tool`/`view_file` và trả `L22_V026` tại các frame `1581`, `1638`, `3147`.
+- Kết quả: **giữ**, không cần rollback. `PROJECT_CONTEXT.md` đã cập nhật; lỗi riêng do DB thiếu `ocr_fts`/`asr_fts` vẫn còn được ghi nhận độc lập.

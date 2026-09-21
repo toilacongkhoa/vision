@@ -113,7 +113,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 
 - DB artifact hiện thiếu `ocr_fts`/`asr_fts`: OCR/ASR API phải scan bằng LIKE, còn MCP `search_video_evidence` truy vấn FTS trực tiếp nên lỗi. README đang mô tả DB có FTS nhưng repo không còn migration/builder để tạo chúng.
 - Path chưa thống nhất hoàn toàn: config có `DB_PATH` nhưng SQLiteSearchEngine vẫn cố định `DATA_ROOT.parent/video_index_v2.db`, còn MCP cố định DB cạnh `mcp_server.py`. `PORT` cũng không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
-- `.venv` hiện chưa đồng bộ với requirements pins: thiếu `mcp`, CTranslate2, Transformers, SentencePiece và Sacremoses; Agy MCP đã được cấu hình chạy bằng chính `.venv` này nên `mcp_server.py` hiện không import được cho đến khi cài lại requirements.
+- `.venv` hiện chưa đồng bộ hoàn toàn với requirements pins: `mcp==1.29.1` đã được cài để Agy khởi động được `video-researcher`, nhưng CTranslate2, Transformers, SentencePiece và Sacremoses vẫn cần kiểm tra/cài nếu dùng translator offline. `search_video_evidence` vẫn phụ thuộc các bảng FTS chưa có trong DB.
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
 - FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline không có trong workspace nên hiện phụ thuộc Google/MyMemory và Internet khi cache miss.
@@ -150,7 +150,7 @@ python -m src.main
 - Swagger: http://localhost:8000/docs
 - Health: http://localhost:8000/api/v1/health
 
-`.env.example` khai báo SUPABASE_URL/KEY (tùy chọn), HOST, PORT, CORS_ORIGINS, DB_PATH, CONSOLIDATED_VECTORS_PATH, DATA_ROOT và AGY_PATH. Hiện nên giữ port 8000 và DB ở project root vì frontend/MCP/engine chưa tôn trọng đầy đủ override. Workspace hiện tại có Agy và MCP entry `video-researcher`, nhưng phải chạy lại `pip install -r requirements.txt` vì `.venv` đang thiếu dependency mới.
+`.env.example` khai báo SUPABASE_URL/KEY (tùy chọn), HOST, PORT, CORS_ORIGINS, DB_PATH, CONSOLIDATED_VECTORS_PATH, DATA_ROOT và AGY_PATH. Hiện nên giữ port 8000 và DB ở project root vì frontend/MCP/engine chưa tôn trọng đầy đủ override. Workspace hiện tại có Agy và MCP entry `video-researcher`; `mcp==1.29.1` đã được cài trong `.venv` và đã xác minh import được 9 tool.
 
 ## Bước tiếp theo
 
