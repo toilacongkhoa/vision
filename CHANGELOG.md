@@ -818,3 +818,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm hay runtime.
 - Checkpoint vòng: `6c8d6f8` (`chore: checkpoint before MCP database config benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 1 → 2 scenario và tool phát hiện đúng lỗi MCP override. `PROJECT_CONTEXT.md` đã cập nhật coverage và trạng thái regression.
+
+## 2026-09-21 21:32 +07:00 — Vòng tối ưu 74: cho MCP tôn trọng DB_PATH
+
+- Thay đổi: `mcp_server.py` import `DB_PATH` từ `src.config` và dùng path chung này thay cho DB cố định cạnh source.
+- Mục tiêu: làm `.env`/environment DB override hoạt động nhất quán giữa FastAPI engine và MCP; metric chính là pass/path của hai scenario database config.
+- Khám phá sơ bộ: không cần; benchmark vòng 73 đã cô lập module constant MCP là điểm bỏ qua config.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_database_config.py --json`, cùng env override trước/sau. Guardrail: compile `src/tools/mcp_server.py` và import MCP/count tool.
+  - Trước: 1/2 pass, 1 fail, 0 error; engine path/count đúng, MCP actual path vẫn là DB project thay vì custom temp; benchmark exit 1.
+  - Sau: 2/2 pass, 0 fail/error; engine path/count vẫn đúng 177.321 và MCP path khớp custom temp; benchmark exit 0.
+  - Guardrail: compile exit 0; `import mcp_server` pass và vẫn đăng ký đủ 9 tool.
+- Sửa phụ: không có. Không sửa file cấm; benchmark engine chỉ query DB read-only.
+- Checkpoint vòng: `18a26eb` (`chore: checkpoint before MCP DB_PATH fix`).
+- Kết quả: **giữ lại** vì correctness tăng 1/2 → 2/2 và MCP/compile guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật config behavior và loại DB path khỏi bước tiếp theo.

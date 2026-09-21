@@ -23,12 +23,13 @@ import httpx
 from typing import Optional, List, Dict, Any
 from mcp.server.fastmcp import FastMCP, Image
 from PIL import Image as PILImage, ImageDraw, ImageOps
+from src.config import DB_PATH as CONFIG_DB_PATH
 
 # Khởi tạo MCP Server
 mcp = FastMCP("VideoRetrievalSystem")
 
 API_BASE = "http://127.0.0.1:8000"
-DB_PATH = Path(__file__).resolve().with_name("video_index_v2.db")
+DB_PATH = CONFIG_DB_PATH
 MAX_EVIDENCE_ROWS_PER_SOURCE = 500
 
 
