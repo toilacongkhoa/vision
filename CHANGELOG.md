@@ -462,3 +462,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `df2d49d` (`chore: checkpoint before batched RRF scoring`).
 - Kết quả: **đã rollback** về checkpoint trong phạm vi `src/sqlite_engine.py`; `PROJECT_CONTEXT.md` không cập nhật vì thay đổi không được giữ.
+
+## 2026-09-21 16:47 +07:00 — Vòng tối ưu 45: quét LIKE một lần cho truy vấn nhiều token
+
+- Thay đổi: cập nhật `SQLiteSearchEngine._fuzzy_text_search()` trong `src/sqlite_engine.py`; gộp các điều kiện token vào một câu SQL có các cột cờ `LIKE`, thay vì quét toàn bộ bảng một lần cho mỗi token. Khâu cộng điểm vẫn lặp theo thứ tự token để giữ nguyên thứ tự hòa điểm và tập kết quả.
+- Mục tiêu: giảm latency fallback OCR/ASR trên artifact DB hiện thiếu `ocr_fts`/`asr_fts`, không thay đổi scoring hay candidate.
+- Khám phá sơ bộ: không cần; đường nóng được xác định trực tiếp từ implementation và DB hiện tại. Không sửa file dữ liệu cấm.
+- Benchmark/tool chính: ba lần `POST /api/v1/search/all` với query cố định `học sinh giáo viên trường học đồng phục`, `top_k=50`; guardrail là đủ 50 cặp `(video_id, frame_idx)` của mỗi nhánh OCR/ASR và đúng thứ tự. Track B bổ sung: `tools/benchmark_chatbot.py --limit 1 --timeout 180`. Kiểm tra hệ thống: `.venv\Scripts\python.exe -m compileall -q src`.
+  - Trước: wall trung bình 5.880,28 ms; OCR 5.226,00 ms; ASR 5.529,33 ms. Track B 0/1 đúng, lỗi 0/1, 60.356,74 ms; usage/cost unavailable.
+  - Sau: wall trung bình 2.074,97 ms; OCR 1.425,00 ms; ASR 1.801,00 ms. Track B 0/1 đúng, lỗi 0/1, 60.261,06 ms; usage/cost unavailable. Compile exit 0.
+  - Chênh lệch: wall giảm 64,71%, OCR giảm 72,73%, ASR giảm 67,43%; cả ba lần sau sửa trả đúng cùng 50 cặp OCR và 50 cặp ASR theo đúng thứ tự như baseline. Accuracy/error của Track B không đổi.
+- Sửa phụ: không có.
+- Checkpoint vòng: `e10920d` (`chore: checkpoint before single-pass fuzzy text scan`).
+- Kết quả: **giữ lại** vì metric latency mục tiêu cải thiện rõ ràng và candidate guardrail không hồi quy. `PROJECT_CONTEXT.md` không cần cập nhật vì kiến trúc, API, hành vi và cách chạy không thay đổi.

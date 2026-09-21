@@ -438,14 +438,33 @@ class SQLiteSearchEngine:
         
         with self._get_db() as conn:
             cur = conn.cursor()
-            for term in raw_terms:
-                pattern = f"%{term}%"
-                if video_id_filter:
-                    cur.execute(f"SELECT vector_id, raw_json FROM keyframes WHERE video_id = ? AND {field_name} LIKE ?", (video_id_filter, pattern))
-                else:
-                    cur.execute(f"SELECT vector_id, raw_json FROM keyframes WHERE {field_name} LIKE ?", (pattern,))
-                
-                for row in cur.fetchall():
+            patterns = [f"%{term}%" for term in raw_terms]
+            hit_columns = ", ".join(
+                f"{field_name} LIKE ? AS hit_{index}"
+                for index in range(len(patterns))
+            )
+            where_terms = " OR ".join(f"{field_name} LIKE ?" for _ in patterns)
+            params: List[Any] = [*patterns]
+            if video_id_filter:
+                where_clause = f"video_id = ? AND ({where_terms})"
+                params.append(video_id_filter)
+            else:
+                where_clause = f"({where_terms})"
+            params.extend(patterns)
+            cur.execute(
+                f"SELECT vector_id, raw_json, {hit_columns} "
+                f"FROM keyframes WHERE {where_clause}",
+                params,
+            )
+            matching_rows = cur.fetchall()
+
+            # Preserve the old per-term insertion order so equal-score results
+            # remain identical while the table itself is scanned only once.
+            for term_index in range(len(raw_terms)):
+                hit_column = f"hit_{term_index}"
+                for row in matching_rows:
+                    if not row[hit_column]:
+                        continue
                     v_id = row['vector_id']
                     vid_scores[v_id] += 1.0
                     if v_id not in vid_jsons:
