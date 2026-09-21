@@ -432,3 +432,14 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `7e6a0c0` (`chore: checkpoint before sparse RRF candidate accumulation`).
 - Kết quả: **giữ lại**. Latency lần đo chính giảm 23,22% và lần xác nhận giảm 18,73% so với baseline; accuracy và các metric guardrail không đổi. `PROJECT_CONTEXT.md` không cần cập nhật vì API, kiến trúc và cách chạy không thay đổi.
+
+## 2026-09-21 16:25 +07:00 — Vòng tối ưu 43: giới hạn URL ảnh MCP
+
+- Thay đổi: cập nhật `mcp_server.py`, tool `search_image_by_url`, để validate HTTPS và allowlist host trước khi request, từ chối URL có userinfo/host không tin cậy, tắt redirect tự động và stream response với giới hạn 10 MB. Thêm `tools/security_scan.py` làm scanner tĩnh tối thiểu cho boundary này.
+- Mục tiêu: giảm rủi ro SSRF và tiêu thụ bộ nhớ khi MCP tải ảnh từ URL bên ngoài.
+- Benchmark/tool: `tools/security_scan.py` trước/sau; `.venv\\Scripts\\python.exe -m compileall -q mcp_server.py tools\\security_scan.py`; smoke async gọi helper và `search_image_by_url` với `http://127.0.0.1/image.jpg`, `https://example.com/image.jpg`, `https://user:pass@lh3.googleusercontent.com/image.jpg`.
+  - Trước: `MCP_IMAGE_URL_FINDINGS: 2` (thiếu URL validation, thiếu response-size limit).
+  - Sau: `MCP_IMAGE_URL_FINDINGS: 0`, scanner exit 0, compile exit 0; cả 3 URL không hợp lệ đều bị chặn trước network, `INVALID_URL_SMOKE=PASS`.
+- Sửa phụ: không có.
+- Checkpoint vòng: `c2427f6` (`chore: add MCP image URL security scan`).
+- Kết quả: **giữ lại**. Finding bảo mật giảm 2 → 0 và smoke/compile đều pass. `PROJECT_CONTEXT.md` đã cập nhật để phản ánh policy URL mới; các endpoint tải URL khác vẫn ngoài phạm vi vòng này.
