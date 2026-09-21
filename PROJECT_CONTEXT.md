@@ -102,7 +102,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - Image similarity search, similar-by-vector và API chạy semantic/OCR/ASR đồng thời.
 - OCR/ASR exact-phrase FTS khi DB hỗ trợ, fallback token-substring SQL LIKE với DB hiện tại.
 - Context, frame range, interval, filmstrip phân trang và timestamp → frame index.
-- Chatbot SSE với model routing flash/pro, prewarm, tool-status heartbeat và stop/abort trên frontend.
+- Chatbot SSE với model routing flash/pro, session isolation theo `session_id`, prewarm, tool-status heartbeat và stop/abort trên frontend.
 - MCP search semantic/OCR/ASR/image URL/context; evidence recall đa sự kiện; candidate contact sheet, sequence sheet và vision probe.
 - R2 image URL, Google Drive proxy/cache, video iframe và ba endpoint lookup Supabase tùy chọn.
 - Frontend result grid; preview prev/next bằng nút, bàn phím hoặc swipe; infinite filmstrip; object/OCR bounding boxes; telemetry thời gian API/tải ảnh.
@@ -118,7 +118,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
 - FastTranslator chỉ nhận diện tiếng Việt qua ký tự có dấu/`đ`; query tiếng Việt không dấu không được dịch. Model offline không có trong workspace nên hiện phụ thuộc Google/MyMemory và Internet khi cache miss.
 - Health chỉ kiểm tra file tồn tại và hard-code 177321, không kiểm tra schema/count/model/Agy/MCP. `video_drive_metadata.json` vẫn được mở theo current working directory thay vì BASE_DIR.
-- Hai session Agy `local-flash`/`local-pro` dùng chung cho mọi request và bỏ qua `session_id`, nên người dùng chia sẻ conversation state/lock. Process chạy với `--dangerously-skip-permissions`, stderr bị discard và chưa có cleanup toàn cục khi shutdown.
+- Agy tạo một session process cho mỗi client/model route; process vẫn chạy với `--dangerously-skip-permissions`, stderr bị discard và chưa có cleanup toàn cục khi shutdown. Cần bổ sung TTL/eviction nếu có nhiều client đồng thời.
 - TLS verification bị tắt cho Supabase/Drive proxy; CORS mặc định `*` với credentials; chưa có auth/rate limit. MCP `search_image_by_url` tải URL tùy ý, chưa chặn SSRF/content-size trước khi download.
 - Frontend render output Agy bằng `marked.parse(...).innerHTML` không sanitize; tool labels và một số metadata cũng được nối vào HTML, có nguy cơ XSS.
 - Drive proxy cache tối đa 1000 full file bytes nhưng không giới hạn tổng dung lượng. Khi `r2_url` tồn tại nhưng tải lỗi, frontend/MCP không retry qua Google Drive; Drive chỉ được chọn khi record không có R2 URL.

@@ -356,3 +356,11 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
   - Sau lần đo chính: tổng 2/57 (3,51%); trung bình 256,99 ms.
   - Lần chạy xác nhận: tổng 2/57 (3,51%); trung bình 255,75 ms.
 - Kết quả: **đã rollback** về commit backup `7854140` vì accuracy không cải thiện và mức nhanh hơn 1,35% không đủ rõ ràng so với dao động benchmark.
+
+## 2026-09-21 — Vòng tối ưu 36 (Track B): cô lập session Agy theo client
+
+- Thay đổi: `src/main.py` không còn ép mọi request vào `local-flash`/`local-pro`; key session mới được tạo từ `session_id` đã băm và model route. `frontend/index.html` tạo và giữ UUID riêng trong `sessionStorage` thay vì đặt lại `local-user` ở mỗi request.
+- Mục tiêu: ngăn lịch sử hội thoại của một câu hỏi (ví dụ graffiti) bị dùng lại cho câu hỏi khác (ví dụ học sinh), đồng thời tách context khi route flash/pro thay đổi.
+- Benchmark Track B trước: full `tools/benchmark_chatbot.py` ghi 0/57 đúng, lỗi 48/57 (84,21%), trung bình 607,62 ms; API/model khi đó không ổn định và usage/cost unavailable.
+- Smoke test sau thay đổi: 1 câu, 0/1 đúng, lỗi 1/1, trung bình 10.057,86 ms, không có usage/cost. Antigravity CLI báo chưa đăng nhập nên không thể dùng kết quả này để đánh giá chất lượng session isolation.
+- Kết quả: **giữ thay đổi**, vì đây là sửa lỗi cô lập context; cần đăng nhập/cấu hình Antigravity rồi chạy lại full benchmark để xác nhận chất lượng chatbot.

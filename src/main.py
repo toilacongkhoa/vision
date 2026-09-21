@@ -10,6 +10,8 @@ import sys
 import ssl
 import json
 import time
+import hashlib
+import uuid
 import urllib.request
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Literal
@@ -31,7 +33,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 import asyncio
 class ChatRequest(BaseModel):
     message: str
-    session_id: Optional[str] = "local-user"
+    session_id: Optional[str] = None
 
 from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, BASE_DIR, HOST, PORT, CORS_ORIGINS
 from .sqlite_engine import SQLiteSearchEngine as VectorSearchEngine
@@ -292,12 +294,18 @@ async def search_by_image(file: UploadFile = File(...), top_k: int = Form(50), v
 async def chat_endpoint(req: ChatRequest):
     # Model Routing Logic
     is_complex = is_complex_visual_query(req.message)
-    
-    # Force use pre-warmed routed session instead of frontend's static ID
-    sid = "local-pro" if is_complex else "local-flash"
+
+    # Keep each client's Agy conversation isolated.  The model is part of the
+    # key so switching between simple and complex routing cannot mix contexts.
+    client_session_id = (req.session_id or "").strip()
+    if not client_session_id or client_session_id == "local-user":
+        client_session_id = uuid.uuid4().hex
+    session_digest = hashlib.sha256(client_session_id.encode("utf-8")).hexdigest()[:24]
+    route = "pro" if is_complex else "flash"
+    sid = f"chat-{route}-{session_digest}"
     
     if sid not in session_pool:
-        session = AgySession(sid, model="pro" if is_complex else "flash")
+        session = AgySession(sid, model=route)
         session_pool[sid] = session
     else:
         session = session_pool[sid]
