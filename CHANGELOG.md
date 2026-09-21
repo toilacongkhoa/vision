@@ -522,3 +522,18 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `7551bb0` (`chore: checkpoint before bounded fuzzy candidate cache`).
 - Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả cache candidate fallback và đặc tính cold query.
+
+## 2026-09-21 17:03 +07:00 — Vòng tối ưu 50: cache trạng thái bảng FTS
+
+- Thay đổi: thêm lookup `sqlite_master` có cache theo tên bảng trong `SQLiteSearchEngine`; khi `ocr_fts`/`asr_fts` không tồn tại, các request sau đi thẳng vào fuzzy fallback thay vì thực thi SQL lỗi và bắt exception mỗi lần.
+- Mục tiêu: giảm latency warm OCR/ASR trên artifact DB hiện tại, không thay đổi FTS path khi bảng tồn tại hoặc matching/ranking của fallback.
+- Khám phá sơ bộ: không cần; log runtime xác nhận mỗi request warm đều phát sinh `no such table` trước fallback.
+- Benchmark/tool: sau khi candidate cache được prime, chạy năm lần `POST /api/v1/search/all` với query `học sinh giáo viên trường học đồng phục`, `top_k=50`; metric chính là median/average `elapsed_ms` của hai nhánh, guardrail là SHA-256 candidate. Compile, health và smoke OCR `top_k=3` chạy bổ sung.
+  - Trước: OCR 16 / 43 / 458 / 42 / 30 ms, median 42 ms, trung bình 117,8 ms; ASR 37 / 53 / 19 / 42 / 17 ms, median 37 ms, trung bình 33,6 ms; wall trung bình 805,59 ms.
+  - Sau: OCR 7 / 7 / 15 / 6 / 15 ms, median 7 ms, trung bình 10,0 ms; ASR 13 / 15 / 10 / 12 / 9 ms, median 12 ms, trung bình 11,8 ms; wall trung bình 446,59 ms.
+  - Chênh lệch: median OCR giảm 83,33%, median ASR giảm 67,57%; average OCR giảm 91,51%, average ASR giảm 64,88%. Wall trung bình giảm 44,56% nhưng chỉ là metric liên quan vì semantic/HTTP có nhiễu.
+  - Candidate guardrail không đổi ở cả năm run: OCR `6f3b10b2de46db1dd8476afc6c94106b72e9f93ad87e8081f44f0975ce1f3e09`, ASR `38f12cdd4b47149ecf8867a20eb723c05b3b95eed64fa20e600e1336801ef3b3`. Compile exit 0, health `healthy`, smoke OCR trả 3 kết quả với top `L22_V006, 3788`.
+  - Cold prime sau restart dao động 2.234/2.429 ms cho OCR/ASR và không được dùng để kết luận; thay đổi cold path chỉ thêm một lookup schema một lần trước cùng fallback.
+- Sửa phụ: không có.
+- Checkpoint vòng: `54b9308` (`chore: checkpoint before FTS availability cache`).
+- Kết quả: **giữ lại** vì warm branch latency giảm rõ ràng và không có hồi quy candidate/hệ thống. `PROJECT_CONTEXT.md` đã cập nhật.

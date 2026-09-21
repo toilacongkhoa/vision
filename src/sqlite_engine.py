@@ -44,6 +44,8 @@ class SQLiteSearchEngine:
         self._fuzzy_candidate_cache = OrderedDict()
         self._fuzzy_cache_lock = threading.Lock()
         self._fuzzy_cache_maxsize = 256
+        self._fts_table_cache: Dict[str, bool] = {}
+        self._fts_table_lock = threading.Lock()
         self._db_local = threading.local()
         self._score_local = threading.local()
         
@@ -504,10 +506,28 @@ class SQLiteSearchEngine:
                 results.append(self._format_result(raw_json, (score / len(raw_terms))))
         return results
 
+    def _has_fts_table(self, table_name: str) -> bool:
+        with self._fts_table_lock:
+            cached = self._fts_table_cache.get(table_name)
+        if cached is not None:
+            return cached
+
+        exists = self._get_db().execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+            (table_name,),
+        ).fetchone() is not None
+        with self._fts_table_lock:
+            self._fts_table_cache[table_name] = exists
+        return exists
+
     def _fts_text_search(self, query_text: str, table_name: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         clean_q = query_text.strip().replace('"', '""')
         if not clean_q:
             return []
+
+        if not self._has_fts_table(table_name):
+            field_name = "ocr_text" if "ocr" in table_name else "asr_text"
+            return self._fuzzy_text_search(query_text, field_name, top_k, video_id_filter)
             
         match_expr = f'"{clean_q}"'
         results = []
