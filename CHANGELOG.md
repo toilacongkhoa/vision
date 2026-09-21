@@ -475,3 +475,11 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `e10920d` (`chore: checkpoint before single-pass fuzzy text scan`).
 - Kết quả: **giữ lại** vì metric latency mục tiêu cải thiện rõ ràng và candidate guardrail không hồi quy. `PROJECT_CONTEXT.md` không cần cập nhật vì kiến trúc, API, hành vi và cách chạy không thay đổi.
+
+## 2026-09-21 16:52 +07:00 — Vòng tối ưu 46: thăm dò hợp nhất scan OCR/ASR
+
+- Phạm vi dự kiến: hợp nhất hai lượt đọc fallback OCR và ASR của `/api/v1/search/all` thành một SQL scan, với mục tiêu giảm wall latency mà vẫn giữ nguyên hai danh sách kết quả.
+- Khám phá sơ bộ chỉ đọc: chạy ba lần câu SQL chung trên cùng query `học sinh giáo viên trường học đồng phục`, cùng bốn token và DB read-only; thời gian 2.168,41 / 1.906,74 / 1.955,08 ms, trung bình 2.010,08 ms, trả 32.210 row khớp hợp.
+- Baseline tham chiếu từ vòng 45: endpoint wall 2.074,97 ms; nhánh OCR 1.425,00 ms và nhánh ASR 1.801,00 ms khi hai nhánh chạy song song.
+- Sửa phụ: không có. Không sửa source, file cấm hay `PROJECT_CONTEXT.md`; chưa tạo checkpoint vì hướng bị loại ở bước khám phá trước thay đổi chính thức.
+- Kết quả: **không triển khai / không có thay đổi để rollback**. Riêng scan chung đã chậm hơn nhánh chi phối hiện tại trước chi phí tách và dựng hai bộ kết quả, nên không đủ triển vọng vượt baseline.
