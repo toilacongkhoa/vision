@@ -497,3 +497,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `1b29c49` (`chore: checkpoint before deferred fuzzy metadata fetch`).
 - Kết quả: **giữ lại** vì latency giảm rõ ràng, danh sách candidate không đổi và smoke/health đều pass. `PROJECT_CONTEXT.md` không cần cập nhật vì API, kiến trúc, hành vi và cách chạy không đổi.
+
+## 2026-09-21 16:58 +07:00 — Vòng tối ưu 48: thăm dò xếp hạng top-K hoàn toàn trong SQLite
+
+- Phạm vi dự kiến: đẩy cộng điểm, tie-break và `LIMIT 50` của fallback OCR/ASR xuống SQLite để Python không phải nhận và duyệt toàn bộ row match.
+- Khám phá sơ bộ chỉ đọc: câu SQL subquery dùng cùng các cờ `LIKE`, xếp theo số token khớp giảm dần, token khớp đầu tiên và `vector_id`; chạy ba lần riêng cho mỗi field trên query `học sinh giáo viên trường học đồng phục`.
+  - OCR: 838,45 / 821,85 / 867,19 ms, trung bình 842,50 ms; hash candidate giữ nguyên `6f3b10b2de46db1dd8476afc6c94106b72e9f93ad87e8081f44f0975ce1f3e09`.
+  - ASR: 1.806,57 / 2.131,00 / 2.180,89 ms, trung bình 2.039,49 ms; hash candidate giữ nguyên `38f12cdd4b47149ecf8867a20eb723c05b3b95eed64fa20e600e1336801ef3b3`.
+- Baseline vòng 47: OCR 1.065,67 ms, ASR 1.275,33 ms. SQL top-K giúp OCR 20,94% nhưng làm ASR chậm hơn 59,92%; `/search/all` bị nhánh ASR chậm nhất chi phối.
+- Sửa phụ: không có. Không sửa source, file cấm hay `PROJECT_CONTEXT.md`; chưa tạo checkpoint vì hướng bị loại ở bước khám phá.
+- Kết quả: **không triển khai / không có thay đổi để rollback** do hồi quy ASR nghiêm trọng dù candidate không đổi.
