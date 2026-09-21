@@ -708,3 +708,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `0beaa3e` (`chore: checkpoint before semantic cache benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 3 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.
+
+## 2026-09-21 21:07 +07:00 — Vòng tối ưu 64: thêm benchmark fallback OCR/ASR
+
+- Thay đổi: thêm `tools/benchmark_fuzzy_cache.py`, chạy production `SQLiteSearchEngine` và kiểm tra năm scenario fallback khi DB thiếu FTS: repeated OCR, repeated ASR, mixed top-K OCR, mixed top-K ASR và ASR có video filter. Tool báo load/cold/warm latency, vector/video IDs, aggregate pass/fail/error, hỗ trợ text/JSON và exit khác 0 khi fail.
+- Mục tiêu: tạo phép đo tái lập cho fallback OCR/ASR trước khi tối ưu thêm; vòng này không thay đổi runtime.
+- Khám phá/baseline thủ công: 0 scenario tự động chuyên biệt; OCR cold/warm 2.354,32/0,027 ms, ASR cold/warm 1.077,65/0,034 ms; smoke ASR filter `L22_V019` trả 3/3 kết quả. Lần chạy đầu của tool phát hiện JSON Unicode không tương thích console Windows cp1252; output đã chuyển sang ASCII-safe trong cùng phạm vi công cụ đo.
+- Sau: 5 scenario tự động, 5/5 pass, 0 fail/error. OCR repeat cold/warm 1.318,37/0,046 ms; ASR repeat 1.112,89/0,090 ms; OCR mixed top-K prime-50/small-5 750,28/626,04 ms; ASR mixed top-K 783,36/676,78 ms; ASR filter 4,95 ms và trả đúng 3 kết quả trong `L22_V019`. Compile `src/tools` exit 0.
+- Sửa phụ: không có. Không sửa file cấm hay runtime.
+- Checkpoint vòng: `18b81a4` (`chore: checkpoint before fuzzy cache benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 5 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.
