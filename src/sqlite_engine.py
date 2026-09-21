@@ -44,6 +44,9 @@ class SQLiteSearchEngine:
         self._fuzzy_candidate_cache = OrderedDict()
         self._fuzzy_cache_lock = threading.Lock()
         self._fuzzy_cache_maxsize = 256
+        self._similar_candidate_cache = OrderedDict()
+        self._similar_cache_lock = threading.Lock()
+        self._similar_cache_maxsize = 256
         self._fts_table_cache: Dict[str, bool] = {}
         self._fts_table_lock = threading.Lock()
         self._db_local = threading.local()
@@ -285,17 +288,39 @@ class SQLiteSearchEngine:
         if query_vector_id is not None and 0 <= query_vector_id < len(self.vectors):
             query_vec = self.vectors[query_vector_id]
             top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-            if self.faiss_index is not None:
-                scores_matrix, indices_matrix = self.faiss_index.search(
-                    query_vec.reshape(1, -1), top_candidates
+            cache_key = (int(query_vector_id), top_candidates)
+            with self._similar_cache_lock:
+                cached_candidates = self._similar_candidate_cache.get(cache_key)
+                if cached_candidates is not None:
+                    self._similar_candidate_cache.move_to_end(cache_key)
+
+            if cached_candidates is None:
+                if self.faiss_index is not None:
+                    scores_matrix, indices_matrix = self.faiss_index.search(
+                        query_vec.reshape(1, -1), top_candidates
+                    )
+                    candidate_scores = scores_matrix[0]
+                    candidate_indices = indices_matrix[0]
+                else:
+                    scores_all = self._score_vectors(query_vec)
+                    candidate_indices = np.argpartition(
+                        scores_all, -top_candidates
+                    )[-top_candidates:]
+                    candidate_indices = candidate_indices[
+                        np.argsort(scores_all[candidate_indices])[::-1]
+                    ]
+                    candidate_scores = scores_all[candidate_indices]
+                cached_candidates = (
+                    tuple(int(idx) for idx in candidate_indices),
+                    tuple(float(score) for score in candidate_scores),
                 )
-                scores = scores_matrix[0]
-                top_indices = indices_matrix[0]
-            else:
-                scores_all = self._score_vectors(query_vec)
-                top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
-                top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
-                scores = scores_all[top_indices]
+                with self._similar_cache_lock:
+                    self._similar_candidate_cache[cache_key] = cached_candidates
+                    self._similar_candidate_cache.move_to_end(cache_key)
+                    while len(self._similar_candidate_cache) > self._similar_cache_maxsize:
+                        self._similar_candidate_cache.popitem(last=False)
+
+            top_indices, scores = cached_candidates
         else:
             try:
                 from .fast_translator import fast_translator

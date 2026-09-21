@@ -576,3 +576,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `fcc12bf` (`chore: checkpoint before similar-search fix`).
 - Kết quả: **giữ lại** vì chức năng tăng 0/1 → 1/1 pass, lỗi giảm 1 → 0 và semantic guardrail giữ nguyên accuracy. `PROJECT_CONTEXT.md` đã cập nhật để bỏ lỗi đang mở và ghi benchmark regression.
+
+## 2026-09-21 20:05 +07:00 — Vòng tối ưu 54: cache LRU candidate similar-by-vector
+
+- Thay đổi: thêm cache LRU thread-safe tối đa 256 entry trong `SQLiteSearchEngine` cho candidate/scores của nhánh `query_vector_id`; key gồm vector nguồn và số candidate cần lấy. Cache lưu tuple immutable của ID/score, còn metadata tiếp tục dùng pipeline/cache chung.
+- Mục tiêu: giảm latency khi `/api/v1/search/similar` lặp lại cùng vector/top-K, không thay đổi cosine scoring, ranking hoặc payload.
+- Khám phá sơ bộ: không cần; benchmark vòng 53 cho thấy mỗi request lặp vẫn tính dot product và argpartition lại trên toàn bộ 177.321 vector.
+- Benchmark/tool: trên cùng một engine, gọi `tools.benchmark_similar.run_case(engine, 0, 50)` năm lần; run 1 là cold, run 2-5 là warm. Guardrail là 50/50 kết quả pass, self-match và toàn bộ thứ tự vector ID. Chạy thêm benchmark chuẩn `tools/benchmark_similar.py --vector-id 0 --top-k 5 --json` và compile.
+  - Trước: 28,307 / 14,368 / 17,827 / 21,546 / 20,101 ms; warm trung bình 18,461 ms, median 18,964 ms.
+  - Sau: 22,126 / 0,055 / 0,038 / 0,036 / 0,061 ms; warm trung bình 0,047 ms, median 0,046 ms.
+  - Chênh lệch: warm average giảm 99,74%, warm median giảm 99,76%; cold giảm 21,84% nhưng không dùng làm kết luận chính vì chỉ một mẫu.
+  - Guardrail: cả năm run trả cùng 50 vector ID như baseline, top vector `0`; benchmark chuẩn 1/1 pass, 0 error, 5 kết quả, case 19,62 ms; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `d506464` (`chore: checkpoint before similar candidate cache`).
+- Kết quả: **giữ lại**. `PROJECT_CONTEXT.md` đã cập nhật để mô tả cache candidate similar-by-vector.
