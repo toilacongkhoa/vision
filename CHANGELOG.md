@@ -785,3 +785,13 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `fc8e465` (`chore: checkpoint before metadata path fix`).
 - Kết quả: **giữ lại** vì correctness tăng 1/2 → 2/2 scenario và compile không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật path behavior và bước tiếp theo.
+
+## 2026-09-21 21:25 +07:00 — Vòng tối ưu 71: thêm benchmark DB_PATH override
+
+- Thay đổi: thêm `tools/benchmark_database_config.py`; tool chạy engine trong subprocess với `DB_PATH` trỏ artifact thật nhưng `DATA_ROOT` trỏ temp directory, sau đó kiểm tra path engine và `COUNT(*)` read-only trên `keyframes`. Tool hỗ trợ text/JSON và exit khác 0 khi override bị bỏ qua.
+- Mục tiêu: tạo phép đo tái lập cho DB config trước khi sửa engine; vòng này không thay đổi runtime.
+- Khám phá/baseline thủ công: 0 scenario tự động; `src.config.DB_PATH` là DB thật nhưng `engine.db_path` bị suy thành temp path và `_get_db()` ném `OperationalError`.
+- Sau: 1 scenario tự động, 0/1 pass, 1 fail/error. Config path đúng `video_index_v2.db`, engine path sai trong temp, row count `null` thay vì 177.321; benchmark exit 1 đúng theo regression đang mở; compile tool exit 0.
+- Sửa phụ: không có. Không sửa file cấm hay runtime; DB chỉ được mở read-only để đo.
+- Checkpoint vòng: `1ac7994` (`chore: checkpoint before database config benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 1 scenario và tool phát hiện đúng lỗi `DB_PATH`. `PROJECT_CONTEXT.md` đã cập nhật tool và trạng thái regression.

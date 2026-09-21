@@ -90,6 +90,7 @@ vision/
 ├── tools/benchmark_fuzzy_cache.py # regression benchmark fallback OCR/ASR và cache
 ├── tools/benchmark_image_cache.py # regression benchmark repeated/mixed-top-K image search
 ├── tools/benchmark_runtime_paths.py # regression benchmark metadata path theo launch CWD
+├── tools/benchmark_database_config.py # regression benchmark DB_PATH override
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs
@@ -119,7 +120,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 ## Vấn đề ảnh hưởng việc phát triển tiếp
 
 - DB artifact hiện thiếu `ocr_fts`/`asr_fts`: OCR/ASR API và MCP `search_video_evidence` phải dùng fallback scan bằng LIKE qua `/api/v1/search/all`; các term fallback đã được truy vấn song song để giảm latency, nhưng vẫn chậm hơn native FTS. README đang mô tả DB có FTS nhưng repo không còn migration/builder để tạo chúng.
-- Path chưa thống nhất hoàn toàn: config có `DB_PATH` nhưng SQLiteSearchEngine vẫn cố định `DATA_ROOT.parent/video_index_v2.db`, còn MCP cố định DB cạnh `mcp_server.py`. `PORT` cũng không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
+- Path chưa thống nhất hoàn toàn: config có `DB_PATH` nhưng SQLiteSearchEngine vẫn cố định `DATA_ROOT.parent/video_index_v2.db`; `tools/benchmark_database_config.py` hiện báo 0/1 pass và khóa regression này. MCP cũng cố định DB cạnh `mcp_server.py`. `PORT` không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
 - `.venv` hiện chưa đồng bộ hoàn toàn với requirements pins: `mcp==1.29.1` đã được cài để Agy khởi động được `video-researcher`, nhưng CTranslate2, Transformers, SentencePiece và Sacremoses vẫn cần kiểm tra/cài nếu dùng translator offline. `search_video_evidence` vẫn phụ thuộc các bảng FTS chưa có trong DB.
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
