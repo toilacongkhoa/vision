@@ -483,3 +483,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Baseline tham chiếu từ vòng 45: endpoint wall 2.074,97 ms; nhánh OCR 1.425,00 ms và nhánh ASR 1.801,00 ms khi hai nhánh chạy song song.
 - Sửa phụ: không có. Không sửa source, file cấm hay `PROJECT_CONTEXT.md`; chưa tạo checkpoint vì hướng bị loại ở bước khám phá trước thay đổi chính thức.
 - Kết quả: **không triển khai / không có thay đổi để rollback**. Riêng scan chung đã chậm hơn nhánh chi phối hiện tại trước chi phí tách và dựng hai bộ kết quả, nên không đủ triển vọng vượt baseline.
+
+## 2026-09-21 16:53 +07:00 — Vòng tối ưu 47: trì hoãn đọc metadata fallback đến sau top-K
+
+- Thay đổi: cập nhật `SQLiteSearchEngine._fuzzy_text_search()` trong `src/sqlite_engine.py`; lượt scan LIKE chỉ lấy `vector_id` và cờ hit để tính điểm, sau đó mới batch-fetch `raw_json` cho tối đa `top_k` vector đã chọn, thay vì kéo metadata lớn cho mọi row match.
+- Mục tiêu: giảm I/O, cấp phát và latency fallback OCR/ASR mà không thay đổi token matching, scoring hay thứ tự kết quả.
+- Khám phá sơ bộ: không cần; kết quả vòng 45 cho thấy SQL trả hàng chục nghìn row trong khi API chỉ cần top 50, nên đây là đường tối ưu trực tiếp và độc lập với hướng scan chung đã loại ở vòng 46.
+- Benchmark/tool: ba lần `POST /api/v1/search/all` với query `học sinh giáo viên trường học đồng phục`, `top_k=50`; guardrail là SHA-256 của danh sách `(video_id, frame_idx)` theo thứ tự cho OCR/ASR. Kiểm tra hệ thống: `.venv\Scripts\python.exe -m compileall -q src`, `/api/v1/health`, và smoke OCR `/api/v1/search` với `top_k=3`.
+  - Trước: wall 2.111,55 / 3.080,67 / 4.269,27 ms, trung bình 3.153,83 ms; OCR trung bình 1.982,33 ms; ASR trung bình 2.660,00 ms.
+  - Sau: wall 1.695,87 / 1.528,95 / 1.394,62 ms, trung bình 1.539,81 ms; OCR trung bình 1.065,67 ms; ASR trung bình 1.275,33 ms.
+  - Chênh lệch: wall giảm 51,18%, OCR giảm 46,24%, ASR giảm 52,06%. Cả ba lần trước/sau có OCR hash `6f3b10b2de46db1dd8476afc6c94106b72e9f93ad87e8081f44f0975ce1f3e09` và ASR hash `38f12cdd4b47149ecf8867a20eb723c05b3b95eed64fa20e600e1336801ef3b3`.
+  - Guardrail: compile exit 0; health `healthy`; smoke OCR trả 3/3 kết quả, đứng đầu `L22_V006, 3788`.
+- Sửa phụ: không có.
+- Checkpoint vòng: `1b29c49` (`chore: checkpoint before deferred fuzzy metadata fetch`).
+- Kết quả: **giữ lại** vì latency giảm rõ ràng, danh sách candidate không đổi và smoke/health đều pass. `PROJECT_CONTEXT.md` không cần cập nhật vì API, kiến trúc, hành vi và cách chạy không đổi.

@@ -434,7 +434,6 @@ class SQLiteSearchEngine:
             raw_terms = [query_text.lower()]
             
         vid_scores = defaultdict(float)
-        vid_jsons = {}
         
         with self._get_db() as conn:
             cur = conn.cursor()
@@ -452,7 +451,7 @@ class SQLiteSearchEngine:
                 where_clause = f"({where_terms})"
             params.extend(patterns)
             cur.execute(
-                f"SELECT vector_id, raw_json, {hit_columns} "
+                f"SELECT vector_id, {hit_columns} "
                 f"FROM keyframes WHERE {where_clause}",
                 params,
             )
@@ -467,18 +466,26 @@ class SQLiteSearchEngine:
                         continue
                     v_id = row['vector_id']
                     vid_scores[v_id] += 1.0
-                    if v_id not in vid_jsons:
-                        vid_jsons[v_id] = row['raw_json']
-                        
+                         
         if not vid_scores:
             return []
             
-        sorted_vids = sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)
+        sorted_vids = sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        selected_ids = [v_id for v_id, _ in sorted_vids]
+        placeholders = ','.join(['?'] * len(selected_ids))
+        with self._get_db() as conn:
+            rows = conn.execute(
+                f"SELECT vector_id, raw_json FROM keyframes "
+                f"WHERE vector_id IN ({placeholders})",
+                selected_ids,
+            ).fetchall()
+        raw_json_by_id = {row['vector_id']: row['raw_json'] for row in rows}
+
         results = []
         for v_id, score in sorted_vids:
-            results.append(self._format_result(vid_jsons[v_id], (score / len(raw_terms))))
-            if len(results) >= top_k:
-                break
+            raw_json = raw_json_by_id.get(v_id)
+            if raw_json is not None:
+                results.append(self._format_result(raw_json, (score / len(raw_terms))))
         return results
 
     def _fts_text_search(self, query_text: str, table_name: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
