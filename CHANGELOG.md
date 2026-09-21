@@ -749,3 +749,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm hay runtime.
 - Checkpoint vòng: `3aeeba3` (`chore: checkpoint before image cache benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 2 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.
+
+## 2026-09-21 21:17 +07:00 — Vòng tối ưu 68: cache LRU candidate image search
+
+- Thay đổi: thêm cache LRU thread-safe tối đa 256 entry trong `SQLiteSearchEngine.search_by_image()`; key gồm SHA-256 bytes ảnh và số candidate. Cache lưu tuple immutable ID/score, tái sử dụng prefix từ entry top-K lớn hơn và tiếp tục dùng pipeline metadata chung.
+- Mục tiêu: loại OpenCLIP image encode, dot product và `argpartition` lặp khi cùng nội dung ảnh được tìm lại; metric chính là repeated warm và mixed small-5, với ID/order là guardrail.
+- Khám phá sơ bộ: không cần; benchmark vòng 67 xác nhận mỗi request lặp vẫn encode/scoring và top-5 là prefix chính xác của top-50.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_image_cache.py --top-k 5 --json`, cùng cấu hình trước/sau; compile toàn bộ `src/tools` là guardrail.
+  - Trước: repeated cold/warm 86,10/77,31 ms; mixed top-K prime-50/small-5 102,89/141,09 ms; 2/2 scenario pass.
+  - Sau: repeated cold/warm 82,50/0,031 ms; mixed top-K prime-50/small-5 81,60/0,039 ms; 2/2 scenario pass, 0 fail/error; compile exit 0.
+  - Chênh lệch mục tiêu: repeated warm giảm 99,96%; mixed small-5 giảm 99,97%. Toàn bộ vector ID/order không đổi; cold latency không hồi quy trong phép đo chính.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `df2ee03` (`chore: checkpoint before image candidate cache`).
+- Kết quả: **giữ lại** vì latency repeated/mixed top-K cải thiện hơn 99% và correctness/compile không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật chiến lược image cache.

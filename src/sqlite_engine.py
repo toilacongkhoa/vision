@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 import open_clip
 import sqlite3
 import json
+import hashlib
 import re
 import threading
 from collections import OrderedDict, defaultdict
@@ -44,6 +45,9 @@ class SQLiteSearchEngine:
         self._fuzzy_candidate_cache = OrderedDict()
         self._fuzzy_cache_lock = threading.Lock()
         self._fuzzy_cache_maxsize = 256
+        self._image_candidate_cache = OrderedDict()
+        self._image_cache_lock = threading.Lock()
+        self._image_cache_maxsize = 256
         self._similar_candidate_cache = OrderedDict()
         self._similar_cache_lock = threading.Lock()
         self._similar_cache_maxsize = 256
@@ -201,19 +205,62 @@ class SQLiteSearchEngine:
     def search_by_image(self, image_bytes: bytes, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if self.vectors is None or len(self.vectors) == 0:
             return []
-        query_vec = self.encode_image(image_bytes)
         top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
-        if self.faiss_index is not None:
-            scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
-            scores = scores_matrix[0]
-            top_indices = indices_matrix[0]
-        else:
-            scores_all = self._score_vectors(query_vec)
-            # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
-            top_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
-            # Sort only the top_candidates
-            top_indices = top_indices[np.argsort(scores_all[top_indices])[::-1]]
-            scores = scores_all[top_indices]
+        image_digest = hashlib.sha256(image_bytes).digest()
+        cache_key = (image_digest, top_candidates)
+        with self._image_cache_lock:
+            cached_candidates = self._image_candidate_cache.get(cache_key)
+            if cached_candidates is not None:
+                self._image_candidate_cache.move_to_end(cache_key)
+            else:
+                larger_key = next(
+                    (
+                        key
+                        for key in reversed(self._image_candidate_cache)
+                        if key[0] == image_digest and key[1] >= top_candidates
+                    ),
+                    None,
+                )
+                if larger_key is not None:
+                    larger_indices, larger_scores = self._image_candidate_cache[
+                        larger_key
+                    ]
+                    cached_candidates = (
+                        larger_indices[:top_candidates],
+                        larger_scores[:top_candidates],
+                    )
+                    self._image_candidate_cache.move_to_end(larger_key)
+                    self._image_candidate_cache[cache_key] = cached_candidates
+                    self._image_candidate_cache.move_to_end(cache_key)
+                    while len(self._image_candidate_cache) > self._image_cache_maxsize:
+                        self._image_candidate_cache.popitem(last=False)
+
+        if cached_candidates is None:
+            query_vec = self.encode_image(image_bytes)
+            if self.faiss_index is not None:
+                scores_matrix, indices_matrix = self.faiss_index.search(query_vec.reshape(1, -1), top_candidates)
+                candidate_scores = scores_matrix[0]
+                candidate_indices = indices_matrix[0]
+            else:
+                scores_all = self._score_vectors(query_vec)
+                # Use argpartition for O(N) top-K selection instead of O(N log N) argsort
+                candidate_indices = np.argpartition(scores_all, -top_candidates)[-top_candidates:]
+                # Sort only the top_candidates
+                candidate_indices = candidate_indices[
+                    np.argsort(scores_all[candidate_indices])[::-1]
+                ]
+                candidate_scores = scores_all[candidate_indices]
+            cached_candidates = (
+                tuple(int(idx) for idx in candidate_indices),
+                tuple(float(score) for score in candidate_scores),
+            )
+            with self._image_cache_lock:
+                self._image_candidate_cache[cache_key] = cached_candidates
+                self._image_candidate_cache.move_to_end(cache_key)
+                while len(self._image_candidate_cache) > self._image_cache_maxsize:
+                    self._image_candidate_cache.popitem(last=False)
+
+        top_indices, scores = cached_candidates
 
         results = []
         if self.metadata_cache is not None:
