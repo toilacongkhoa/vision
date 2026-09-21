@@ -86,6 +86,7 @@ vision/
 ├── tools/benchmark.py            # benchmark semantic retrieval KIS/QA/TRAKE
 ├── tools/benchmark_chatbot.py    # benchmark chatbot SSE
 ├── tools/benchmark_similar.py    # regression benchmark valid/invalid và prefix-cache similar
+├── tools/benchmark_semantic_cache.py # regression benchmark semantic cache
 ├── all_vectors.npy               # runtime local, 177321 x 512 float32
 ├── video_index_v2.db             # runtime local, keyframes; hiện chưa có FTS
 ├── video_drive_metadata.json     # runtime local, 873 video → Drive IDs

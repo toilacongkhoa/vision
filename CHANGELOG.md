@@ -697,3 +697,14 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `123e282` (`chore: checkpoint before semantic prefix cache reuse`).
 - Kết quả: **giữ lại** dựa trên phép đo trực tiếp (−99,70%), cold prime và ranking không hồi quy; accuracy guardrail giữ nguyên. Ghi nhận full-suite latency có outlier/độ tin cậy thấp để không dùng số average đó cho vòng sau. `PROJECT_CONTEXT.md` đã cập nhật.
+
+## 2026-09-21 20:37 +07:00 — Vòng tối ưu 63: thêm benchmark semantic cache chuyên biệt
+
+- Thay đổi: thêm `tools/benchmark_semantic_cache.py`, chạy production engine và kiểm tra ba scenario: repeated single-clause, mixed-top-K prefix single-clause, repeated multi-clause/RRF. Tool báo load/cold/warm latency, toàn bộ vector IDs, aggregate pass/fail/error, hỗ trợ text/JSON và exit khác 0 khi fail.
+- Mục tiêu: thay phép đo ad-hoc bằng regression benchmark tái lập cho semantic cache, tách khỏi nhiễu của full 57-case suite; metric chính là coverage scenario tự động và tỷ lệ pass. Runtime không thay đổi.
+- Khám phá sơ bộ: không cần; vòng 62 đã ghi nhận full-suite latency có outlier và lần lặp không hoàn tất, trong khi chưa có tool chuyên biệt cho cache path.
+- Baseline trước thay đổi: 0 scenario tự động chuyên biệt; chỉ có harness thủ công cho repeated/mixed-top-K.
+- Sau: 3 scenario tự động, 3/3 pass, 0 fail/error. Single repeat cold/warm 147,51/0,035 ms; prefix top-50/top-5 70,72/0,037 ms với đúng prefix; multi-clause repeat cold/warm 116,36/0,043 ms với IDs không đổi. Compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `0beaa3e` (`chore: checkpoint before semantic cache benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 3 scenario và tất cả pass. `PROJECT_CONTEXT.md` đã cập nhật danh sách công cụ đo.
