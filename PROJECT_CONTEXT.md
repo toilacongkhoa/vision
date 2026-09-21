@@ -120,7 +120,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 ## Vấn đề ảnh hưởng việc phát triển tiếp
 
 - DB artifact hiện thiếu `ocr_fts`/`asr_fts`: OCR/ASR API và MCP `search_video_evidence` phải dùng fallback scan bằng LIKE qua `/api/v1/search/all`; các term fallback đã được truy vấn song song để giảm latency, nhưng vẫn chậm hơn native FTS. README đang mô tả DB có FTS nhưng repo không còn migration/builder để tạo chúng.
-- Path chưa thống nhất hoàn toàn: config có `DB_PATH` nhưng SQLiteSearchEngine vẫn cố định `DATA_ROOT.parent/video_index_v2.db`; `tools/benchmark_database_config.py` hiện báo 0/1 pass và khóa regression này. MCP cũng cố định DB cạnh `mcp_server.py`. `PORT` không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
+- Path chưa thống nhất hoàn toàn: SQLiteSearchEngine đã tôn trọng `DB_PATH` và có regression benchmark, nhưng MCP vẫn cố định DB cạnh `mcp_server.py`. `PORT` không được MCP/frontend dùng vì API base hard-code `127.0.0.1:8000`/`localhost:8000`; các override tương ứng trong `.env.example` vì vậy chưa hoạt động end-to-end.
 - `.venv` hiện chưa đồng bộ hoàn toàn với requirements pins: `mcp==1.29.1` đã được cài để Agy khởi động được `video-researcher`, nhưng CTranslate2, Transformers, SentencePiece và Sacremoses vẫn cần kiểm tra/cài nếu dùng translator offline. `search_video_evidence` vẫn phụ thuộc các bảng FTS chưa có trong DB.
 - Repo đã xóa toàn bộ script index/migration/import OCR-ASR-object; chưa có pipeline tái tạo `video_index_v2.db`, FTS hay optional `metadata_cache.pkl` từ dữ liệu nguồn.
 - Vector và OpenCLIP vẫn load/warm ngay khi import app. FAISS bị disable tuyệt đối nhưng `faiss-cpu` vẫn được pin; metadata cache được hỗ trợ nhưng không có file/builder trong workspace.
@@ -158,7 +158,7 @@ python -m src.main
 - Swagger: http://localhost:8000/docs
 - Health: http://localhost:8000/api/v1/health
 
-`.env.example` khai báo SUPABASE_URL/KEY (tùy chọn), HOST, PORT, CORS_ORIGINS, DB_PATH, CONSOLIDATED_VECTORS_PATH, DATA_ROOT và AGY_PATH. Hiện nên giữ port 8000 và DB ở project root vì frontend/MCP/engine chưa tôn trọng đầy đủ override. Workspace hiện tại có Agy và MCP entry `video-researcher`; `mcp==1.29.1` đã được cài trong `.venv` và đã xác minh import được 9 tool.
+`.env.example` khai báo SUPABASE_URL/KEY (tùy chọn), HOST, PORT, CORS_ORIGINS, DB_PATH, CONSOLIDATED_VECTORS_PATH, DATA_ROOT và AGY_PATH. Engine/FastAPI đã tôn trọng `DB_PATH`; hiện vẫn nên giữ port 8000 và DB ở project root nếu dùng MCP/frontend vì hai thành phần này chưa tôn trọng đầy đủ override. Workspace hiện tại có Agy và MCP entry `video-researcher`; `mcp==1.29.1` đã được cài trong `.venv` và đã xác minh import được 9 tool.
 
 ## Bước tiếp theo
 

@@ -21,10 +21,15 @@ try:
 except ImportError:
     HAS_FAISS = False
 
-from .config import DATA_ROOT, CONSOLIDATED_VECTORS_PATH, CLIP_MODEL_NAME, CLIP_PRETRAINED
+from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, CLIP_MODEL_NAME, CLIP_PRETRAINED
 
 class SQLiteSearchEngine:
-    def __init__(self, data_root: Path = DATA_ROOT, vectors_path: Path = CONSOLIDATED_VECTORS_PATH):
+    def __init__(
+        self,
+        data_root: Path = DATA_ROOT,
+        vectors_path: Path = CONSOLIDATED_VECTORS_PATH,
+        db_path: Path = DB_PATH,
+    ):
         try:
             torch.set_num_threads(2)
         except Exception:
@@ -32,7 +37,7 @@ class SQLiteSearchEngine:
 
         self.data_root = Path(data_root).resolve()
         self.vectors_path = Path(vectors_path).resolve()
-        self.db_path = str(self.data_root.parent / "video_index_v2.db")
+        self.db_path = str(Path(db_path).resolve())
         
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = None

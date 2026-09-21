@@ -795,3 +795,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm hay runtime; DB chỉ được mở read-only để đo.
 - Checkpoint vòng: `1ac7994` (`chore: checkpoint before database config benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 1 scenario và tool phát hiện đúng lỗi `DB_PATH`. `PROJECT_CONTEXT.md` đã cập nhật tool và trạng thái regression.
+
+## 2026-09-21 21:27 +07:00 — Vòng tối ưu 72: cho SQLite engine tôn trọng DB_PATH
+
+- Thay đổi: import `DB_PATH` từ `src.config`, thêm tham số constructor `db_path` và resolve path này trong `SQLiteSearchEngine`; không còn suy DB từ `DATA_ROOT.parent`.
+- Mục tiêu: làm `.env`/config override hoạt động cho FastAPI engine và cho phép caller truyền DB tường minh; metric chính là pass/path/count của benchmark DB config.
+- Khám phá sơ bộ: không cần; benchmark vòng 71 đã cô lập constructor engine là điểm bỏ qua config.
+- Benchmark/tool: `.venv\Scripts\python.exe tools\benchmark_database_config.py --json`, cùng env override trước/sau. Guardrail: `tools\benchmark_similar.py --vector-id 0 --top-k 5 --json` và compile `src/tools`.
+  - Trước: 0/1 pass, 1 fail/error; engine path trỏ temp, row count `null`, benchmark exit 1.
+  - Sau: 1/1 pass, 0 fail/error; configured path và engine path cùng trỏ DB thật, row count 177.321, benchmark exit 0.
+  - Guardrail similar-by-vector: 4/4 scenario pass, 0 fail/error; valid top vector `0`, prefix-cache IDs đúng; compile exit 0.
+- Sửa phụ: không có. Không sửa file cấm; benchmark chỉ query DB read-only.
+- Checkpoint vòng: `e24ae7e` (`chore: checkpoint before DB_PATH engine fix`).
+- Kết quả: **giữ lại** vì correctness tăng 0/1 → 1/1 và guardrail không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật config behavior, run note và vấn đề còn lại.
