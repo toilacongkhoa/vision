@@ -967,3 +967,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `61bc5bf` (`chore: checkpoint before operator search benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0→4 scenario, ba contract đang hoạt động được khóa và thiếu smart control được báo đỏ chính xác. `PROJECT_CONTEXT.md` đã cập nhật công cụ/cách chạy và trạng thái 3/4.
+
+## 2026-09-22 20:19 +07:00 — Vòng tối ưu 85: cho operator chọn Smart Hybrid trong UI
+
+- Query type/luồng thi: UI/operator thủ công cho KIS/Q&A/TRAKE. Cổng tác động nhắm đưa production smart 8/57 tới luồng thao tác thi, chuyển operator workflow fail→pass mà không đổi semantic mặc định; benchmark quyết định là `tools/benchmark_operator_search.py`. Human-in-the-loop đã được BTC xác nhận; nếu không làm, operator bị giới hạn ở semantic 2/57 hoặc phải gọi API ngoài UI.
+- Khám phá sơ bộ: không cần; vòng 84 đã cô lập duy nhất dropdown `#searchMode` thiếu option, trong khi dynamic request wiring và API smart đều pass.
+- Thay đổi/vị trí/mục đích: thêm một option `value="smart"` với nhãn `Smart Hybrid (Semantic + ASR)` trong `frontend/index.html`; semantic vẫn selected mặc định. Không đổi JavaScript request, API, retrieval, model/index hay submission.
+- Benchmark/config quyết định: `.venv\Scripts\python.exe tools\benchmark_operator_search.py --json`, cùng frontend và production schema/route stub trước/sau.
+  - Trước: 3/4 scenario pass, 1 fail, 0 error, elapsed 16.755,91 ms; `frontend_smart_mode` thiếu `smart`; wiring, schema và routing/output `TEST_V001,123` pass.
+  - Sau: 4/4 scenario pass, 0 fail/error, elapsed 45.947,79 ms; đủ semantic/smart/OCR/ASR, missing `[]`; wiring, schema và routing/output vẫn pass.
+  - Operator correctness chuyển fail→pass. Production accuracy/rank giữ theo backend không đổi: smart 8/57, R@5/10/50 = 3/4/8, MRR 0,0232, bảo toàn 2/2 semantic hit. Retrieval TTFC/p50/p95 không đo lại vì vòng chỉ thêm HTML option; benchmark elapsed bị import OpenCLIP chi phối và không dùng làm latency thi.
+- Guardrail/output correctness: mode gửi động từ dropdown tới `/api/v1/search`; API response giữ `mode='smart'`, `total_results=1`, đúng `video_id/frame_idx`; compile `src/tools` exit 0.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `0e84fa0` (`chore: checkpoint before exposing smart operator mode`).
+- Kết quả: **giữ lại** vì lỗi phá luồng operator chuyển fail→pass và mọi contract/output guardrail giữ nguyên. `PROJECT_CONTEXT.md` đã cập nhật trạng thái frontend và benchmark 4/4.
