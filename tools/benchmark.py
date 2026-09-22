@@ -85,6 +85,62 @@ def first_matching_rank(
     return None
 
 
+def find_ordered_trake_sequence(
+    expected: List[Tuple[str, int]],
+    event_results: List[List[Dict[str, Any]]],
+    fps_map: Dict[str, float],
+    tolerance_seconds: float,
+) -> Optional[List[Dict[str, Any]]]:
+    """Select one location match per event in a shared video and time order."""
+    if not expected or len(event_results) != len(expected):
+        return None
+    expected_videos = {video_id for video_id, _ in expected}
+    if len(expected_videos) != 1:
+        return None
+
+    paths: List[Tuple[List[int], List[Dict[str, Any]]]] = []
+    for rank, result in enumerate(event_results[0], start=1):
+        try:
+            returned = pair(result)
+        except (TypeError, ValueError):
+            continue
+        if within_time_tolerance(expected[0], returned, fps_map, tolerance_seconds):
+            paths.append(([rank], [result]))
+
+    for event_index in range(1, len(expected)):
+        next_paths: List[Tuple[List[int], List[Dict[str, Any]]]] = []
+        for rank, result in enumerate(event_results[event_index], start=1):
+            try:
+                returned_video, returned_frame = pair(result)
+            except (TypeError, ValueError):
+                continue
+            if not within_time_tolerance(
+                expected[event_index],
+                (returned_video, returned_frame),
+                fps_map,
+                tolerance_seconds,
+            ):
+                continue
+            compatible = [
+                (ranks, selected)
+                for ranks, selected in paths
+                if pair(selected[-1])[0] == returned_video
+                and pair(selected[-1])[1] < returned_frame
+            ]
+            if compatible:
+                ranks, selected = min(
+                    compatible,
+                    key=lambda item: (max(item[0]), sum(item[0]), item[0]),
+                )
+                next_paths.append((ranks + [rank], selected + [result]))
+        paths = next_paths
+        if not paths:
+            return None
+
+    _, selected = min(paths, key=lambda item: (max(item[0]), sum(item[0]), item[0]))
+    return selected
+
+
 def percentile(values: Iterable[float], percentile_value: float) -> Optional[float]:
     """Return a linearly interpolated percentile without adding dependencies."""
     ordered = sorted(float(value) for value in values)
@@ -163,8 +219,10 @@ def benchmark_case(
         events = split_trake_events(case["query"])
         event_hits: List[bool] = []
         event_ranks: List[Optional[int]] = []
+        event_results: List[List[Dict[str, Any]]] = []
         for event_index, event in enumerate(events):
             results = search(event)
+            event_results.append(results)
             rank = (
                 first_matching_rank(expected[event_index], results, fps_map, tolerance_seconds)
                 if event_index < len(expected)
@@ -172,7 +230,19 @@ def benchmark_case(
             )
             event_ranks.append(rank)
             event_hits.append(rank is not None)
-        correct = len(event_hits) == len(expected) and all(event_hits)
+        sequence = find_ordered_trake_sequence(
+            expected,
+            event_results[: len(expected)],
+            fps_map,
+            tolerance_seconds,
+        )
+        selected_pairs = [pair(result) for result in sequence] if sequence else []
+        same_video = bool(selected_pairs) and len({video_id for video_id, _ in selected_pairs}) == 1
+        ordered_sequence = same_video and all(
+            selected_pairs[index - 1][1] < selected_pairs[index][1]
+            for index in range(1, len(selected_pairs))
+        )
+        correct = len(selected_pairs) == len(expected) and ordered_sequence
         target_ranks = event_ranks[: len(expected)]
         target_ranks.extend([None] * (len(expected) - len(target_ranks)))
         elapsed_ms = (time.perf_counter() - started) * 1000
@@ -183,6 +253,9 @@ def benchmark_case(
             "event_hits": event_hits,
             "event_ranks": target_ranks,
             "expected_events": expected,
+            "selected_sequence": selected_pairs,
+            "same_video": same_video,
+            "ordered_sequence": ordered_sequence,
             "elapsed_ms": elapsed_ms,
             "time_to_first_correct_ms": elapsed_ms if correct else None,
         }
@@ -270,7 +343,10 @@ def main() -> int:
         status = "OK" if record["correct"] else "MISS"
         elapsed = "error" if record["elapsed_ms"] is None else f"{record['elapsed_ms']:.1f} ms"
         if case["type"] == "TRAKE":
-            rank_label = f"event_ranks={record.get('event_ranks')}"
+            rank_label = (
+                f"event_ranks={record.get('event_ranks')} "
+                f"sequence={record.get('selected_sequence')}"
+            )
         else:
             rank_label = f"rank={record.get('location_rank')}"
         print(f"[{index}/{len(cases)}] {case['type']:<5} {status:<4} {elapsed} {rank_label} {case['id']}")

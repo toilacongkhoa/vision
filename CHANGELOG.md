@@ -856,3 +856,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Guardrail/sửa phụ: không sửa runtime, benchmark hay file cấm; không có guardrail cần chạy lại. `translation_cache.db` chỉ được đọc để đếm/match.
 - Checkpoint: không tạo vì không có thay đổi chính thức sau khám phá.
 - Kết quả: **không triển khai / không có gì để rollback**. `PROJECT_CONTEXT.md` cập nhật nút thắt translation. Chuỗi dừng để tránh mở vòng ngoài phạm vi; bước có bằng chứng tiếp theo cần quyền gửi query sang dịch vụ dịch bên thứ ba hoặc quyết định/download một model offline mới sau thử nghiệm được phê duyệt.
+
+## 2026-09-22 13:24 +07:00 — Vòng tối ưu 77: chấm đúng chuỗi TRAKE cùng video và đúng thứ tự
+
+- Query type/luồng thi: TRAKE cho cả operator thủ công và agent tự động; vòng P0 chỉ sửa benchmark. Cổng tác động xác định metric sequence correctness cũ có thể pass nhiều event bằng cùng một frame nằm trong tolerance, nên có nguy cơ giữ nhầm runtime trả submission TRAKE sai.
+- Thay đổi: cập nhật `tools/benchmark.py` để giữ event-rank độc lập nhưng chỉ đánh dấu TRAKE đúng khi chọn được một candidate cho mỗi event, tất cả cùng video và `frame_idx` tăng nghiêm ngặt. Báo thêm `selected_sequence`, `same_video`, `ordered_sequence`. Thêm `tools/benchmark_trake_sequence.py` với ba scenario ordered/duplicate-frame/reverse-order.
+- Benchmark/config quyết định: `.venv\Scripts\python.exe tools\benchmark.py --top-k 50`, đủ 57 case, tolerance ±150 giây; smoke/scenario tổng hợp dùng FPS 1 và cùng tolerance. Không sửa runtime hoặc file cấm.
+  - Trước: KIS 1/39, Q&A hoàn chỉnh 1/16 (location 1/16, text-answer evidence 6/16), TRAKE 0/2 với 0/8 event hit, tổng 2/57; R@1/5/10/50 = 0/1/2/2 trên 63 target, MRR 0,0079; latency average 392,24 ms, p50/p95 332,49/943,63 ms, TTFC p50/p95 742,05/1.119,89 ms; 0 lỗi. Smoke lỗi cho thấy một frame `V1:150` được dùng cho cả E1 và E2 vẫn trả `correct=True`.
+  - Sau: accuracy/rank không đổi: KIS 1/39, Q&A 1/16, TRAKE 0/2 với 0/8 event hit, tổng 2/57; R@1/5/10/50 = 0/1/2/2, MRR 0,0079; latency average 572,90 ms, p50/p95 226,66/411,09 ms, TTFC p50/p95 329,52/365,12 ms; 0 lỗi. Average bị kéo bởi outlier request đầu 20.560,4 ms và không dùng làm kết luận vì runtime không đổi.
+  - Correctness mới: coverage tự động 0 → 3 scenario; 3/3 pass. Chuỗi `100 → 200` pass; dùng trùng frame `150 → 150` và đảo `200 → 100` đều fail dù event-rank riêng vẫn là `[1, 1]`.
+- Guardrail: `tools/benchmark_semantic_cache.py --top-k 5 --json` đạt 3/3 scenario, 0 lỗi; compile hai benchmark exit 0. Sáu guardrail chuẩn bị đều pass: semantic 3/3, similar 4/4, fuzzy 5/5, image 2/2, runtime paths 2/2, database config 2/2.
+- Sửa phụ: không có. Benchmark UI/operator/submission chưa tồn tại, vì vậy không mở tối ưu P5.
+- Checkpoint vòng: `badcd8d` (`chore: checkpoint before TRAKE sequence benchmark fix`).
+- Kết quả: **giữ lại** vì lỗi chấm phá tính đúng đắn chuyển fail → pass trong 3/3 scenario, accuracy/rank production không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật benchmark và tiêu chí TRAKE.
