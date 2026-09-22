@@ -939,3 +939,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa UI/MCP, model/index, artifact dữ liệu hoặc file cấm.
 - Checkpoint vòng: `fa75802` (`chore: checkpoint before smart fusion branch pruning`).
 - Kết quả: **giữ lại** vì metric thi chính accuracy/rank tốt hơn rõ ràng, TTFC/p95 tốt hơn, bảo toàn 2/2 semantic hit và mọi guardrail đều pass. `PROJECT_CONTEXT.md` đã cập nhật production smart thành semantic+ASR và số đo mới.
+
+## 2026-09-22 20:09 +07:00 — Vòng tối ưu 83: consensus-head fusion bảo toàn rank đầu và mở rộng ASR recall
+
+- Query type/luồng thi: KIS/Q&A/TRAKE retrieval qua production `smart_search` cho operator/API và agent. Cổng tác động: tăng full-case accuracy, Recall@10/@50 và MRR mà vẫn giữ rank đầu cùng 2/2 semantic hit; benchmark quyết định là full `tools/benchmark_multimodal.py`; fusion semantic–ASR trực tiếp thuộc retrieval multimedia Chung kết; nếu không làm, RRF hiện chỉ đạt 6/57 dù nhánh ASR riêng có 7/57 và tiếp tục bỏ candidate đúng.
+- Khám phá sơ bộ read-only, đủ 57 case/63 target: ASR-only đạt 7/57 nhưng mất 2/2 semantic hit; interleave bằng RRF; semantic-head 10 + ASR đạt 8/57 nhưng R@5/MRR giảm. Biến thể được chọn xếp 5 RRF consensus đầu, tối đa 10 semantic candidate đầu chưa trùng rồi điền ASR: 8/57, R@5/10/50 = 3/4/8, MRR 0,0232, giữ 2/2 semantic hit. Các head 5/10/15 và thứ tự nhánh khác đều không tốt hơn đồng thời ở accuracy/rank/preservation.
+- Thay đổi/vị trí/mục đích: thêm `_fuse_smart_candidates()` trong `src/sqlite_engine.py` và dùng riêng trong `SQLiteSearchEngine.smart_search`. Hàm loại trùng theo cùng result key và giữ tối đa `top_k`; không đổi query reducer, semantic/ASR retrieval, model, index, API hay mode semantic mặc định.
+- Benchmark/config quyết định: `.venv\Scripts\python.exe tools\benchmark_multimodal.py --strategies semantic hybrid --top-k 50 --max-lexical-terms 6 --json`, full 57 case, tolerance ±150 giây, engine tách biệt.
+  - Trước, smart RRF: 6/57; R@1/5/10/50 = 0/3/3/6, MRR 0,0219; p50/p95 1.261,78/2.017,50 ms; TTFC p50/p95 1.305,80/1.521,00 ms; wall 77,11 giây; 0 lỗi; bảo toàn 2/2 semantic hit.
+  - Sau, consensus-head: 8/57; R@1/5/10/50 = 0/3/4/8, MRR 0,0232; p50/p95 1.668,71/2.658,09 ms; TTFC p50/p95 1.569,98/2.108,41 ms; wall 103,19 giây; 0 lỗi; bảo toàn 2/2 semantic hit, missing `[]`.
+  - Tác động chính: correctness +2 (+33,3%), R@10 +1, R@50 +2, MRR +6,1%; R@5 giữ nguyên. Lượt sau có p50/p95 tăng 32,3%/31,8% và TTFC tăng 20,2%/38,6%; thay đổi không thêm lượt retrieval nhưng tradeoff end-to-end được ghi nhận. Theo nguyên tắc mục 13, candidate đúng/rank tốt hơn được ưu tiên hơn số latency đẹp hơn.
+- Guardrail/output correctness: semantic control giữ 2/57, R@1/5/10/50 = 0/1/2/2, MRR 0,0079; semantic cache 3/3, fuzzy cache 5/5, Q&A evidence 3/3, TRAKE sequence 3/3, compile `src/tools` exit 0. ID/frame/answer/sequence và semantic-hit preservation không hồi quy.
+- Sửa phụ: không có. Không sửa UI/MCP, model/index, artifact dữ liệu hoặc file cấm.
+- Checkpoint vòng: `ecab88a` (`chore: checkpoint before consensus-head smart fusion`).
+- Kết quả: **giữ lại** vì accuracy/rank thi chính cải thiện rõ, bảo toàn toàn bộ semantic hit và guardrail pass; chấp nhận tradeoff latency theo ưu tiên candidate đúng của plan. `PROJECT_CONTEXT.md` đã cập nhật fusion strategy và số đo production smart.

@@ -71,6 +71,30 @@ def _fuse_rrf(
     ordered = sorted(scores, key=lambda key: scores[key], reverse=True)[:top_k]
     return [{**items[key], "score": scores[key]} for key in ordered]
 
+
+def _fuse_smart_candidates(
+    semantic: List[Dict[str, Any]],
+    asr: List[Dict[str, Any]],
+    top_k: int,
+) -> List[Dict[str, Any]]:
+    """Keep cross-modal consensus first, then protect semantic and ASR recall."""
+    consensus = _fuse_rrf((semantic, asr), top_k)
+    ordered: List[Dict[str, Any]] = []
+    seen = set()
+    for branch in (consensus[:5], semantic[:10], asr):
+        for item in branch:
+            try:
+                key = _result_key(item)
+            except (TypeError, ValueError):
+                continue
+            if key in seen:
+                continue
+            seen.add(key)
+            ordered.append(item)
+            if len(ordered) >= top_k:
+                return ordered
+    return ordered
+
 try:
     import faiss
     HAS_FAISS = True
@@ -854,4 +878,4 @@ class SQLiteSearchEngine:
             top_k=top_k,
             video_id_filter=video_id_filter,
         )
-        return _fuse_rrf((semantic, asr), top_k)
+        return _fuse_smart_candidates(semantic, asr, top_k)
