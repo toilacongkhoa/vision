@@ -981,3 +981,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `0e84fa0` (`chore: checkpoint before exposing smart operator mode`).
 - Kết quả: **giữ lại** vì lỗi phá luồng operator chuyển fail→pass và mọi contract/output guardrail giữ nguyên. `PROJECT_CONTEXT.md` đã cập nhật trạng thái frontend và benchmark 4/4.
+
+## 2026-09-22 20:31 +07:00 — Vòng tối ưu 86: thăm dò heuristic chọn token ASR online-safe
+
+- Query type/luồng thi dự kiến: KIS/Q&A/TRAKE smart retrieval cho operator và agent, tập trung nhánh ASR. Cổng tác động nhắm tăng accuracy/Recall@K/MRR so với reducer lấy 6 token đầu; benchmark quyết định dự kiến là full `tools/benchmark_multimodal.py`; ASR/multimedia retrieval thuộc trực tiếp định hướng Chung kết; nếu không cải thiện reducer, các từ khóa phân biệt ở cuối query có thể bị bỏ và candidate đúng bị mất.
+- Khám phá read-only: trên 20 case đầu theo thứ tự dataset, top-K 50, tolerance ±150 giây, cùng production ASR fallback; so sánh năm reducer không dùng answer/label/corpus statistics: first-6 hiện tại, last-6, longest-6, first-3+last-3 và length-with-position. Không sửa source hoặc file cấm.
+  - First-6: 2 case đúng; R@1/5/10/50 = 1/1/1/2, MRR 0,0446, 0 lỗi.
+  - Last-6: 1 case đúng; R@1/5/10/50 = 0/1/1/3, MRR 0,0127, 0 lỗi.
+  - Longest-6: 1 case đúng; R@1/5/10/50 = 1/1/1/1, MRR 0,0435, 0 lỗi.
+  - First-3+last-3: 2 case đúng; R@1/5/10/50 = 0/0/1/3, MRR 0,0087, 0 lỗi.
+  - Length-with-position: 1 case đúng; R@1/5/10/50 = 1/1/1/1, MRR 0,0435, 0 lỗi.
+- Benchmark/baseline chính thức: không chuyển sang Bước 4 vì không hướng nào cải thiện đồng thời full correctness và rank đầu trên mẫu. Edge reducer tăng R@50 nhưng làm R@5 1→0 và MRR giảm 80,5%; các hướng còn lại giảm case đúng.
+- Guardrail/output correctness: tất cả ablation 0 error; chỉ gọi engine production và đọc dataset/DB read-only. Runtime, UI, API, benchmark và file cấm không thay đổi.
+- Sửa phụ: không có. Không tạo checkpoint vì dừng ở Bước 3 trước thay đổi chính thức.
+- Kết quả: **không triển khai / không có gì để rollback**. First-6 hiện tại tiếp tục được giữ; `PROJECT_CONTEXT.md` không cập nhật vì kiến trúc/workflow/cách chạy không đổi.
