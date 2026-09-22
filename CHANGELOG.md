@@ -869,3 +869,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Benchmark UI/operator/submission chưa tồn tại, vì vậy không mở tối ưu P5.
 - Checkpoint vòng: `badcd8d` (`chore: checkpoint before TRAKE sequence benchmark fix`).
 - Kết quả: **giữ lại** vì lỗi chấm phá tính đúng đắn chuyển fail → pass trong 3/3 scenario, accuracy/rank production không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật benchmark và tiêu chí TRAKE.
+
+## 2026-09-22 13:30 +07:00 — Vòng tối ưu 78: ràng buộc Q&A answer evidence với location đúng
+
+- Query type/luồng thi: Q&A/VQA cho operator thủ công và agent tự động; vòng P0 chỉ sửa benchmark. Cổng tác động xác định phép chấm cũ có thể lấy location đúng từ một candidate và `text_answer` từ candidate/video khác rồi ghép thành full Q&A đúng.
+- Thay đổi: cập nhật `tools/benchmark.py` để chỉ tìm answer evidence trong các result khớp đúng `video_id` và cửa sổ thời gian của location. Output giữ alias `text_correct` để tương thích nhưng báo metric rõ nghĩa `answer_evidence_correct`/`answer_evidence`; đây là proxy evidence của retrieval, không phải câu trả lời do model sinh. Thêm `tools/benchmark_qa_evidence.py` với ba scenario aligned/disconnected/evidence-without-location.
+- Benchmark/config quyết định: `.venv\Scripts\python.exe tools\benchmark.py --top-k 50`, đủ 57 case, tolerance ±150 giây; regression tổng hợp dùng tolerance 0 giây để cô lập phép chấm. Không sửa runtime hoặc file cấm.
+  - Trước: KIS 1/39; Q&A hoàn chỉnh 1/16, location 1/16, metric gắn nhãn `text_answer` 6/16; TRAKE 0/2, tổng 2/57. R@1/5/10/50 = 0/1/2/2 trên 63 target, MRR 0,0079; latency average 245,63 ms, p50/p95 245,74/458,31 ms, TTFC p50/p95 381,96/396,80 ms; 0 lỗi. Case tổng hợp có location `V1:100` không chứa answer và candidate `V2:999` chứa answer vẫn trả `correct=True`.
+  - Sau: KIS 1/39; Q&A hoàn chỉnh 1/16, location 1/16, `answer_evidence` đúng tại location 1/16; TRAKE 0/2, tổng 2/57. Rank giữ nguyên R@1/5/10/50 = 0/1/2/2, MRR 0,0079; latency average 600,96 ms, p50/p95 214,05/499,24 ms, TTFC p50/p95 447,11/492,61 ms; 0 lỗi. Average có outlier request đầu 20.566,2 ms và không dùng làm kết luận vì runtime không đổi.
+  - Correctness mới: coverage tự động 0 → 3 scenario; 3/3 pass. Evidence cùng location pass; evidence ở video khác và evidence không có location đều fail. Số evidence proxy 6 → 1 phản ánh loại bỏ 5 positive không gắn với location; full Q&A accuracy không đổi 1/16.
+- Guardrail: TRAKE sequence 3/3 pass; semantic cache 3/3 pass; compile benchmark và regression exit 0. ID/frame/rank production không đổi.
+- Sửa phụ: không có. Không sửa file cấm.
+- Checkpoint vòng: `5f5f6d9` (`chore: checkpoint before Q&A evidence scoring fix`).
+- Kết quả: **giữ lại** vì lỗi benchmark tổng hợp chuyển pass sai → fail đúng, aligned evidence vẫn pass, và accuracy/rank production không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật ngữ nghĩa metric và benchmark regression.

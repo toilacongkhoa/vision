@@ -85,6 +85,24 @@ def first_matching_rank(
     return None
 
 
+def matching_location_results(
+    expected: Tuple[str, int],
+    results: Iterable[Dict[str, Any]],
+    fps_map: Dict[str, float],
+    tolerance_seconds: float,
+) -> List[Dict[str, Any]]:
+    """Return only results that match the expected video and time window."""
+    matches: List[Dict[str, Any]] = []
+    for result in results:
+        try:
+            returned = pair(result)
+        except (TypeError, ValueError):
+            continue
+        if within_time_tolerance(expected, returned, fps_map, tolerance_seconds):
+            matches.append(result)
+    return matches
+
+
 def find_ordered_trake_sequence(
     expected: List[Tuple[str, int]],
     event_results: List[List[Dict[str, Any]]],
@@ -264,8 +282,15 @@ def benchmark_case(
     results = search(case["query"])
     location_rank = first_matching_rank(expected, results, fps_map, tolerance_seconds)
     location_correct = location_rank is not None
-    text_correct = text_answer_matches(answer.get("text_answer"), results) if case_type == "QA" else None
-    correct = location_correct and (text_correct if text_correct is not None else True)
+    location_results = matching_location_results(expected, results, fps_map, tolerance_seconds)
+    answer_evidence_correct = (
+        text_answer_matches(answer.get("text_answer"), location_results)
+        if case_type == "QA"
+        else None
+    )
+    correct = location_correct and (
+        answer_evidence_correct if answer_evidence_correct is not None else True
+    )
     elapsed_ms = (time.perf_counter() - started) * 1000
     return {
         "id": case["id"],
@@ -273,7 +298,8 @@ def benchmark_case(
         "correct": correct,
         "location_correct": location_correct,
         "location_rank": location_rank,
-        "text_correct": text_correct,
+        "text_correct": answer_evidence_correct,
+        "answer_evidence_correct": answer_evidence_correct,
         "expected": expected,
         "elapsed_ms": elapsed_ms,
         "time_to_first_correct_ms": elapsed_ms if correct else None,
@@ -366,8 +392,13 @@ def main() -> int:
         details = ""
         if case_type == "QA":
             location_correct = sum(bool(record.get("location_correct")) for record in group)
-            text_correct = sum(bool(record.get("text_correct")) for record in group)
-            details = f", location {location_correct}/{len(group)}, text_answer {text_correct}/{len(group)}"
+            answer_evidence_correct = sum(
+                bool(record.get("answer_evidence_correct")) for record in group
+            )
+            details = (
+                f", location {location_correct}/{len(group)}, "
+                f"answer_evidence {answer_evidence_correct}/{len(group)}"
+            )
         if case_type == "TRAKE":
             event_targets = [rank for record in group for rank in rank_targets(record)]
             event_hits = sum(rank is not None for rank in event_targets)
