@@ -995,3 +995,15 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Guardrail/output correctness: tất cả ablation 0 error; chỉ gọi engine production và đọc dataset/DB read-only. Runtime, UI, API, benchmark và file cấm không thay đổi.
 - Sửa phụ: không có. Không tạo checkpoint vì dừng ở Bước 3 trước thay đổi chính thức.
 - Kết quả: **không triển khai / không có gì để rollback**. First-6 hiện tại tiếp tục được giữ; `PROJECT_CONTEXT.md` không cập nhật vì kiến trúc/workflow/cách chạy không đổi.
+
+## 2026-09-22 20:40 +07:00 — Vòng tối ưu 87: xác nhận độ tin cậy benchmark agent end-to-end
+
+- Query type/luồng thi dự kiến: agent tự động cho KIS/Q&A/TRAKE. Cổng tác động P0 nhắm xác nhận `tools/benchmark_chatbot.py` có thể chấm final candidate/answer, latency và error trước khi cân nhắc nối production smart vào MCP/prompt. Hình thức tự động được BTC công bố thử nghiệm; nếu benchmark không đáng tin, thay đổi agent có thể chỉ gọi được tool nhưng output cuối vẫn sai.
+- Chuẩn bị môi trường/readiness: `agy 1.2.7` tồn tại; MCP `video-researcher` enabled với đúng Python/workspace; FastAPI local khởi động thành công; Agy flash/pro đều báo ready; `/api/v1/chat` trả HTTP 200. Server test PID 25804 đã được dừng sau benchmark và health không còn lắng nghe port 8000.
+- Benchmark/config khám phá: `.venv\Scripts\python.exe tools\benchmark_chatbot.py --api-url http://127.0.0.1:8000 --limit 1 --timeout 180`, sau đó lặp warm với `--limit 3`; dataset/fps/tolerance mặc định ±150 giây.
+  - Smoke 1 case: 0/1 đúng, 0 candidate parse được, 0 error, 60.960,38 ms; usage/cost unavailable.
+  - Smoke 3 case: 0/3 đúng, location 0/3, 0/3 candidate parse được; average 40.525,61 ms; case đầu lỗi sau 108,0 ms, hai case còn lại 60.638,0/60.830,8 ms; error rate 1/3 (33,3%); usage/cost unavailable.
+- Benchmark/baseline chính thức: không chuyển sang Bước 4 vì output cuối không quan sát được candidate trên cả ba case và có lỗi SSE dù HTTP 200. Không thể dùng số 0/3 để kết luận chất lượng retrieval hoặc tác động của smart MCP.
+- Guardrail/output correctness: server/model/MCP startup pass nhưng final output contract/candidate extraction fail 0/3; đây là lý do dừng, không phải bằng chứng để sửa prompt/tool trong cùng vòng.
+- Sửa phụ: không có. Không sửa runtime, MCP, prompt, benchmark hoặc file cấm; không tạo checkpoint vì dừng trước thay đổi chính thức.
+- Kết quả: **không triển khai / không có gì để rollback**. Theo điều kiện mục 11, benchmark thi tự động chưa đủ tin cậy nên không mở vòng tối ưu agent runtime. `PROJECT_CONTEXT.md` đã cập nhật trạng thái benchmark và điều kiện cần trước khi tiếp tục P4.
