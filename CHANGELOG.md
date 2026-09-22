@@ -882,3 +882,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa file cấm.
 - Checkpoint vòng: `5f5f6d9` (`chore: checkpoint before Q&A evidence scoring fix`).
 - Kết quả: **giữ lại** vì lỗi benchmark tổng hợp chuyển pass sai → fail đúng, aligned evidence vẫn pass, và accuracy/rank production không hồi quy. `PROJECT_CONTEXT.md` đã cập nhật ngữ nghĩa metric và benchmark regression.
+
+## 2026-09-22 13:42 +07:00 — Vòng tối ưu 79: thăm dò hybrid semantic/OCR/ASR
+
+- Query type/luồng thi dự kiến: KIS/Q&A retrieval, làm nguồn candidate cho TRAKE và agent. Cổng tác động nhắm Recall@5/10/50 và MRR vì semantic baseline chỉ có 2/63 target trong top-50.
+- Khám phá read-only: hướng dùng nguyên mô tả dài cho OCR bị dừng sau hơn 3 phút chưa hoàn tất nhánh, nên bị loại vì không phù hợp time-to-first-correct. Thử nghiệm nhỏ tiếp theo chọn tối đa 6 token bằng document-frequency trên query dataset, không dùng answer/label, rồi gọi các nhánh production semantic/OCR/ASR; RRF dùng công thức `1/(60 + rank)`.
+- Ablation mẫu 14/57 case, 20 target: semantic 0 hit; OCR IDF-6 có 1 hit ở top-5, MRR 0,0500; ASR IDF-6 có 2 hit top-50, MRR 0,0023; RRF hybrid có 1 hit top-5, MRR 0,0250. Kết quả đủ để tiếp tục full-suite nhưng cho thấy RRF có thể làm mất hit riêng của ASR.
+- Ablation full 57 case/63 target, tolerance ±150 giây, top-K 50:
+  - Semantic: 2/57 đúng; R@1/5/10/50 = 0/1/2/2, MRR 0,0079; wall 15,73 giây.
+  - OCR IDF-6: 3/57 đúng; R@1/5/10/50 = 3/3/3/3, MRR 0,0476; wall 85,10 giây.
+  - ASR IDF-6: 11/57 đúng; R@1/5/10/50 = 5/8/8/14, MRR 0,0997; wall 57,33 giây.
+  - RRF hybrid: 8/57 đúng; R@1/5/10/50 = 2/7/7/9, MRR 0,0622; các nhánh đã warm/cache nên wall 0,03 giây không được dùng làm kết luận latency.
+- Guardrail/output correctness: ablation chỉ đọc file cấm và gọi engine production; không sửa runtime, benchmark hay artifact dữ liệu. Full semantic khớp chính xác baseline 2/57 và rank metrics hiện hành. Lượt full-query bị dừng chủ động, không crash hệ thống.
+- Sửa phụ: không có. Không tạo checkpoint vì hướng dừng ở Bước 3 trước thay đổi chính thức.
+- Kết quả: **không triển khai / không có gì để rollback**. Có bằng chứng mạnh rằng query reduction + ASR/OCR tăng recall, nhưng chưa có benchmark tái lập khóa query reduction, fusion và bảo toàn từng hit semantic. Theo điều kiện benchmark chưa đủ tin cậy, vòng kế tiếp chỉ được tạo benchmark P0 cho hybrid, chưa sửa runtime. `PROJECT_CONTEXT.md` không cập nhật vì kiến trúc/API/workflow chưa đổi.
