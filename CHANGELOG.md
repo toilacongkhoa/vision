@@ -896,3 +896,19 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Guardrail/output correctness: ablation chỉ đọc file cấm và gọi engine production; không sửa runtime, benchmark hay artifact dữ liệu. Full semantic khớp chính xác baseline 2/57 và rank metrics hiện hành. Lượt full-query bị dừng chủ động, không crash hệ thống.
 - Sửa phụ: không có. Không tạo checkpoint vì hướng dừng ở Bước 3 trước thay đổi chính thức.
 - Kết quả: **không triển khai / không có gì để rollback**. Có bằng chứng mạnh rằng query reduction + ASR/OCR tăng recall, nhưng chưa có benchmark tái lập khóa query reduction, fusion và bảo toàn từng hit semantic. Theo điều kiện benchmark chưa đủ tin cậy, vòng kế tiếp chỉ được tạo benchmark P0 cho hybrid, chưa sửa runtime. `PROJECT_CONTEXT.md` không cập nhật vì kiến trúc/API/workflow chưa đổi.
+
+## 2026-09-22 13:54 +07:00 — Vòng tối ưu 80: thêm benchmark multimodal và semantic-hit preservation
+
+- Query type/luồng thi: KIS/Q&A/TRAKE retrieval cho operator thủ công và agent tự động; vòng P0 chỉ tạo benchmark vì vòng 79 chứng minh multimodal có tiềm năng nhưng chưa có phép đo tái lập.
+- Thay đổi: thêm `tools/benchmark_multimodal.py`. Tool chạy semantic, OCR, ASR và reference RRF hybrid trên engine mới riêng cho từng strategy; lexical query dùng stopword tĩnh và tối đa 6 token duy nhất theo thứ tự, không dùng answer hoặc corpus-IDF. Báo correctness, rank từng target, Recall@1/5/10/50, MRR, p50/p95, TTFC, error, wall time và semantic-hit preservation.
+- Baseline trước khi có tool: 0 strategy/scenario multimodal tự động; `tools/benchmark.py --top-k 50` semantic đạt KIS 1/39, Q&A 1/16 (location/evidence 1/16), TRAKE 0/2, tổng 2/57; R@1/5/10/50 = 0/1/2/2 trên 63 target, MRR 0,0079; average 260,71 ms, p50/p95 246,50/513,57 ms, TTFC p50/p95 516,94/623,88 ms; 0 lỗi.
+- Sau, benchmark/config `.venv\Scripts\python.exe tools\benchmark_multimodal.py --top-k 50 --max-lexical-terms 6`, đủ 57 case, tolerance ±150 giây, engine tách biệt:
+  - Semantic: 2/57; R@1/5/10/50 = 0/1/2/2, MRR 0,0079; p50/p95 277,43/606,15 ms; TTFC p50/p95 481,17/509,19 ms; wall 33,76 giây; 0 lỗi.
+  - OCR: 0/57; R@1/5/10/50 = 0/0/0/0, MRR 0; p50/p95 542,78/1.785,94 ms; TTFC unavailable; wall 39,68 giây; 0 lỗi.
+  - ASR: 7/57; R@1/5/10/50 = 2/2/3/7, MRR 0,0358; p50/p95 701,80/950,97 ms; TTFC p50/p95 718,08/837,21 ms; wall 43,95 giây; 0 lỗi.
+  - Reference hybrid: 5/57; R@1/5/10/50 = 0/2/3/5, MRR 0,0144; p50/p95 1.528,98/2.414,43 ms; TTFC p50/p95 1.590,92/1.690,93 ms; wall 93,61 giây; 0 lỗi. Bảo toàn 2/2 semantic target, missing `[]`.
+  - Coverage tăng 0 → 4 strategy; smoke 3 case và full 57 case đều exit 0. Lượt full xác nhận giữ đúng cùng accuracy/rank của lượt đầu (semantic 2, OCR 0, ASR 7, hybrid 5; preservation 2/2).
+- Guardrail: Q&A evidence 3/3, TRAKE sequence 3/3, semantic cache 3/3; compile tool exit 0. Runtime, API, ID/frame/answer/sequence production và file cấm không thay đổi.
+- Sửa phụ: không có.
+- Checkpoint vòng: `ac9fb9f` (`chore: checkpoint before multimodal retrieval benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 4 strategy, số liệu tái lập, phát hiện được ASR/hybrid tăng recall và khóa bảo toàn từng semantic hit. `PROJECT_CONTEXT.md` đã cập nhật công cụ/cách chạy và ghi rõ hybrid mới chỉ là reference benchmark.

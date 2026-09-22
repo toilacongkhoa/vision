@@ -84,6 +84,7 @@ vision/
 ├── .env.example                  # biến môi trường mẫu
 ├── requirements.txt              # exact dependency pins
 ├── tools/benchmark.py            # benchmark semantic retrieval KIS/QA/TRAKE
+├── tools/benchmark_multimodal.py # benchmark semantic/OCR/ASR/reference hybrid
 ├── tools/benchmark_trake_sequence.py # regression benchmark chấm chuỗi TRAKE
 ├── tools/benchmark_qa_evidence.py # regression benchmark evidence Q&A gắn đúng location
 ├── tools/benchmark_chatbot.py    # benchmark chatbot SSE
@@ -110,6 +111,7 @@ Các thư mục/script build index và module legacy (`scripts/*.py`, `src/db.py
 
 - Semantic text search, dịch Việt–Anh có memory/SQLite cache và lọc theo video.
 - `tools/benchmark.py` đánh giá retrieval KIS/Q&A/TRAKE trên 57 case và báo đúng/sai, location rank, Recall@1/5/10/50, MRR, latency p50/p95, TTFC của case đúng. Q&A chỉ chấm `answer_evidence` trong candidate khớp đúng video/cửa sổ location; đây là evidence proxy của retrieval, không phải answer generation, và được khóa bởi `tools/benchmark_qa_evidence.py`. TRAKE báo event-rank độc lập nhưng chỉ chấm case đúng khi chọn được đủ candidate cùng video với frame tăng nghiêm ngặt; `tools/benchmark_trake_sequence.py` khóa các case ordered, dùng trùng frame và đảo thứ tự. Tolerance ±150 giây là cấu hình benchmark hiện tại, không phải luật Chung kết 2026 đã xác nhận.
+- `tools/benchmark_multimodal.py` chạy semantic, OCR, ASR và reference RRF hybrid trên engine tách biệt để tránh cache làm sai latency; lexical query dùng stopword tĩnh và tối đa 6 token theo thứ tự, không dùng answer hay thống kê toàn bộ test set. Tool báo rank/Recall/MRR/p50/p95/TTFC theo từng strategy và danh sách semantic target bị hybrid làm mất. Reference hiện đạt semantic 2/57, ASR 7/57, hybrid 5/57 và bảo toàn 2/2 semantic hit; runtime/API chưa triển khai strategy hybrid này.
 - Image similarity search và similar-by-vector đều có regression benchmark; image search bao phủ repeated input và mixed top-K. API có thể chạy semantic/OCR/ASR đồng thời. Fallback OCR/ASR có benchmark chuyên biệt cho cold/warm cache, mixed top-K và video filter.
 - OCR/ASR exact-phrase FTS khi DB hỗ trợ, fallback token-substring SQL LIKE với DB hiện tại.
 - Context, frame range, interval, filmstrip phân trang và timestamp → frame index.
