@@ -849,14 +849,9 @@ class SQLiteSearchEngine:
             top_k=top_k,
             video_id_filter=video_id_filter,
         )
-        ocr = self.exact_ocr_search(
-            lexical_query,
-            top_k=top_k,
-            video_id_filter=video_id_filter,
-        )
         asr = self.exact_asr_search(
             lexical_query,
             top_k=top_k,
             video_id_filter=video_id_filter,
         )
-        return _fuse_rrf((semantic, ocr, asr), top_k)
+        return _fuse_rrf((semantic, asr), top_k)

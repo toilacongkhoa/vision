@@ -925,3 +925,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa frontend/MCP hoặc file cấm.
 - Checkpoint vòng: `bca8c0e` (`chore: checkpoint before production smart hybrid retrieval`).
 - Kết quả: **giữ lại** vì metric thi chính accuracy/rank tăng rõ, bảo toàn toàn bộ semantic hit và guardrail không hồi quy. Tradeoff latency được cô lập trong mode smart opt-in; theo nguyên tắc plan, candidate đúng tăng được ưu tiên hơn latency/cache đẹp. `PROJECT_CONTEXT.md` đã cập nhật workflow/API/benchmark và trạng thái chưa nối UI/MCP.
+
+## 2026-09-22 14:25 +07:00 — Vòng tối ưu 82: loại nhánh OCR khỏi production smart fusion
+
+- Query type/luồng thi: KIS/Q&A/TRAKE retrieval qua API cho operator/tool và agent. Cổng tác động: production smart đang hợp nhất semantic/OCR/ASR nhưng OCR đạt 0/57; mục tiêu là tăng candidate đúng/rank, giảm time-to-first-correct và vẫn bảo toàn mọi semantic hit. Benchmark quyết định là full `tools/benchmark_multimodal.py`; workload multimodal trực tiếp thuộc luồng tìm candidate Chung kết; nếu không làm, OCR vừa tốn một full fallback scan vừa kéo ASR hit xuống trong RRF.
+- Khám phá sơ bộ trên cache kết quả nhánh đủ 57 case: semantic+OCR+ASR đạt 5/57, R@5/R@50 = 2/5, MRR 0,0144, bảo toàn 2/2 semantic hit; semantic+ASR đạt 6/57, R@5/R@50 = 3/6, MRR 0,0219, bảo toàn 2/2. Weight ASR 2x và ASR-only đạt 7/57 nhưng làm mất 2/2 semantic hit nên bị loại; weight semantic 2x chỉ còn 2/57.
+- Thay đổi/vị trí/mục đích: `src/sqlite_engine.py`, `SQLiteSearchEngine.smart_search`, bỏ lời gọi `exact_ocr_search` và hợp nhất RRF hai nhánh semantic+ASR. Không đổi reducer, model, index, API hay mode semantic mặc định.
+- Benchmark/config quyết định: full 57 case, 63 target, top-K 50, tolerance ±150 giây; `.venv\Scripts\python.exe tools\benchmark_multimodal.py --strategies semantic hybrid --top-k 50 --max-lexical-terms 6`, engine tách biệt cho mỗi strategy.
+  - Trước smart ba nhánh: 5/57; R@1/5/10/50 = 0/2/3/5, MRR 0,0144; p50/p95 2.041,60/6.842,64 ms; TTFC p50/p95 2.678,42/4.510,37 ms; 0 lỗi; bảo toàn 2/2 semantic hit.
+  - Sau smart semantic+ASR: 6/57; R@1/5/10/50 = 0/3/3/6, MRR 0,0219; p50/p95 2.763,15/4.908,22 ms; TTFC p50/p95 2.398,78/3.918,55 ms; wall 163,69 giây; 0 lỗi; bảo toàn 2/2 semantic hit, missing `[]`.
+  - Tác động chính: correctness +1 (+20%), R@5 +1, R@50 +1, MRR +52,1%; p95 giảm 28,3%, TTFC p50/p95 giảm 10,4%/13,1%. p50 tổng tăng trong lượt máy chậm hơn; semantic control cùng lượt cũng tăng từ baseline 332,37 lên 587,92 ms, nên không coi chênh lệch p50 giữa hai lượt là hồi quy thuật toán.
+- Guardrail/output correctness: semantic control vẫn 2/57, R@1/5/10/50 = 0/1/2/2, MRR 0,0079; fuzzy cache 5/5, Q&A evidence 3/3, TRAKE sequence 3/3, compile `src/tools` exit 0. ID/frame/answer/sequence và semantic-hit preservation không hồi quy.
+- Sửa phụ: không có. Không sửa UI/MCP, model/index, artifact dữ liệu hoặc file cấm.
+- Checkpoint vòng: `fa75802` (`chore: checkpoint before smart fusion branch pruning`).
+- Kết quả: **giữ lại** vì metric thi chính accuracy/rank tốt hơn rõ ràng, TTFC/p95 tốt hơn, bảo toàn 2/2 semantic hit và mọi guardrail đều pass. `PROJECT_CONTEXT.md` đã cập nhật production smart thành semantic+ASR và số đo mới.
