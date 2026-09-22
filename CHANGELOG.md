@@ -953,3 +953,17 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Không sửa UI/MCP, model/index, artifact dữ liệu hoặc file cấm.
 - Checkpoint vòng: `ecab88a` (`chore: checkpoint before consensus-head smart fusion`).
 - Kết quả: **giữ lại** vì accuracy/rank thi chính cải thiện rõ, bảo toàn toàn bộ semantic hit và guardrail pass; chấp nhận tradeoff latency theo ưu tiên candidate đúng của plan. `PROJECT_CONTEXT.md` đã cập nhật fusion strategy và số đo production smart.
+
+## 2026-09-22 20:15 +07:00 — Vòng tối ưu 84: thêm benchmark operator cho mode smart
+
+- Query type/luồng thi: UI/operator thủ công cho KIS/Q&A/TRAKE. Cổng tác động P0 nhắm đo việc operator có thể chọn smart, frontend gửi đúng mode và API trả đúng ID/frame; benchmark này bắt buộc phải có trước vòng sửa UI. Luồng người điều khiển đã được BTC xác nhận; nếu thiếu phép đo, smart 8/57 có thể không đến được thao tác thi thật và thay đổi UI sau không có cơ sở giữ/rollback.
+- Baseline/khám phá: chưa có benchmark UI/operator hoặc submission, tương đương 0 scenario tự động. Kiểm tra thủ công cho thấy API schema/routing đã hỗ trợ smart và request frontend lấy giá trị động từ `#searchMode`, nhưng dropdown chỉ có semantic/OCR/ASR nên operator không thể chọn smart.
+- Thay đổi/vị trí/mục đích: thêm `tools/benchmark_operator_search.py`. Tool dùng HTML parser kiểm tra đủ bốn mode production, xác nhận request wiring tới `/api/v1/search`, rồi import production `SearchRequest` và monkeypatch duy nhất `smart_search` để kiểm tra schema, routing, `video_id/frame_idx` output mà không chạy retrieval đắt tiền. Hỗ trợ text/JSON và exit khác 0 khi scenario fail.
+- Benchmark/config: `.venv\Scripts\python.exe tools\benchmark_operator_search.py --json` trên `frontend/index.html` và production `src.main`.
+  - Trước: 0 automated scenario; manual 3 pass/1 fail; smart mode thiếu trong dropdown.
+  - Sau: 4 automated scenario, 3 pass, 1 fail, 0 error, elapsed 10.493,88 ms. `frontend_smart_mode` fail với missing `['smart']`; frontend request wiring pass; API smart schema pass; API routing/output pass và giữ sentinel `TEST_V001,123`.
+  - Accuracy/rank/TTFC/end-to-end retrieval latency: không đổi/không áp dụng vì vòng chỉ thêm benchmark và route dùng stub; elapsed gồm import production engine, không dùng làm metric thi.
+- Guardrail/output correctness: benchmark phát hiện đúng regression UI đang mở, API trả `mode='smart'`, `total_results=1`, đúng `video_id/frame_idx`; compile tool exit 0. Runtime, frontend, model/index và file cấm không thay đổi.
+- Sửa phụ: không có.
+- Checkpoint vòng: `61bc5bf` (`chore: checkpoint before operator search benchmark`).
+- Kết quả: **giữ lại benchmark** vì coverage tăng 0→4 scenario, ba contract đang hoạt động được khóa và thiếu smart control được báo đỏ chính xác. `PROJECT_CONTEXT.md` đã cập nhật công cụ/cách chạy và trạng thái 3/4.
