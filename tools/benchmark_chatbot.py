@@ -22,6 +22,7 @@ import json
 import re
 import sys
 import time
+import uuid
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -53,6 +54,11 @@ _SHORT_PAIR_RE = re.compile(
     r"\b([A-Za-z]\d+_V\d+)\s*[,;|]\s*(?:frame\s*(?:idx|index)?\s*[:：=]\s*)?(\d+)\b",
     flags=re.IGNORECASE,
 )
+
+
+def build_benchmark_session_id(run_id: str, case_id: str) -> str:
+    """Build a session ID scoped to one benchmark invocation."""
+    return f"benchmark-chat-{run_id}-{case_id}"
 
 
 def extract_video_frame_pairs(text: str) -> List[Tuple[str, int]]:
@@ -277,6 +283,13 @@ def main() -> int:
     parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
     parser.add_argument("--timeout", type=float, default=180.0, help="Socket read timeout per stream read")
     parser.add_argument("--limit", type=int, help="Run only the first N cases")
+    parser.add_argument(
+        "--session-run-id",
+        help=(
+            "Session namespace for this invocation. Defaults to a fresh random ID "
+            "so repeated benchmark runs cannot reuse Agy conversation history."
+        ),
+    )
     parser.add_argument("--output", type=Path, help="Optional JSON file containing full chatbot responses")
     parser.add_argument("--model-label", default="configured-by-agy", help="Label shown in the cost report")
     parser.add_argument("--input-cost-per-1m", type=float, default=0.0)
@@ -289,9 +302,17 @@ def main() -> int:
     fps_map = load_fps_map(args.fps_map)
     endpoint = args.api_url.rstrip("/") + "/api/v1/chat"
     records: List[Dict[str, Any]] = []
+    session_run_id = args.session_run_id or uuid.uuid4().hex[:12]
+    print(f"SESSION RUN ID: {session_run_id}")
 
     for index, case in enumerate(cases, start=1):
-        response = call_chat(endpoint, case["query"], f"benchmark-chat-{case.get('id', index)}", args.timeout)
+        case_id = str(case.get("id", index))
+        response = call_chat(
+            endpoint,
+            case["query"],
+            build_benchmark_session_id(session_run_id, case_id),
+            args.timeout,
+        )
         record = evaluate_case(case, response, fps_map, args.tolerance_seconds)
         records.append(record)
         status = "OK" if record["correct"] else "MISS"

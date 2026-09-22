@@ -1038,3 +1038,18 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: diagnostic print ASCII-safe là sửa bắt buộc để benchmark đọc được error Unicode mới; không sửa prompt, MCP, model/index, UI hoặc file cấm.
 - Checkpoint vòng: `372b746` (`chore: checkpoint before Agy result forwarding`).
 - Kết quả: **giữ lại** vì lỗi phá luồng thi chuyển fail→pass ở contract output và lỗi môi trường không còn bị che giấu. `PROJECT_CONTEXT.md` đã cập nhật contract/benchmark và blocker xác thực Agy; chuỗi dừng vì bước tiếp theo cần trạng thái đăng nhập bên ngoài.
+
+## 2026-09-22 23:09 +07:00 — Vòng tối ưu 90: cô lập session giữa các lượt benchmark chatbot
+
+- Query type/luồng thi: P0 benchmark end-to-end cho agent tự động KIS/Q&A/TRAKE. Cổng tác động nhắm loại lịch sử hội thoại khỏi phép đo accuracy, latency và error trước khi tối ưu MCP/prompt; benchmark quyết định là `tools/benchmark_chatbot.py`, regression session mới và hai guardrail SSE. Hình thức agent tự động có căn cứ Chung kết 2026; nếu không sửa, before/after có thể đo các lượt hội thoại khác nhau và dẫn tới giữ sai thay đổi runtime.
+- Khám phá/readiness: `agy 1.2.8` ngoài sandbox liệt kê đầy đủ model, xác nhận credential người dùng hoạt động. Trong sandbox, Agy không ghi được profile `.gemini` và báo `not logged in`; backend benchmark vì vậy phải chạy ngoài sandbox. Baseline sạch 3 KIS case sau prewarm đạt 0/3, location 0/3, trung bình 73.878,74 ms, error 0/3, text/DONE 3/3, 211 SSE event và 56 tool event.
+- Nguyên nhân benchmark: session ID cũ chỉ phụ thuộc case ID. Chạy lại case 1 trên cùng backend tái sử dụng conversation: latency 72.853,3 → 8.477,9 ms, tool event 19 → 1 và agent trả sai `L26_V424` từ lịch sử thay vì thực hiện workflow mới. Vì vậy baseline accuracy 0/3 là output thật nhưng phép so sánh lần chạy kế tiếp chưa độc lập.
+- Thay đổi/vị trí/mục đích: `tools/benchmark_chatbot.py` tạo namespace ngẫu nhiên cho mỗi invocation, hỗ trợ `--session-run-id` để tái lập namespace khi cần và ghép namespace vào mọi session ID. Thêm `tools/benchmark_chatbot_sessions.py` khóa ba contract: ổn định trong cùng run, khác giữa các run và khác giữa các case. Không sửa agent runtime, prompt, MCP, model/index hoặc file cấm.
+- Benchmark/config sau: cùng dataset 3 case đầu, timeout 180 giây, tolerance ±150 giây, backend/prewarm/model như baseline; dùng `--session-run-id round90-after`.
+  - Session isolation regression: 3/3 pass, 0 fail.
+  - End-to-end: KIS/location 1/3, trung bình 52.860,12 ms, error 0/3, text/DONE 3/3, 199 SSE event, 52 tool event. Case đầu trở lại first-turn workflow 60.211,9 ms/18 tool event thay vì lượt reuse 8.477,9 ms/1 tool event.
+  - Không coi 0/3 → 1/3 hoặc latency giảm 28,4% là cải thiện thuật toán vì model Agy có biến thiên; metric quyết định của vòng là contamination fail → pass và regression 3/3.
+- Guardrail/output correctness: `tools/benchmark_chatbot_stream.py --json` 3/3 pass; `tools/benchmark_agy_result_stream.py --json` 3/3 pass; compile `src` và ba benchmark exit 0. Output sau sửa có candidate thật, DONE đầy đủ và 0 error.
+- Sửa phụ: không có.
+- Checkpoint vòng: `b370482` (`chore: checkpoint before chatbot benchmark session isolation`).
+- Kết quả: **giữ lại** vì benchmark end-to-end chuyển từ tái sử dụng lịch sử sang session độc lập, mở khóa việc đo agent runtime đáng tin hơn. `PROJECT_CONTEXT.md` đã cập nhật cách chạy, credential/profile và baseline P4 gần nhất.
