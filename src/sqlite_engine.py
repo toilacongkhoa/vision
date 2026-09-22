@@ -4,7 +4,7 @@ os.environ['HF_HUB_OFFLINE'] = '1'
 import torch
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterable, Tuple
 import open_clip
 import sqlite3
 import json
@@ -14,6 +14,62 @@ import threading
 from collections import OrderedDict, defaultdict
 
 _CLAUSE_SPLIT_RE = re.compile(r',|;|\n| and ')
+_VI_SMART_STOPWORDS = frozenset(
+    {
+        "các", "cảnh", "cho", "chính", "chiếc", "chúng", "cùng", "cuối",
+        "của", "dưới", "đang", "đầu", "đến", "đoạn", "được", "giữa",
+        "hình", "hiện", "khi", "lại", "lên", "lúc", "màn", "một", "này",
+        "ngay", "người", "những", "phía", "qua", "sau", "theo", "thấy",
+        "thì", "trên", "trong", "trước", "từ", "vào", "video", "với",
+        "xuất",
+    }
+)
+
+
+def reduce_lexical_query(query: str, max_terms: int = 6) -> str:
+    """Build a bounded OCR/ASR query without corpus or answer statistics."""
+    raw_terms = [
+        token.casefold()
+        for token in re.findall(r"\b\w+\b", query, flags=re.UNICODE)
+        if len(token) >= 4
+    ]
+    filtered = [token for token in raw_terms if token not in _VI_SMART_STOPWORDS]
+    candidates = filtered or raw_terms
+    selected = []
+    seen = set()
+    for token in candidates:
+        if token in seen:
+            continue
+        selected.append(token)
+        seen.add(token)
+        if len(selected) >= max_terms:
+            break
+    return " ".join(selected)
+
+
+def _result_key(item: Dict[str, Any]) -> Tuple[Any, ...]:
+    vector_id = item.get("vector_id")
+    if vector_id is not None:
+        return ("vector", int(vector_id))
+    return ("location", str(item.get("video_id")), int(item.get("frame_idx")))
+
+
+def _fuse_rrf(
+    branches: Iterable[List[Dict[str, Any]]],
+    top_k: int,
+) -> List[Dict[str, Any]]:
+    scores: Dict[Tuple[Any, ...], float] = {}
+    items: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
+    for branch in branches:
+        for rank, item in enumerate(branch, start=1):
+            try:
+                key = _result_key(item)
+            except (TypeError, ValueError):
+                continue
+            scores[key] = scores.get(key, 0.0) + 1.0 / (60.0 + rank)
+            items[key] = item
+    ordered = sorted(scores, key=lambda key: scores[key], reverse=True)[:top_k]
+    return [{**items[key], "score": scores[key]} for key in ordered]
 
 try:
     import faiss
@@ -779,5 +835,28 @@ class SQLiteSearchEngine:
     def exact_ocr_search(self, query_text: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         return self._fts_text_search(query_text, "ocr_fts", top_k, video_id_filter)
         
-    def smart_search(self, query_text: str, top_k: int = 20, video_id_filter: Optional[str] = None, enable_rerank: bool = False) -> List[Dict[str, Any]]:
-        return self.search(query_text=query_text, top_k=top_k, video_id_filter=video_id_filter)
+    def smart_search(
+        self,
+        query_text: str,
+        top_k: int = 20,
+        video_id_filter: Optional[str] = None,
+        enable_rerank: bool = False,
+        max_lexical_terms: int = 6,
+    ) -> List[Dict[str, Any]]:
+        lexical_query = reduce_lexical_query(query_text, max_lexical_terms)
+        semantic = self.search(
+            query_text=query_text,
+            top_k=top_k,
+            video_id_filter=video_id_filter,
+        )
+        ocr = self.exact_ocr_search(
+            lexical_query,
+            top_k=top_k,
+            video_id_filter=video_id_filter,
+        )
+        asr = self.exact_asr_search(
+            lexical_query,
+            top_k=top_k,
+            video_id_filter=video_id_filter,
+        )
+        return _fuse_rrf((semantic, ocr, asr), top_k)

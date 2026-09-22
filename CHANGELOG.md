@@ -912,3 +912,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `ac9fb9f` (`chore: checkpoint before multimodal retrieval benchmark`).
 - Kết quả: **giữ lại benchmark** vì coverage tăng 0 → 4 strategy, số liệu tái lập, phát hiện được ASR/hybrid tăng recall và khóa bảo toàn từng semantic hit. `PROJECT_CONTEXT.md` đã cập nhật công cụ/cách chạy và ghi rõ hybrid mới chỉ là reference benchmark.
+
+## 2026-09-22 14:08 +07:00 — Vòng tối ưu 81: triển khai production smart hybrid retrieval
+
+- Query type/luồng thi: KIS/Q&A/TRAKE retrieval qua API, làm primitive cho operator/tool và agent. Cổng tác động nhắm tăng full-case correctness và Recall@K của production `SQLiteSearchEngine.smart_search`, không thay mode semantic mặc định.
+- Thay đổi: `src/sqlite_engine.py` thêm lexical reducer online-safe (stopword tĩnh, tối đa 6 token duy nhất theo thứ tự), chạy semantic trên query gốc, OCR/ASR trên lexical query rồi RRF ba nhánh trong `smart_search`. `src/main.py` cho phép schema `mode="smart"`, không pretranslate query trước smart để OCR/ASR vẫn nhận tiếng Việt, và route mode này vào production smart. `tools/benchmark_multimodal.py` chuyển hybrid từ reference logic trong tool sang gọi trực tiếp production `smart_search`/reducer.
+- Benchmark/config quyết định: full 57 case, 63 target, top-K 50, tolerance ±150 giây; baseline gọi trực tiếp production `smart_search`, sau dùng `.venv\Scripts\python.exe tools\benchmark_multimodal.py --strategies semantic hybrid --top-k 50 --max-lexical-terms 6` với engine tách biệt.
+  - Trước production smart chỉ alias semantic: 2/57; R@1/5/10/50 = 0/1/2/2, MRR 0,0079; p50/p95 273,21/585,26 ms; TTFC p50/p95 476,82/588,76 ms; 0 lỗi. `SearchRequest(mode="smart")` bị Pydantic từ chối `literal_error`.
+  - Sau production smart: 5/57; R@1/5/10/50 = 0/2/3/5, MRR 0,0144; p50/p95 2.533,11/5.820,21 ms; TTFC p50/p95 2.182,19/5.226,71 ms; 0 lỗi. Bảo toàn 2/2 semantic target, missing `[]`. Schema smart chuyển fail → pass.
+  - Tác động chính: full-case correctness +3 (+150%), R@50 +3 (+150%), R@5 +1, R@10 +1, MRR +81,4%. Smart latency tăng rõ vì thêm hai fallback scan trên artifact thiếu FTS; mode là opt-in, semantic mặc định không đổi. Cùng lượt đo hệ thống chậm, semantic p50/p95 cũng tăng lên 456,69/1.111,16 ms so với reference 277,43/606,15 ms; không dùng chênh lệch môi trường để phủ nhận tradeoff smart.
+- Guardrail/output correctness: `tools/benchmark.py --top-k 50` giữ KIS 1/39, Q&A 1/16 (location/evidence 1/16), TRAKE 0/2, tổng 2/57, R@50 2/63, MRR 0,0079, 0 lỗi. Fuzzy cache 5/5, Q&A evidence 3/3, TRAKE sequence 3/3, compile `src/tools` exit 0. API smoke smart trả đúng 3 result có `video_id/frame_idx`; first uncached query mất 16,91 giây do translation/fallback cold path đã biết.
+- Sửa phụ: không có. Không sửa frontend/MCP hoặc file cấm.
+- Checkpoint vòng: `bca8c0e` (`chore: checkpoint before production smart hybrid retrieval`).
+- Kết quả: **giữ lại** vì metric thi chính accuracy/rank tăng rõ, bảo toàn toàn bộ semantic hit và guardrail không hồi quy. Tradeoff latency được cô lập trong mode smart opt-in; theo nguyên tắc plan, candidate đúng tăng được ưu tiên hơn latency/cache đẹp. `PROJECT_CONTEXT.md` đã cập nhật workflow/API/benchmark và trạng thái chưa nối UI/MCP.

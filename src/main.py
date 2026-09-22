@@ -77,7 +77,7 @@ class SearchRequest(BaseModel):
     query: str = Field(..., description="Natural language search query in English")
     top_k: int = Field(20, ge=1, le=200, description="Number of top matching results to retrieve")
     video_id: Optional[str] = Field(None, description="Optional Video ID filter constraint")
-    mode: Literal["semantic", "ocr", "asr"] = Field("semantic", description="Search mode: semantic, ocr, or asr")
+    mode: Literal["semantic", "smart", "ocr", "asr"] = Field("semantic", description="Search mode: semantic, smart, ocr, or asr")
 
 class SearchAllRequest(BaseModel):
     query: str = Field(..., description="Natural language query")
@@ -328,7 +328,7 @@ def search_keyframes(req: SearchRequest):
         raise HTTPException(status_code=400, detail="Query string cannot be empty")
 
     # Fast Local/Cached Auto-translate Vietnamese to English for semantic search
-    if req.mode in ["semantic", "smart"]:
+    if req.mode == "semantic":
         try:
             from .fast_translator import fast_translator
             translated = fast_translator.translate(req.query)
@@ -352,6 +352,13 @@ def search_keyframes(req: SearchRequest):
             video_id_filter=req.video_id
         )
         print(f"[Search API] ASR search took {time.time() - start_time:.3f}s", flush=True)
+    elif req.mode == "smart":
+        results = search_engine.smart_search(
+            query_text=req.query,
+            top_k=req.top_k,
+            video_id_filter=req.video_id,
+        )
+        print(f"[Search API] Smart hybrid search took {time.time() - start_time:.3f}s", flush=True)
     else:
         results = search_engine.search(
             query_text=req.query,

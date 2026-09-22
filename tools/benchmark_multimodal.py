@@ -10,11 +10,10 @@ from __future__ import annotations
 import argparse
 import gc
 import json
-import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -37,62 +36,9 @@ from benchmark import (  # noqa: E402
 
 STRATEGIES = ("semantic", "ocr", "asr", "hybrid")
 RECALL_CUTOFFS = (1, 5, 10, 50)
-VI_STOPWORDS = frozenset(
-    {
-        "các", "cảnh", "cho", "chính", "chiếc", "chúng", "cùng", "cuối",
-        "của", "dưới", "đang", "đầu", "đến", "đoạn", "được", "giữa",
-        "hình", "hiện", "khi", "lại", "lên", "lúc", "màn", "một", "này",
-        "ngay", "người", "những", "phía", "qua", "sau", "theo", "thấy",
-        "thì", "trên", "trong", "trước", "từ", "vào", "video", "với",
-        "xuất",
-    }
-)
-
-
-def reduce_lexical_query(query: str, max_terms: int) -> str:
-    """Return a bounded query without using dataset-wide or answer statistics."""
-    raw_terms = [
-        token.casefold()
-        for token in re.findall(r"\b\w+\b", query, flags=re.UNICODE)
-        if len(token) >= 4
-    ]
-    filtered = [token for token in raw_terms if token not in VI_STOPWORDS]
-    candidates = filtered or raw_terms
-    selected: List[str] = []
-    seen = set()
-    for token in candidates:
-        if token in seen:
-            continue
-        selected.append(token)
-        seen.add(token)
-        if len(selected) >= max_terms:
-            break
-    return " ".join(selected)
-
-
-def result_key(item: Dict[str, Any]) -> Tuple[Any, ...]:
-    vector_id = item.get("vector_id")
-    if vector_id is not None:
-        return ("vector", int(vector_id))
-    return ("location", str(item.get("video_id")), int(item.get("frame_idx")))
-
-
-def fuse_rrf(branches: Iterable[List[Dict[str, Any]]], top_k: int) -> List[Dict[str, Any]]:
-    scores: Dict[Tuple[Any, ...], float] = {}
-    items: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
-    for branch in branches:
-        for rank, item in enumerate(branch, start=1):
-            try:
-                key = result_key(item)
-            except (TypeError, ValueError):
-                continue
-            scores[key] = scores.get(key, 0.0) + 1.0 / (60.0 + rank)
-            items[key] = item
-    ordered = sorted(scores, key=lambda key: scores[key], reverse=True)[:top_k]
-    return [{**items[key], "score": scores[key]} for key in ordered]
-
-
 def make_search(engine: Any, strategy: str, top_k: int, max_terms: int) -> Callable[[str], List[Dict[str, Any]]]:
+    from src.sqlite_engine import reduce_lexical_query
+
     def semantic(query: str) -> List[Dict[str, Any]]:
         return engine.search(query_text=query, top_k=top_k)
 
@@ -109,7 +55,11 @@ def make_search(engine: Any, strategy: str, top_k: int, max_terms: int) -> Calla
     if strategy == "asr":
         return asr
     if strategy == "hybrid":
-        return lambda query: fuse_rrf((semantic(query), ocr(query), asr(query)), top_k)
+        return lambda query: engine.smart_search(
+            query_text=query,
+            top_k=top_k,
+            max_lexical_terms=max_terms,
+        )
     raise ValueError(f"Unknown strategy: {strategy}")
 
 
