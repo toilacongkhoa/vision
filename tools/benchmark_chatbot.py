@@ -133,6 +133,10 @@ def call_chat(
     started = time.perf_counter()
     text_parts: List[str] = []
     errors: List[str] = []
+    tool_events: List[str] = []
+    raw_data_tail: List[str] = []
+    sse_events = 0
+    saw_done = False
     usage: Optional[Dict[str, int]] = None
 
     try:
@@ -142,13 +146,19 @@ def call_chat(
                 if not line.startswith("data: "):
                     continue
                 data = line[6:]
+                sse_events += 1
                 if data == "[DONE]":
+                    saw_done = True
                     break
                 if data.startswith("[TOOL]"):
+                    tool_events.append(data)
                     continue
                 if data.startswith("[ERROR]"):
                     errors.append(data)
                     continue
+
+                raw_data_tail.append(data[:500])
+                raw_data_tail = raw_data_tail[-5:]
 
                 try:
                     payload_event = json.loads(data)
@@ -168,6 +178,10 @@ def call_chat(
         "elapsed_ms": (time.perf_counter() - started) * 1000,
         "errors": errors,
         "usage": usage,
+        "tool_events": tool_events,
+        "sse_events": sse_events,
+        "saw_done": saw_done,
+        "raw_data_tail": raw_data_tail,
     }
 
 
@@ -234,6 +248,11 @@ def evaluate_case(
         "elapsed_ms": response["elapsed_ms"],
         "errors": response["errors"],
         "usage": response["usage"],
+        "tool_events": response.get("tool_events", []),
+        "sse_events": response.get("sse_events", 0),
+        "saw_done": response.get("saw_done", False),
+        "text_chars": len(response_text),
+        "raw_data_tail": response.get("raw_data_tail", []),
     }
 
 
@@ -280,8 +299,14 @@ def main() -> int:
         print(
             f"[{index}/{len(cases)}] {case.get('type', 'UNKNOWN'):<5} "
             f"{status:<4} {record['elapsed_ms']:.1f} ms "
-            f"candidates={len(record['returned_pairs'])} {error_status} {case.get('id')}"
+            f"candidates={len(record['returned_pairs'])} chars={record['text_chars']} "
+            f"events={record['sse_events']} tools={len(record['tool_events'])} "
+            f"done={record['saw_done']} {error_status} {case.get('id')}"
         )
+        if record["errors"]:
+            print(f"  errors={record['errors']}")
+        if not record["returned_pairs"] and record["raw_data_tail"]:
+            print(f"  raw_data_tail={record['raw_data_tail']}")
 
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for record in records:
@@ -311,6 +336,13 @@ def main() -> int:
     estimated_cost = estimate_cost(usage_total, args.input_cost_per_1m, args.output_cost_per_1m)
     print(f"TOTAL: {total_correct}/{len(records)} correct ({(100 * total_correct / len(records)) if records else 0:.2f}%), average {sum(timed) / len(timed) if timed else 0.0:.2f} ms")
     print(f"ERROR RATE: {total_errors}/{len(records)} ({(100 * total_errors / len(records)) if records else 0:.2f}%)")
+    print(
+        "STREAM DIAGNOSTICS: "
+        f"done={sum(bool(record['saw_done']) for record in records)}/{len(records)}, "
+        f"text={sum(record['text_chars'] > 0 for record in records)}/{len(records)}, "
+        f"events={sum(record['sse_events'] for record in records)}, "
+        f"tools={sum(len(record['tool_events']) for record in records)}"
+    )
     if usage_total is None:
         print(f"USAGE/COST ({args.model_label}): unavailable; /api/v1/chat did not return token usage")
     else:

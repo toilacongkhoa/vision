@@ -1007,3 +1007,18 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Guardrail/output correctness: server/model/MCP startup pass nhưng final output contract/candidate extraction fail 0/3; đây là lý do dừng, không phải bằng chứng để sửa prompt/tool trong cùng vòng.
 - Sửa phụ: không có. Không sửa runtime, MCP, prompt, benchmark hoặc file cấm; không tạo checkpoint vì dừng trước thay đổi chính thức.
 - Kết quả: **không triển khai / không có gì để rollback**. Theo điều kiện mục 11, benchmark thi tự động chưa đủ tin cậy nên không mở vòng tối ưu agent runtime. `PROJECT_CONTEXT.md` đã cập nhật trạng thái benchmark và điều kiện cần trước khi tiếp tục P4.
+
+## 2026-09-22 20:48 +07:00 — Vòng tối ưu 88: thêm diagnostic và regression cho chatbot SSE benchmark
+
+- Query type/luồng thi: P0 benchmark end-to-end cho agent KIS/Q&A/TRAKE; không sửa agent runtime. Cổng tác động nhắm phân biệt agent trả rỗng với parser bỏ dữ liệu bằng diagnostic event/tool/DONE/text/raw-tail; benchmark quyết định là regression SSE mới và smoke production. Agent tự động là workload được BTC định hướng thử nghiệm; nếu không làm, 0-candidate không thể dẫn tới quyết định MCP/prompt đáng tin.
+- Khám phá nguyên nhân: `AgySession._read_until_result()` stream `step_update.text_delta` và tool labels, nhưng gặp event `result` thì break mà không forward payload cuối. `tools/benchmark_chatbot.py` trước đó bỏ tool event và không báo event count, DONE hoặc text length, nên smoke 0-candidate không xác định được tầng lỗi. Vòng này không sửa `src/agy_session.py`.
+- Baseline: 0 regression scenario chuyên biệt; record chỉ có text/error/usage, không có tool events, SSE event count, DONE, text chars hoặc raw data tail. Smoke vòng 87 là 0/3 candidate với nguyên nhân không quan sát được.
+- Thay đổi/vị trí/mục đích: `tools/benchmark_chatbot.py` giữ lại tool events, đếm SSE event, ghi `saw_done`, `raw_data_tail`, `text_chars`, in lỗi/raw tail theo case và aggregate stream diagnostics. Thêm `tools/benchmark_chatbot_stream.py`, monkeypatch transport bằng stream tổng hợp để khóa plain text candidate, JSON delta, tool/error và DONE parsing.
+- Benchmark/config sau:
+  - `.venv\Scripts\python.exe tools\benchmark_chatbot_stream.py --json`: 3/3 scenario pass, 0 fail/error; plain stream trích đúng `L21_V001,1500`, JSON delta trích đúng `L22_V002,222`, synthetic error và DONE được ghi đúng.
+  - Production smoke `.venv\Scripts\python.exe tools\benchmark_chatbot.py --api-url http://127.0.0.1:8000 --limit 1 --timeout 180`: 0/1 đúng, 0 candidate, 60.762,11 ms, 0 error; diagnostic mới báo 8 SSE event, 7 tool event, DONE 1/1 nhưng text 0/1 và 0 ký tự. Usage/cost unavailable.
+  - Accuracy/rank không cải thiện vì vòng chỉ sửa benchmark; TTFC không có do không candidate. Diagnostic coverage tăng 0→3 regression scenario và 0→5 trường quan sát chính.
+- Guardrail/output correctness: regression parser 3/3, compile hai tool exit 0; production server/Agy/MCP khởi động và HTTP 200, server test PID 23540 đã được dừng. Không sửa runtime, API, MCP, prompt hoặc file cấm.
+- Sửa phụ: không có.
+- Checkpoint vòng: `13fc2ae` (`chore: checkpoint before chatbot benchmark diagnostics`).
+- Kết quả: **giữ lại benchmark** vì parser/output extraction được khóa và nguyên nhân miss chuyển từ mơ hồ sang contract tool-only/DONE không có final text. `PROJECT_CONTEXT.md` đã cập nhật benchmark/cách chạy và blocker P4 còn lại.
