@@ -1022,3 +1022,19 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `13fc2ae` (`chore: checkpoint before chatbot benchmark diagnostics`).
 - Kết quả: **giữ lại benchmark** vì parser/output extraction được khóa và nguyên nhân miss chuyển từ mơ hồ sang contract tool-only/DONE không có final text. `PROJECT_CONTEXT.md` đã cập nhật benchmark/cách chạy và blocker P4 còn lại.
+
+## 2026-09-22 21:00 +07:00 — Vòng tối ưu 89: forward Agy final response và error ra SSE
+
+- Query type/luồng thi: autonomous agent KIS/Q&A/TRAKE qua `/api/v1/chat`. Cổng tác động nhắm chuyển silent DONE với 0 text/candidate thành final response cấu trúc hoặc lỗi rõ ràng; benchmark quyết định là Agy-result regression, client SSE regression và production chatbot smoke. Agent tự động được BTC định hướng thử nghiệm; nếu không sửa, agent gọi tool xong vẫn trả rỗng và chắc chắn mất output thi.
+- Khám phá schema read-only: chạy Agy stream-json trực tiếp xác nhận event `result.result` có `response`, `error`, `status`, `usage`. Môi trường hiện trả `status='ERROR'`, `error='authentication failed or timed out'`, nhưng backend cũ break ngay tại result và chỉ phát DONE. Thử trực tiếp lần đầu không có init event trong 20 giây; lần hai mô phỏng đúng production bằng cách tiếp tục sau init timeout và nhận được schema trên.
+- Baseline contract tổng hợp trên implementation cũ: 1/3 pass. Result-only response `L21_V001,1500` bị mất; result error `auth failed` bị mất; text delta rồi result không bị lặp và pass. Production trước sửa: 0/1 đúng, 0 candidate/0 ký tự, 8 event, 7 tool event, DONE, 0 error, 60.762,11 ms.
+- Thay đổi/vị trí/mục đích: `src/agy_session.py::_read_until_result()` theo dõi đã stream text, forward `result.response` chỉ khi chưa có delta, forward `result.error`/status ERROR thành SSE `[ERROR]`, sau đó giữ DONE. Thêm `tools/benchmark_agy_result_stream.py` với ba scenario response/error/no-duplicate. `tools/benchmark_chatbot.py` in error/raw-tail bằng JSON ASCII-safe để diagnostic Unicode không crash console Windows.
+- Benchmark/config sau:
+  - `.venv\Scripts\python.exe tools\benchmark_agy_result_stream.py --json`: 3/3 pass, 0 fail/error; response và error đều xuất hiện trước DONE, delta/result chỉ xuất candidate một lần.
+  - `tools/benchmark_chatbot_stream.py --json`: 3/3 pass, 0 fail/error; compile runtime/ba benchmark exit 0.
+  - Production smoke clean server: 0/1 đúng, 0 candidate/0 ký tự, 9 event, 7 tool, DONE và error 1/1; lỗi không còn bị nuốt mà báo `authentication failed or timed out` sau khoảng 60,84 giây. Lượt xác minh ASCII-safe trên session Agy đã chết hoàn tất summary thay vì crash, báo `Connection lost` trong 122,5 ms, 2 event/1 tool/DONE false.
+  - Accuracy/rank/TTFC chưa cải thiện vì Agy chưa xác thực; metric sửa lỗi chính là result contract 1/3→3/3 và silent error→visible error. Error rate production tăng quan sát 0→1 đúng bản chất, không phải lỗi mới do thay đổi.
+- Guardrail/output correctness: client SSE 3/3, Agy result SSE 3/3, compile pass; candidate IDs synthetic giữ đúng `L21_V001,1500` và `L22_V002,222`, không duplicate. Server test PID 21900 đã dừng và port 8000 không còn lắng nghe.
+- Sửa phụ: diagnostic print ASCII-safe là sửa bắt buộc để benchmark đọc được error Unicode mới; không sửa prompt, MCP, model/index, UI hoặc file cấm.
+- Checkpoint vòng: `372b746` (`chore: checkpoint before Agy result forwarding`).
+- Kết quả: **giữ lại** vì lỗi phá luồng thi chuyển fail→pass ở contract output và lỗi môi trường không còn bị che giấu. `PROJECT_CONTEXT.md` đã cập nhật contract/benchmark và blocker xác thực Agy; chuỗi dừng vì bước tiếp theo cần trạng thái đăng nhập bên ngoài.

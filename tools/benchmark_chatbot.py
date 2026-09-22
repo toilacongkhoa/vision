@@ -304,9 +304,9 @@ def main() -> int:
             f"done={record['saw_done']} {error_status} {case.get('id')}"
         )
         if record["errors"]:
-            print(f"  errors={record['errors']}")
+            print(f"  errors={json.dumps(record['errors'], ensure_ascii=True)}")
         if not record["returned_pairs"] and record["raw_data_tail"]:
-            print(f"  raw_data_tail={record['raw_data_tail']}")
+            print(f"  raw_data_tail={json.dumps(record['raw_data_tail'], ensure_ascii=True)}")
 
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for record in records:

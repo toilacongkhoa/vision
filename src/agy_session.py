@@ -172,6 +172,7 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
 
     async def _read_until_result(self, timeout_seconds: Optional[float]):
         loop = asyncio.get_running_loop()
+        streamed_text = False
         deadline = (
             loop.time() + timeout_seconds
             if timeout_seconds is not None
@@ -210,6 +211,7 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
                     step = event.get("step_update", {})
                     delta = step.get("text_delta")
                     if delta:
+                        streamed_text = True
                         delta = delta.replace("\n", "<br>")
                         yield f'data: {delta}\n\n'
                     
@@ -242,7 +244,15 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
  
 
                 elif etype == "result":
-                    # yield f'data: [DONE] {event.get("result", {}).get("conversation_id")}\\n\\n'
+                    result = event.get("result") or {}
+                    response = result.get("response")
+                    if isinstance(response, str) and response and not streamed_text:
+                        yield f'data: {response.replace(chr(10), "<br>")}\n\n'
+                    error = result.get("error")
+                    status = str(result.get("status", "")).upper()
+                    if error or status == "ERROR":
+                        message = str(error or "Agy returned an error").replace("\n", "<br>")
+                        yield f'data: [ERROR] Lỗi Agy: {message}\n\n'
                     break
 
             except json.JSONDecodeError:
