@@ -1065,3 +1065,16 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có. Do `plan.md` có thay đổi chưa commit của người dùng, rollback được thực hiện tương đương và có phạm vi chỉ trên `src/agy_session.py` thay vì `git reset --hard` để không làm mất dữ liệu ngoài vòng.
 - Checkpoint vòng: `8c7638c` (`chore: checkpoint before evidence-preserving agent selection`).
 - Kết quả: **rollback** vì metric thi chính không cải thiện và latency xấu hơn rõ ràng. `PROJECT_CONTEXT.md` không cập nhật vì runtime/workflow cuối cùng không đổi.
+
+## 2026-09-22 23:34 +07:00 — Vòng tối ưu 92: ablation cách chọn term cho evidence recall
+
+- Query type/luồng thi dự kiến: agent tự động KIS nhiều sự kiện qua `search_video_evidence`. Cổng tác động nhắm đưa video đúng lên rank evidence cao hơn để tăng final location accuracy; phép đo khám phá là rank trực tiếp của `L26_V183` với các term chỉ lấy từ query. Workload mô tả dài nhiều vật thể/hành động thuộc Event Retrieval trực tiếp; nếu rank evidence thấp, VLM dễ khóa vào video tương tự nhưng sai.
+- Baseline khám phá: term `[trứng gà, nấm, măng, đậu hũ, nước súp]` đưa `L26_V183` hạng 2, khớp 3/5 term. Đây là cấu hình tốt nhất đã quan sát nhưng vẫn đứng sau `L26_V005`; log vòng 91 cho thấy cả hai video đã vào contact sheet và agent chọn sai video hạng đầu.
+- Ablation read-only, cùng production evidence fallback và `top_videos=5`, không sửa source/file cấm:
+  - Bỏ term chung, còn `[trứng gà, nấm, măng, đậu hũ]`: đúng video rơi khỏi top-5.
+  - Dùng cụm hành động `[trứng gà đánh tan, nấm, măng, đậu hũ]`: đúng video hạng 3, khớp 3/4.
+  - Ghép sự kiện `[trứng gà, nấm và măng, đậu hũ, khuấy đều]`: đúng video rơi khỏi top-5.
+  - Mở rộng 6 term `[trứng gà, nấm, măng, đậu hũ, nồi súp, khuấy đều]`: đúng video rơi khỏi top-5.
+- Benchmark chính thức/guardrail: không chuyển sang Bước 4 vì không biến thể nào cải thiện rank so với baseline; tất cả request tool-level hoàn tất không lỗi. Runtime, prompt, MCP ranking, API, benchmark và file cấm không thay đổi.
+- Sửa phụ/checkpoint: không có; dừng ở Bước 3 nên không tạo checkpoint và không có gì để rollback.
+- Kết quả: **không triển khai**. Không có heuristic term-selection tổng quát đủ bằng chứng; `PROJECT_CONTEXT.md` không cập nhật. Chuỗi dừng theo yêu cầu người dùng vì không còn mục tiêu P0–P6 kế tiếp có bằng chứng tác động mà không lặp prompt/ranking đã thất bại hoặc đổi model/index thiếu ablation.
