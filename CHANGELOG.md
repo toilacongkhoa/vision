@@ -1053,3 +1053,15 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Sửa phụ: không có.
 - Checkpoint vòng: `b370482` (`chore: checkpoint before chatbot benchmark session isolation`).
 - Kết quả: **giữ lại** vì benchmark end-to-end chuyển từ tái sử dụng lịch sử sang session độc lập, mở khóa việc đo agent runtime đáng tin hơn. `PROJECT_CONTEXT.md` đã cập nhật cách chạy, credential/profile và baseline P4 gần nhất.
+
+## 2026-09-22 23:29 +07:00 — Vòng tối ưu 91: thử bắt buộc bảo toàn video evidence trong contact sheet
+
+- Query type/luồng thi: agent tự động KIS nhiều sự kiện. Cổng tác động nhắm tăng location/full-output accuracy trên hai case nấu ăn đang miss bằng cách không để semantic-only candidate loại video có độ phủ OCR/ASR evidence cao; benchmark quyết định là ba KIS case đầu qua `tools/benchmark_chatbot.py` với session namespace độc lập. Đây là Event Retrieval đa bước trực tiếp; nếu bỏ candidate evidence tốt, agent có thể tự tin submit sai video.
+- Khám phá read-only: hai semantic query tiếng Anh đại diện cho case 1 đều không có `L26_V183` trong top-12, nhưng `search_video_evidence([trứng gà, nấm, măng, đậu hũ, nước súp])` xếp đúng video hạng 2, khớp 3/5 term và trả frame `2560/2799/5744`. Case 3 không tìm được `L26_V390` bằng hai semantic query đại diện hoặc evidence 5 term nên không dùng để biện minh cho sửa prompt. Log baseline sau đó xác nhận contact sheet case 1 thực tế đã chứa `L26_V183,2560/2799`, nhưng agent vẫn chọn sai `L26_V005`.
+- Baseline/config: backend Agy 1.2.8 đã prewarm ngoài sandbox, 3 case đầu, timeout 180 giây, tolerance ±150 giây, `--session-run-id round91-before`. KIS/location 1/3, trung bình 59.776,61 ms, error 0/3, text/DONE 3/3, 212 SSE event và 54 tool event. Case 1 trả sai `L26_V005`; case 2 đúng `L22_V026`; case 3 trả sai `L26_V437`.
+- Thay đổi thử nghiệm: trong `src/agy_session.py`, bổ sung rule cho multi-event query phải giữ hai frame của mỗi video evidence top-2 trong contact sheet trước khi thêm semantic-only candidate. Không đổi tool, retrieval, model/index, API hoặc file cấm.
+- Đo sau: cùng config với `--session-run-id round91-after`. KIS/location vẫn 1/3; trung bình 83.123,79 ms; error 0/3; text/DONE 3/3; 206 SSE event và 58 tool event. Accuracy không đổi, case 1/3 vẫn miss, latency trung bình tăng 39,1%.
+- Guardrail/output correctness sau rollback: session isolation 3/3, client SSE 3/3, Agy result SSE 3/3, compile pass; source `src/agy_session.py` trùng checkpoint. Các file benchmark tạm đã xóa.
+- Sửa phụ: không có. Do `plan.md` có thay đổi chưa commit của người dùng, rollback được thực hiện tương đương và có phạm vi chỉ trên `src/agy_session.py` thay vì `git reset --hard` để không làm mất dữ liệu ngoài vòng.
+- Checkpoint vòng: `8c7638c` (`chore: checkpoint before evidence-preserving agent selection`).
+- Kết quả: **rollback** vì metric thi chính không cải thiện và latency xấu hơn rõ ràng. `PROJECT_CONTEXT.md` không cập nhật vì runtime/workflow cuối cùng không đổi.
