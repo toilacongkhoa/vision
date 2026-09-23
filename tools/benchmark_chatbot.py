@@ -4,6 +4,8 @@ The default dataset is answerAndQuestion.jsonl.  It supplies expected
 VideoID/FrameIdx pairs and QA text answers, while an optional JSONL dataset can
 add reference answers for conversational evaluations.  The script consumes
 the SSE stream from POST /api/v1/chat and never changes the retrieval benchmark.
+For KIS/QA, the first emitted VideoID/FrameIdx recommendation is scored as
+submission-ready; later pairs count only toward diagnostic any-location recall.
 
 Example::
 
@@ -227,8 +229,15 @@ def evaluate_case(
 
     if case.get("type") == "TRAKE":
         location_correct = _ordered_sequence_matches(expected_pairs, returned_pairs, fps_map, tolerance_seconds)
+        any_location_correct = location_correct
     else:
-        location_correct = any(
+        # The agent lists recommendations in order. A later backup candidate
+        # cannot make the first, submission-ready recommendation correct.
+        first_candidate = returned_pairs[0] if returned_pairs else None
+        location_correct = bool(first_candidate) and within_time_tolerance(
+            expected_pairs[0], first_candidate, fps_map, tolerance_seconds
+        )
+        any_location_correct = any(
             within_time_tolerance(expected_pairs[0], returned, fps_map, tolerance_seconds)
             for returned in returned_pairs
         )
@@ -247,6 +256,8 @@ def evaluate_case(
         "type": case.get("type"),
         "correct": answer_correct,
         "location_correct": location_correct,
+        "any_location_correct": any_location_correct,
+        "first_candidate": returned_pairs[0] if returned_pairs else None,
         "text_correct": text_correct,
         "expected_pairs": expected_pairs,
         "returned_pairs": returned_pairs,
@@ -341,13 +352,15 @@ def main() -> int:
         group = grouped.get(case_type, [])
         correct = sum(bool(record["correct"]) for record in group)
         location = sum(bool(record["location_correct"]) for record in group)
+        any_location = sum(bool(record["any_location_correct"]) for record in group)
         text_checked = [record for record in group if record["text_correct"] is not None]
         text_correct = sum(bool(record["text_correct"]) for record in text_checked)
         average = sum(record["elapsed_ms"] for record in group) / len(group) if group else 0.0
         text_summary = f", text_answer {text_correct}/{len(text_checked)}" if text_checked else ""
         print(
             f"{case_type}: {correct}/{len(group)} correct ({(100 * correct / len(group)) if group else 0:.2f}%), "
-            f"location/sequence {location}/{len(group)}{text_summary}, average {average:.2f} ms"
+            f"first-location/sequence {location}/{len(group)}, any-location {any_location}/{len(group)}"
+            f"{text_summary}, average {average:.2f} ms"
         )
 
     usage_records = [record["usage"] for record in records if record["usage"] is not None]

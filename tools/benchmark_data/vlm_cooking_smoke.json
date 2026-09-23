@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "frame_tolerance_seconds": 150,
+  "source": "answerAndQuestion.jsonl query-p3-1-kis; candidate pairs frozen from round 91 evidence and read-only DB verification",
+  "cases": [
+    {
+      "case_id": "kis-cooking-round91-smoke",
+      "query_type": "KIS",
+      "query": "Một chén trứng gà đã đánh tan được đổ vào nồi nước súp đang nấu.\nTrong nồi có các nguyên liệu được cắt thành sợi, gồm nấm và măng.\nNgười đầu bếp dùng dao cắt đậu hũ thành từng miếng nhỏ ngay phía trên nồi.\nĐậu hũ được cho trực tiếp vào nồi rồi các nguyên liệu được khuấy đều với nhau.",
+      "accepted_candidate_ids": [
+        "correct_5895",
+        "correct_5669",
+        "correct_6255",
+        "correct_6290"
+      ],
+      "candidates": [
+        {"candidate_id": "correct_5895", "video_id": "L26_V183", "frame_idx": 5895},
+        {"candidate_id": "correct_5669", "video_id": "L26_V183", "frame_idx": 5669},
+        {"candidate_id": "correct_6255", "video_id": "L26_V183", "frame_idx": 6255},
+        {"candidate_id": "correct_6290", "video_id": "L26_V183", "frame_idx": 6290},
+        {"candidate_id": "hard_negative_L26V005_5870", "video_id": "L26_V005", "frame_idx": 5870}
+      ]
+    }
+  ]
+}
