@@ -27,6 +27,7 @@ from benchmark import (  # noqa: E402
     FPS_MAP_PATH,
     TOLERANCE_SECONDS,
     benchmark_case,
+    configure_translation_network,
     load_cases,
     load_fps_map,
     percentile,
@@ -164,8 +165,15 @@ def main() -> int:
     parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--strategies", nargs="+", choices=STRATEGIES, default=list(STRATEGIES))
+    parser.add_argument(
+        "--allow-online-translation",
+        action="store_true",
+        help="allow FastTranslator to send uncached Vietnamese queries to Google Translate/MyMemory",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
+
+    configure_translation_network(args.allow_online_translation)
 
     cases = load_cases(args.dataset)
     if args.limit is not None:

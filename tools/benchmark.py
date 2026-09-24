@@ -2,7 +2,9 @@
 
 The default mode instantiates the same SQLiteSearchEngine used by the FastAPI
 application, so the benchmark does not depend on a separately running server.
-Use --api-url to benchmark an already running /api/v1/search endpoint instead.
+Translation is kept local/cache-only unless --allow-online-translation is passed.
+Use --api-url to benchmark an already running /api/v1/search endpoint instead;
+that server's egress cannot be controlled by this client.
 """
 
 from __future__ import annotations
@@ -196,6 +198,18 @@ def split_trake_events(query: str) -> List[str]:
     return [re.sub(r"\s+", " ", event).strip() for event in events if event.strip()]
 
 
+def configure_translation_network(allow_online_translation: bool) -> None:
+    """Disable translator network fallbacks unless a caller explicitly allows them."""
+    if allow_online_translation:
+        return
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from src.fast_translator import fast_translator
+
+    fast_translator._online_fallback_disabled = True
+    fast_translator.local_translator = None
+    fast_translator.tokenizer = None
+
+
 def make_direct_search(top_k: int) -> Callable[[str], List[Dict[str, Any]]]:
     # Import lazily so --help and --api-url do not load torch/OpenCLIP.
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -353,7 +367,16 @@ def main() -> int:
     parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--api-url", help="Base URL of a running FastAPI server; otherwise use the direct production pipeline")
+    parser.add_argument(
+        "--allow-online-translation",
+        action="store_true",
+        help="allow FastTranslator to send uncached Vietnamese queries to Google Translate/MyMemory",
+    )
     args = parser.parse_args()
+
+    if args.api_url and not args.allow_online_translation:
+        parser.error("API mode cannot enforce local translator settings; pass --allow-online-translation only when that server's egress is approved")
+    configure_translation_network(args.allow_online_translation)
 
     cases = load_cases(args.dataset)
     fps_map = load_fps_map(args.fps_map)

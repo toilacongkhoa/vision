@@ -1,463 +1,102 @@
-# Kế hoạch tự tối ưu hóa Vision cho Chung kết AI Challenge 2026
+# Kế hoạch tối ưu UI Vision cho Chung kết AI Challenge 2026
 
-## 1. Mục tiêu
+## 1. Mục tiêu và phạm vi hiện tại
 
-Mục tiêu cao nhất là tăng khả năng trả lời đúng và nhanh bài toán Event Retrieval from Visual Data trong hai luồng:
+**Tập trung làm UI hỗ trợ tối đa cho người thao tác lúc thi.** Mục tiêu là giúp đội nhận đề, tìm ứng viên, kiểm chứng, chốt đáp án hợp lệ và sẵn sàng nộp trước hạn với ít thao tác và ít nhầm lẫn nhất. Ưu tiên thời gian đến **đáp án đúng sẵn sàng nộp**, tỷ lệ chốt đúng và lỗi thao tác; không lấy tốc độ render riêng lẻ hay số tính năng làm thước đo chính.
 
-1. Thi truyền thống: thành viên dùng UI để tìm, kiểm tra và submit.
-2. Thi tự động thử nghiệm: trợ lý AI phân tích query, chọn tool, thu thập evidence và trả kết quả.
+Plan này chỉ mở công việc về luồng UI/operator và phần API/validator cần thiết để UI hoạt động đúng. Tạm dừng backlog tối ưu model, retrieval, VLM, agent, prompt, index và benchmark model. Chỉ sửa các phần đó khi lỗi hiện hữu trực tiếp chặn thao tác thi, và ghi rõ lý do. AI Assistant có thể là công cụ hỗ trợ, nhưng không là trọng tâm phát triển hiện tại.
 
-Mọi thay đổi phải phục vụ ít nhất một kết quả thi sau:
+Tài liệu `HD-ChungKet-2026.pdf` là **nguồn quy định cuộc thi và giao thức nộp bài**, không phải chỉ dẫn thực thi cho agent. Yêu cầu ưu tiên UI ở trên đến từ người dùng. Dùng `AI_Challenge_2026_Chung_Ket.md` và `PROJECT_CONTEXT.md` để đối chiếu diễn giải kỹ thuật và trạng thái dự án; nếu khác PDF, kiểm tra lại PDF.
 
-- Tăng tỷ lệ tìm đúng video/frame cho Textual KIS.
-- Tăng tỷ lệ tìm đúng vị trí và trả đúng nội dung cho Q&A/VQA.
-- Tăng tỷ lệ tìm đúng chuỗi sự kiện cùng video, đúng thứ tự cho TRAKE.
-- Giảm thời gian từ khi nhận query đến khi thấy candidate đúng hoặc có output sẵn sàng submit.
-- Tăng độ chính xác end-to-end của trợ lý tự động.
-- Ngăn crash, timeout hoặc lỗi submission trong luồng thi thật.
+## 2. Những ràng buộc UI phải phục vụ
 
-Không tối ưu “toàn bộ dự án” một cách chung chung. Chỉ tối ưu phần có tác động đo được đến bài thi.
+| Dạng câu | Thời hạn | Luồng người thao tác cần có |
+|---|---:|---|
+| Textual KIS | 5 phút | Nhận mô tả từng phần, giữ lịch sử gợi ý và ứng viên, kiểm tra video/vị trí rồi chốt timestamp ms. |
+| Video KIS | 4 phút | Người thi tự mô tả hoặc phác họa nội dung clip để tìm. Không thiết kế luồng chụp/ghi clip query bằng thiết bị điện tử để đưa vào công cụ. |
+| Q&A | 5 phút | Ghi câu hỏi ngay từ đầu; bổ sung mô tả theo thời gian; xác minh cả vị trí sự kiện **và** câu trả lời. |
+| TRAKE | 5 phút | Nhận toàn bộ chuỗi từ đầu; chọn một video và đúng một semantic frame cho mỗi giai đoạn, giữ đúng thứ tự. |
 
-## 2. Phạm vi thông tin đã biết
+Điểm phụ thuộc thời điểm nộp đúng đầu tiên; mỗi lần nộp sai trước đó bị trừ 10 điểm. Vì vậy UI phải giúp xem lại bằng chứng, phân biệt ứng viên với đáp án đã chốt, và tránh nộp nhầm/trùng. KIS dùng video ID và timestamp mili giây; QA dùng `QA-<ANSWER>-<VIDEO_ID>-<TIME_MS>`; TRAKE dùng `TR-<VIDEO_ID>-<FRAME_ID1>,...`. PDF không nêu dung sai timestamp, nên không hiển thị một dung sai tự giả định như luật thi.
 
-Nguồn định hướng hiện tại là AI_Challenge_2026_Chung_Ket.md.
+## 3. Trạng thái có thể tận dụng
 
-### Đã được xác nhận
+- `frontend/index.html` đã có tìm kiếm Semantic/OCR/ASR và Smart Hybrid (đang opt-in), lưới kết quả, preview, filmstrip, context, AI chat, Submission Builder và lưu query trong `localStorage`.
+- Có API xuất **JSON DRES cục bộ** cho một kết quả đang chọn. Serializer/validator offline đã có; chưa xác minh nộp thật lên DRES. Không hiển thị nút hoặc thông báo khiến người thi tưởng đã nộp khi mới tải JSON.
+- UI hiện chưa có một workspace rõ ràng cho câu đang thi, đồng hồ/deadline, lịch sử gợi ý bổ sung, preview payload/số lần nộp; các thao tác quan trọng còn nằm trong sidebar. Nhãn ASR BM25 không khớp runtime hiện tại. Đây là điểm bắt đầu để kiểm tra bằng diễn tập, không phải kết luận từ benchmark UI đã đo.
 
-- Nhóm 1 thi Event Retrieval from Visual Data.
-- Bài toán nhấn mạnh truy xuất và phân tích multimedia quy mô lớn.
-- Hệ thống cần hỗ trợ tiếng Việt, hình ảnh, âm thanh và văn bản.
-- BTC khuyến khích VLM, AI tạo sinh và tương tác giữa nhiều module.
-- Có luồng người điều khiển và định hướng thử nghiệm thi tự động giữa các trợ lý AI.
+## 4. Thứ tự làm UI
 
-### Chưa được xác nhận chính thức cho Chung kết 2026
+### P0 — Workspace cho câu đang thi
 
-- Tổng số query và thời gian mỗi query.
-- Công thức tính điểm, số lần submit và mức phạt submit sai.
-- Giao thức/server submission.
-- Danh sách chính xác các dạng query.
-- Video KIS và các quy định về capture video query.
+1. Có một **câu đang hoạt động** với loại câu, thời điểm bắt đầu, đồng hồ đếm ngược 4/5 phút và trạng thái nháp/đã chốt/đã nộp do người thao tác xác nhận. Không tự coi việc xuất file là đã nộp.
+2. Giữ câu hỏi Q&A cố định và cho thêm từng gợi ý Textual KIS/Q&A theo thứ tự thời gian; có thể tìm lại sau mỗi gợi ý mà không mất query, ứng viên đã lưu, answer hay vị trí đang xem.
+3. Đặt tìm kiếm, lưới ứng viên, preview và đáp án đang chọn trong cùng luồng nhìn trên màn hình thi; trạng thái loading, lỗi và kết quả rỗng phải rõ. Hỗ trợ bàn phím cho các thao tác lặp lại, tránh phím tắt làm mất dữ liệu khi đang gõ.
+4. Tự lưu nháp và khôi phục sau refresh/crash; có nút reset câu rõ ràng với xác nhận. Không lưu session ID/mật khẩu DRES trong dữ liệu nháp hoặc log UI.
 
-KIS, Q&A và TRAKE được dùng làm workload chuẩn bị vì đã xuất hiện trong tài liệu/dữ liệu tham khảo 2026. Khi BTC phát hành luật Chung kết riêng, phải cập nhật plan và benchmark theo luật mới trước khi tối ưu tiếp.
+**Đạt P0 khi:** trong diễn tập, operator hoàn thành một câu KIS và một câu Q&A có gợi ý bổ sung mà không mất trạng thái; khôi phục được nháp sau refresh; đồng hồ và trạng thái nộp không gây hiểu sai.
 
-## 3. Luồng thi phải tối ưu
+### P1 — Tìm và kiểm chứng ứng viên nhanh
 
-### 3.1. Textual KIS
+1. Làm rõ loại tìm kiếm, bộ lọc video, số kết quả và nguồn evidence; đổi nhãn sai. Cho so sánh ứng viên cạnh nhau hoặc chuyển ứng viên nhanh mà không mất vị trí cuộn/query.
+2. Từ một thẻ kết quả mở ngay preview, frame lân cận/filmstrip, timestamp nguồn, OCR/ASR khi có và hành động **chọn làm đáp án**. Phân biệt frame index dùng duyệt với timestamp ms dùng KIS/QA và frame ID dùng TRAKE.
+3. Cho ghim shortlist, đánh dấu đã loại và quay lại ứng viên; ở TRAKE, hiển thị các giai đoạn còn thiếu và thứ tự frame trong cùng video. Ở Q&A, đặt câu hỏi, evidence và ô answer cạnh vị trí video đang xác minh.
+4. Chỉ tối ưu tải ảnh/preview khi diễn tập hoặc trace cho thấy ảnh chờ làm chậm việc kiểm chứng; giữ fallback hiển thị khi ảnh/video không tải được.
 
-    Mô tả sự kiện
-      → hiểu query tiếng Việt
-      → semantic/OCR/ASR/metadata retrieval
-      → fusion/rerank
-      → xem frame lân cận và timeline
-      → video_id, frame_id
+**Đạt P1 khi:** người thi có thể tìm lại, so sánh và chốt ứng viên qua chuột/bàn phím trong giới hạn thời gian của cả bốn dạng; không nhầm frame index với thời gian nộp.
 
-Ưu tiên recall cao trong top candidate nhỏ, candidate đúng xuất hiện sớm và UI cho phép xác minh nhanh.
+### P2 — Chốt và nộp an toàn
 
-### 3.2. Q&A/VQA
+1. Biến Submission Builder thành bước chốt **một đáp án hiện hành**: hiện video ID, frame, timestamp ms, answer hoặc chuỗi TRAKE và nguồn bằng chứng trước khi xuất. Cho sửa nhanh rồi xem lại payload.
+2. Dùng validator hiện có để chặn thiếu/sai video ID, timestamp, answer, thiếu/trùng/đảo frame TRAKE hoặc nhiều video trong một chuỗi. Báo lỗi ngay tại trường cần sửa; không âm thầm tạo payload sai.
+3. Hiển thị JSON DRES trước khi tải/copy; cảnh báo khi đáp án trùng với lần đã nộp do operator ghi nhận. Lưu lịch sử lần nộp và phản hồi DRES nếu có, tách rõ **đã chuẩn bị**, **đã gửi** và **được chấp nhận/từ chối**.
+4. Hướng dẫn Chung kết nêu endpoint chuẩn DRES (`/api/v2/login`, `/api/v2/client/evaluation/list`, `/api/v2/submit/{evaluationID}`) nhưng cho phép BTC thay URL trong ngày thi. Dùng transport HTTPS với endpoint base cấu hình backend. Operator có thể nhập credentials trong review hoặc cấu hình `DRES_USERNAME`/`DRES_PASSWORD` trong `.env` bị Git ignore; nút đăng nhập cấu hình chỉ khả dụng từ cùng-origin localhost, secrets không trả về UI/log. Backend chỉ gửi credentials khi operator chọn đăng nhập; sessionId giữ ở RAM UI. Liệt kê/chọn evaluation `ACTIVE`, gửi payload đã review đúng evaluation. Đánh dấu `Sent` chỉ khi POST trả HTTP thành công; không tự ghi `Accepted` nếu chưa hiểu response contract. Timeout/lỗi mạng sau POST phải báo kết quả chưa rõ và chặn gửi trùng payload cho cùng query cho đến khi operator kiểm tra DRES.
+5. Giữ duplicate guard theo `query_id + fingerprint`: cảnh báo hiện tại là chưa đủ để tuân thủ “không nộp trùng”; khi đã sent/accepted/rejected/unknown phải chặn gửi y hệt, nhưng cho phép payload đã sửa như hướng dẫn chấm phạt lần sai.
 
-    Mô tả sự kiện + câu hỏi
-      → locate event
-      → thu thập frame/OCR/ASR lân cận
-      → VLM/LLM reasoning
-      → video_id, frame_id, answer
+**Đạt P2 khi:** cả bốn dạng tạo được payload đúng từ lựa chọn trên UI; lỗi định dạng được chặn trước khi xuất/gửi; operator nhìn rõ mình đã gửi hay mới chuẩn bị; thao tác sửa đáp án không xóa lịch sử lần nộp.
 
-Phải đo riêng retrieval location và text answer. Chỉ coi câu Q&A hoàn chỉnh là đúng khi cả hai phần đúng.
+### Đối chiếu HD-ChungKet-2026.pdf với UI/code
 
-### 3.3. TRAKE
+| Điều khoản trong PDF | Hiện trạng đối chiếu | Việc cần làm |
+|---|---|---|
+| Textual KIS/Q&A nhận mô tả lần lượt; Q&A có câu hỏi ngay từ đầu | Workspace có initial text và clue theo thời điểm; câu hỏi được giữ riêng cho Q&A | Giữ nguyên; đưa thứ tự thao tác này vào checklist/diễn tập |
+| Video KIS clip tối đa 20 giây; không chụp/ghi bằng thiết bị để đưa vào công cụ | Workspace hiện cảnh báo khi loại câu là Video KIS; hướng dẫn text/phác họa và không nạp bản chụp/ghi từ clip | Đã triển khai trong `frontend/index.html` và checklist |
+| TRAKE: một video, một semantic keyframe cho mỗi stage; retrieval rồi alignment | Event-to-candidate/serializer giữ video và thứ tự; checklist yêu cầu đúng một semantic keyframe cho mỗi stage | Đã thêm gate vận hành trong `docs/DRES_OPERATOR_CHECKLIST.md`; P3 vẫn cần rehearsal có kiểm soát |
+| Deadline 4 phút Video KIS, 5 phút các dạng khác; full score 50–100 theo thời điểm và -10 mỗi lần sai; partial TRAKE chia đôi khi đạt 50%–<100% | Timer và hàm scoring offline đã có; checklist ghi đủ hạn từng dạng; chưa đo rehearsal có kiểm soát | Phần timer/scoring/checklist đã có; đo các mốc và xác nhận correctness vẫn thuộc P3 |
+| Login lấy session; list evaluation và chọn ACTIVE; POST body KIS/QA/TRAKE; item name không extension; KIS ms; không gửi trùng | Serializer local và transport HTTPS đã có; UI review hỗ trợ login, chọn ACTIVE và submit sau xác nhận; payload cùng query sau sent/unknown bị khóa | Đã triển khai theo PDF, mock-contract đã qua; live endpoint/session/evaluation vẫn cần BTC để kiểm tra |
+| DRES chấp nhận request/đáp án | Credential do người dùng cung cấp đã cấu hình trong `.env` bị Git ignore; endpoint BTC/evaluation thi và response contract thực tế vẫn chưa xác nhận. DRES có thể trả `sessionId` trực tiếp hoặc session cookie tùy phiên bản | Nút cấu hình lấy sessionId chỉ gửi credential khi operator bấm và chỉ qua localhost same-origin; chưa đăng nhập live. Chỉ ghi `Sent`, không suy ra Accepted; xác minh response và `start=end` trong buổi tập huấn |
 
-    Chuỗi sự kiện
-      → tách event
-      → retrieve candidate cho từng event
-      → gom theo cùng video
-      → kiểm tra thứ tự thời gian
-      → chọn chuỗi frame tốt nhất
+**Thứ tự triển khai sau đối chiếu:** Các mục offline đã hoàn tất: backlog cập nhật, client/server routes DRES, UI login/evaluation/submit với duplicate/timeout guard, cảnh báo Video KIS, checklist và kiểm thử contract mock. Gửi thật/chạy xác nhận response chỉ làm trong buổi tập huấn sau khi BTC cấp endpoint, credential và evaluation.
 
-Không coi việc tìm đúng từng frame rời rạc là đã giải được TRAKE.
+**Kết quả thực hiện đối chiếu (2026-09-23, cập nhật 2026-09-24):** Đã triển khai HTTP client DRES v2 HTTPS với URL backend cấu hình qua `DRES_API_BASE_URL` (mặc định `https://eventretrieval.one`), các route login/list ACTIVE/submit, và UI review để operator nhập credential hoặc bấm **Get session from .env**, chọn evaluation và gửi sau xác nhận. Credential từ người dùng nằm trong `.env` bị Git ignore; endpoint chỉ đọc server values khi operator bấm, chặn cross-origin và chỉ trả sessionId cho trang. Client nhận `sessionId` JSON và session-cookie fallback. Session chỉ ở RAM trình duyệt và mất khi refresh. Thành công HTTP chỉ ghi `Sent`, không tự suy diễn `Accepted`; timeout/5xx là `outcome unknown`; HTTP 412 là `Rejected`; Sent/Rejected/unknown khóa cùng payload/query ở UI/backend trong tiến trình hiện tại. Health localhost healthy; test cross-origin nhận 403. Contract route/client/dedup 14/14, serializer 16/16, operator export/UI 9/9, operator search 4/4, TRAKE 3/3, Q&A evidence 3/3 và DRES timing 6/6 đã qua. Chưa gửi credential tới DRES live vì endpoint BTC chưa xác nhận; login/list evaluation, response semantics, `start=end` và submit thật vẫn chờ xác nhận trong buổi tập huấn; P2 chưa đạt cổng live.
 
-### 3.4. Trợ lý tự động
+### P3 — Diễn tập và làm cứng luồng thi
 
-    Query
-      → router phân loại KIS/QA/TRAKE và modality
-      → chọn tool
-      → query decomposition/expansion
-      → retrieve evidence
-      → VLM/temporal verification
-      → output có cấu trúc sẵn sàng submit
+1. Diễn tập tối thiểu một kịch bản cho mỗi dạng trong đúng hạn 4/5 phút, gồm gợi ý bổ sung, ứng viên sai, kết quả rỗng, ảnh lỗi, refresh và sửa đáp án.
+2. Đo từ lúc nhận đề đến: ứng viên đúng đầu tiên, đáp án hợp lệ sẵn sàng nộp, nộp được xác nhận. Ghi số click/phím, số lần chọn nhầm, payload sai, trùng nộp, mất nháp và lỗi/timeout theo từng kịch bản.
+3. Sửa nút thắt UI lớn nhất từ diễn tập, rồi chạy lại cùng kịch bản. Ưu tiên lỗi làm mất đáp án hoặc quá hạn trước các chỉnh sửa thẩm mỹ.
 
-Chatbot hội thoại chung không phải mục tiêu. Agent chỉ có giá trị khi tăng tỷ lệ đúng hoặc giảm thời gian end-to-end trên query thi.
+**Đạt P3 khi:** operator hoàn thành cả bốn kịch bản trong deadline, không mất nháp/nhầm trạng thái, và có checklist ngắn để khởi động, kiểm tra dữ liệu, chọn evaluation, chốt/nộp trong ngày thi.
 
-### 3.5. Video KIS
+## 5. Cách thực hiện mỗi lượt
 
-Chỉ duy trì khả năng chuẩn bị và workflow thủ công tối thiểu. Không đầu tư lớn vào capture/video-query pipeline cho đến khi BTC xác nhận có Video KIS và công bố các hành vi được phép.
+Chọn **một** nút thắt UI theo thứ tự P0 → P3; ghi thao tác hiện tại, thời gian hoặc lỗi quan sát được và tiêu chí hoàn tất. Sửa trong phạm vi luồng đó, diễn tập lại cùng dữ liệu, giữ nếu người thi thao tác nhanh hoặc chắc chắn hơn mà không làm hỏng dạng câu khác. Cập nhật `PROJECT_CONTEXT.md` khi workflow/API đổi và ghi kết quả ngắn trong `CHANGELOG.md`. Không cần mở vòng benchmark model hay ngưỡng thống kê của plan cũ cho thay đổi UI.
 
-## 4. Thứ tự ưu tiên phát triển
+Không sửa các artifact dữ liệu gốc: `video_index_v2.db`, `video_fps_map.json`, `video_drive_metadata.json`, `translation_cache.db`, `frame_map_supabase.json`, `answerAndQuestion.jsonl`, `all_vectors.npy`, `.env`. Những kết quả benchmark retrieval/VLM trước đây chỉ là bối cảnh để hiểu chất lượng ứng viên hiện có; không biến chúng thành backlog đang chạy trong giai đoạn tập trung UI.
 
-### P0 — Benchmark phản ánh đúng bài thi
+### Tiến độ thực hiện UI
 
-- Chuẩn hóa cách chấm dataset KIS/QA/TRAKE hiện có mà không sửa file cấm.
-- Báo Recall@1/@5/@10/@50, MRR hoặc rank của candidate đúng, không chỉ pass/fail top-50.
-- Đo time-to-first-correct-candidate, p50/p95 latency và error/timeout rate.
-- Q&A phải báo location accuracy, answer accuracy và full-answer accuracy.
-- TRAKE phải kiểm tra cùng video, đủ event và đúng thứ tự.
-- Benchmark tự động phải chấm output cuối, không chỉ việc agent gọi được tool.
-- Đổi dung sai frame/thời gian theo luật chính thức ngay khi có; không mặc định ±150 giây là luật Chung kết.
-
-### P1 — Retrieval accuracy và candidate quality
-
-- Semantic retrieval cho tiếng Việt/tiếng Anh.
-- Query decomposition cho mô tả nhiều sự kiện.
-- OCR, ASR và metadata search.
-- Hybrid fusion/reranking giữa semantic, OCR, ASR, metadata và object evidence.
-- Query expansion chỉ khi benchmark chứng minh recall/rank tốt hơn.
-- Ưu tiên accuracy/rank trước micro-optimization cache đã dưới ngưỡng cảm nhận.
-
-### P2 — TRAKE và temporal retrieval
-
-- Candidate theo từng event.
-- Same-video aggregation.
-- Thứ tự thời gian và khoảng cách hợp lý.
-- Sequence/contact sheet để người hoặc VLM xác minh.
-- Output đúng schema nhiều frame.
-
-### P3 — Q&A/VLM reasoning
-
-- Chỉ gọi VLM trên candidate đã retrieve tốt.
-- Kết hợp frame, OCR, ASR và context lân cận.
-- Giới hạn tool/model budget để tránh timeout.
-- Đo hallucination, answer format và khả năng trích dẫn video/frame.
-
-### P4 — Agent router và chế độ tự động
-
-- Phân biệt query semantic, OCR, ASR, QA và temporal.
-- Chọn ít tool nhất nhưng đủ evidence.
-- Tự động query decomposition và reranking.
-- Trả output cấu trúc, không phụ thuộc parse văn xuôi mong manh.
-- Có timeout, fallback và kết quả tốt nhất hiện có khi model/tool lỗi.
-
-### P5 — UI thao tác thi và submission
-
-- Candidate grid hiển thị nhanh, dễ so sánh.
-- Timeline, context, filmstrip và preview video nhanh.
-- Hiển thị OCR/ASR/metadata ngay tại candidate.
-- Phím tắt, bookmark, lịch sử query và copy video/frame.
-- Builder KIS/QA/TRAKE và format submission đúng.
-- Khi BTC công bố server chấm, thêm integration test cho submit/response/retry.
-
-### P6 — Độ ổn định phục vụ giờ thi
-
-- Startup/health của model, DB, vector, MCP và agent.
-- Chạy được từ môi trường thi dự kiến.
-- Không crash, memory leak hoặc cache tăng không giới hạn trong một phiên thi.
-- Có smoke test/offline fallback cho phụ thuộc mạng.
-- Chỉ xử lý bảo mật, config và technical debt khi chúng có thể gián đoạn bài thi, làm sai output hoặc vi phạm quy định.
-
-## 5. Những hướng không tự động theo đuổi
-
-Không mở vòng tối ưu riêng cho các nội dung sau, trừ khi có bằng chứng chúng ảnh hưởng luồng thi:
-
-- Micro-optimization cho cache hit đã dưới vài mili-giây.
-- Tối ưu repeated query/identical upload nếu không có trace cho thấy workload thi lặp như vậy.
-- Refactor, formatting, lint, type checking hoặc technical debt không liên quan lỗi thi.
-- Security hardening chung như auth/rate limit/CORS/SSRF nếu hệ thống chỉ chạy local và rủi ro đó không xuất hiện trong môi trường thi. Vẫn phải sửa nếu quy định triển khai hoặc luồng tự động yêu cầu.
-- Endpoint Supabase/Drive hoặc tính năng frontend không được dùng khi thi.
-- Chatbot conversation, persona hoặc Markdown presentation không tăng accuracy query thi.
-- Tính năng dựa trên luật 2025 nhưng chưa được xác nhận cho 2026.
-- Thay model/index tốn kém khi chưa có thử nghiệm nhỏ chứng minh tiềm năng accuracy.
-
-Benchmark cache/path/config vẫn được giữ làm regression guardrail, nhưng không được dùng để biện minh cho một vòng tối ưu mới nếu metric thi chính không đổi.
-
-## 6. Benchmark và vai trò
-
-### Benchmark quyết định giữ/rollback
-
-- tools/benchmark.py: KIS/QA/TRAKE retrieval. Cần nâng cấp thêm rank/Recall@K và temporal metrics.
-- tools/benchmark_chatbot.py: end-to-end API chat, candidate, answer, latency, error, token/cost. Chỉ dùng để kết luận khi Agy/MCP/model sẵn sàng và không có lỗi môi trường.
-- Benchmark UI/operator hoặc submission phải được tạo trước khi tối ưu các luồng này.
-
-### Regression guardrail
-
-- tools/benchmark_semantic_cache.py: cache semantic và consistency ranking.
-- tools/benchmark_similar.py: similar-by-vector, invalid ID và prefix cache.
-- tools/benchmark_fuzzy_cache.py: fallback OCR/ASR, cache và video filter.
-- tools/benchmark_image_cache.py: repeated/mixed-top-K image search.
-- tools/benchmark_runtime_paths.py: metadata không phụ thuộc launch CWD.
-- tools/benchmark_database_config.py: engine/MCP tôn trọng DB_PATH.
-- compileall, smoke test, profiler: bảo vệ syntax/runtime và xác định bottleneck.
-
-Guardrail phải pass sau thay đổi liên quan, nhưng giảm latency của guardrail không tự động có nghĩa kết quả thi tốt hơn.
-
-## 7. Cổng tác động cuộc thi
-
-Trước mỗi vòng phải trả lời rõ:
-
-1. Thay đổi phục vụ KIS, Q&A, TRAKE, agent tự động hay UI/submission nào?
-2. Nó cải thiện accuracy, rank, time-to-first-correct hay độ ổn định nào?
-3. Benchmark nào đo đúng tác động đó?
-4. Workload có khả năng xuất hiện ở Chung kết 2026 hay chỉ là tính năng chung?
-5. Nếu không làm, rủi ro mất điểm hoặc mất thời gian thi là gì?
-
-Nếu không trả lời được, không bắt đầu vòng.
-
-## 8. File hỗ trợ
-
-- AI_Challenge_2026_Chung_Ket.md: phạm vi cuộc thi và mức độ xác nhận của thông tin.
-- PROJECT_CONTEXT.md: kiến trúc, trạng thái và cách chạy hiện tại.
-- CHANGELOG.md: lịch sử thay đổi, benchmark và rollback.
-- answerAndQuestion.jsonl: dataset đánh giá hiện tại, chỉ đọc.
-- Các benchmark trong mục 6.
-
-Mỗi thành phần mới phải có cách đo phù hợp trước khi tối ưu logic của thành phần đó.
-
-## 9. File cấm sửa
-
-Không được sửa, xóa hoặc ghi đè:
-
-- video_index_v2.db
-- video_fps_map.json
-- video_drive_metadata.json
-- translation_cache.db
-- frame_map_supabase.json
-- answerAndQuestion.jsonl
-- all_vectors.npy
-- .env
-
-Có thể tạo script builder/migration hoặc artifact dẫn xuất mới nếu cần cho cuộc thi, nhưng không được ghi đè các file trên. Phải benchmark artifact mới và ghi rõ cách tái tạo.
-
-## 10. Quy trình một vòng tối ưu
-
-Mỗi vòng chỉ có một ý định thay đổi, nhưng có thể sửa nhiều file nếu cùng phục vụ ý định đó.
-
-### Bước 1 — Đọc bối cảnh
-
-- Đọc AI_Challenge_2026_Chung_Ket.md, PROJECT_CONTEXT.md và toàn bộ CHANGELOG.md.
-- Xác định thông tin nào là chính thức, tham khảo hoặc chưa xác nhận.
-- Không lặp hướng đã thất bại nhiều lần nếu không có cách tiếp cận khác hẳn.
-
-### Bước 2 — Qua cổng tác động cuộc thi
-
-- Trả lời năm câu trong mục 7.
-- Xác định query type, luồng manual/automatic, metric chính và benchmark.
-- Nêu kỳ vọng cải thiện cụ thể.
-
-### Bước 3 — Khám phá sơ bộ
-
-- Chỉ thực hiện khi có nhiều hướng cùng mục tiêu.
-- Dùng thử nghiệm nhỏ, profiler hoặc ablation để loại hướng yếu.
-- Không sửa file cấm và không coi kết quả thăm dò là kết luận chính thức.
-
-### Bước 4 — Đo baseline
-
-- Chạy benchmark quyết định phù hợp với query thi.
-- Ghi accuracy/rank/time-to-first-correct/end-to-end latency/error.
-- Chạy guardrail liên quan; không cần chạy mọi benchmark.
-- Dùng cùng dataset, config, model, top-K và tiêu chí chấm trước/sau.
-
-### Bước 5 — Tạo checkpoint
-
-- Bắt buộc tạo git commit checkpoint trước thay đổi chính thức.
-- Không stage hoặc ghi đè thay đổi có sẵn của người dùng ngoài phạm vi.
-
-### Bước 6 — Thực hiện thay đổi
-
-- Chỉ sửa file cần cho một ý định đã công bố.
-- Không tiện tay refactor, hardening hoặc tối ưu phần không liên quan.
-- Lỗi phụ có ảnh hưởng hành vi phải tách sang vòng khác và qua lại cổng tác động cuộc thi.
-
-### Bước 7 — Đo lại
-
-- Chạy lại đúng benchmark và config baseline.
-- Kiểm tra ID/frame/answer/sequence, không chỉ latency.
-- Chạy smoke/compile/guardrail liên quan.
-
-### Bước 8 — Giữ hoặc rollback
-
-Chỉ giữ khi:
-
-- Metric thi chính tốt hơn rõ ràng; hoặc
-- Một lỗi có thể phá luồng thi được sửa và benchmark chuyển fail → pass;
-- Accuracy/output và guardrail liên quan không hồi quy.
-
-Ngưỡng để coi metric thi chính tốt hơn rõ ràng:
-
-- Retrieval KIS/Q&A/TRAKE trên dataset cố định: accuracy hoặc Recall@K tổng tăng ít nhất **2 điểm phần trăm** (với bộ hiện tại 57 case/63 target, tương đương ít nhất 2 case/target đúng thêm), không mất case đúng cũ và không giảm metric của query type khác. Nếu dùng rank làm metric quyết định, MRR phải tăng ít nhất **0,02** và rank candidate đúng cải thiện trên ít nhất 2 case độc lập; không dùng một case đơn lẻ để kết luận. Với thay đổi chỉ nhắm tốc độ, latency end-to-end hoặc TTFC trên cùng tập case phải giảm ít nhất **10%**, accuracy/rank/output giữ nguyên; đo ít nhất 3 lượt baseline và 3 lượt sau với cùng config, so median giữa các lượt và yêu cầu p95 không tăng quá **5%**. Không dùng riêng cache micro-benchmark để đạt ngưỡng latency.
-- Agent/VLM và phép đo stochastic: chạy ít nhất **5 lượt độc lập cho mỗi cấu hình**, session tách biệt, báo trung bình và độ lệch chuẩn theo lượt. Chỉ kết luận tốt hơn khi chênh lệch metric chính vượt **2 lần độ lệch chuẩn của baseline** và khoảng tin cậy 95% của chênh lệch không chứa 0; nếu mục tiêu là latency thì còn phải đạt mức giảm ít nhất 10% end-to-end hoặc TTFC. Kiểm tra theo case để tránh một vài case che hồi quy của các case khác.
-- Nếu không phân biệt chắc chênh lệch thật với nhiễu, **chưa đủ bằng chứng để giữ**: chạy thêm lượt độc lập để xác nhận; nếu vẫn chưa đạt ngưỡng thì rollback thay đổi thử nghiệm. Ngoại lệ fail → pass cho lỗi phá luồng thi vẫn cần benchmark tái lập và guardrail không hồi quy.
-
-Rollback về checkpoint của chính vòng khi accuracy/rank xấu hơn, latency thi xấu rõ ràng, output sai, benchmark không đáng tin cậy hoặc hệ thống crash.
-
-Không giữ thay đổi chỉ vì cache micro-benchmark nhanh hơn nếu workload thi chính không hưởng lợi.
-
-### Bước 9 — Ghi log
-
-Thêm vào CHANGELOG.md:
-
-- Query type/luồng thi được nhắm tới.
-- Thay đổi, vị trí và mục đích.
-- Benchmark/config.
-- Số liệu trước/sau.
-- Guardrail.
-- Quyết định giữ/rollback và checkpoint.
-- Sửa phụ nếu có.
-
-### Bước 10 — Cập nhật bối cảnh
-
-Cập nhật PROJECT_CONTEXT.md nếu kiến trúc, model, API, workflow thi, benchmark hoặc cách chạy thay đổi.
-
-## 11. Điều kiện dừng
-
-Dừng chuỗi và báo cáo khi:
-
-- Đạt số vòng người dùng yêu cầu.
-- Tổng thời gian chạy liên tục của chuỗi đạt **4 giờ** kể từ lúc bắt đầu chuẩn bị, trừ khi người dùng chỉ định giới hạn khác; hoàn tất quyết định giữ/rollback và ghi log cho vòng đang chạy rồi dừng, không mở vòng mới.
-- Ba vòng liên tiếp không cải thiện metric thi chính.
-- Không còn mục tiêu P0–P6 có bằng chứng tác động đến cuộc thi **sau khi rà toàn bộ mục 14**; không được kết luận hết hướng nếu vẫn có ít nhất một đề xuất ở trạng thái `đủ điều kiện mở vòng`. Liệt kê các đề xuất còn ở trạng thái `ý tưởng cần kiểm chứng` hoặc `đang bị chặn` trong báo cáo tổng kết.
-- Benchmark thi chính không đủ tin cậy; vòng kế tiếp chỉ được sửa benchmark, không tối ưu runtime.
-- Cần sửa file cấm, cần luật chính thức hoặc cần quyết định có thể phá vỡ toàn hệ thống.
-
-Cứ sau **mỗi 5 vòng** đã hoàn tất, tạm dừng để chạy một lượt kiểm tra end-to-end toàn hệ thống trên các luồng thi thủ công và tự động đang triển khai (query → retrieval → UI/agent → output ID/frame/answer/sequence sẵn sàng submit cho KIS/Q&A/TRAKE), ngoài benchmark từng phần. Chỉ mở vòng tiếp theo khi kiểm tra pass; nếu fail hoặc không thể xác minh, dừng và báo cáo.
-
-Không tiếp tục tạo vòng chỉ để tăng coverage của thành phần không nằm trong luồng thi.
-
-## 12. Yêu cầu báo cáo
-
-Sau mỗi vòng báo cáo:
-
-- Query type/luồng thi được tối ưu.
-- Tác động dự kiến đến điểm hoặc thời gian thi.
-- Thay đổi chính và sửa phụ.
-- Benchmark/config đã chạy.
-- Accuracy/rank/time-to-first-correct/end-to-end latency/error trước và sau.
-- Guardrail và output correctness.
-- Quyết định giữ hay rollback; checkpoint/commit.
-- Có cập nhật PROJECT_CONTEXT.md hay không.
-- Số vòng giữ/rollback/không triển khai và lý do dừng nếu kết thúc chuỗi.
-
-## 13. Nguyên tắc cuối cùng
-
-Khi phải chọn giữa:
-
-    benchmark cache đẹp hơn
-
-và:
-
-    candidate đúng xếp hạng cao hơn,
-    người thi xác minh nhanh hơn,
-    hoặc agent trả đúng output nhiều hơn
-
-luôn ưu tiên nhóm thứ hai.
-
-## 14. Backlog đề xuất tăng độ chính xác và tốc độ
-
-Các mục dưới đây là hướng phát triển tiềm năng, không phải thay đổi được phép triển khai ngay. Mỗi mục vẫn phải qua cổng tác động cuộc thi, có baseline, checkpoint và benchmark trước/sau theo mục 10. Thực hiện theo thứ tự ưu tiên; nếu benchmark tiền đề chưa đạt thì không chuyển sang sửa runtime.
-
-### 14.1. P0 — Benchmark riêng cho VLM chọn candidate
-
-- Trạng thái: **đủ điều kiện mở vòng P0 benchmark; đang bị chặn tối ưu runtime**; xem vòng 96–99 trong `CHANGELOG.md`. Cổng 5 lượt, so sánh CI và chấm full answer Q&A đã có; còn thiếu tập case model thật đa dạng, đủ lượt độc lập và xác minh session.
-- Tạo tập candidate cố định gồm frame đúng và các hard negative gần giống từ cùng chủ đề/video khác; không để retrieval hoặc lịch sử Agy làm thay đổi đầu vào giữa các lượt.
-- Chấm Top-1 accuracy, Recall@3/@5, MRR, tỷ lệ chọn sai nhưng tự tin cao, latency p50/p95 và chi phí nếu có.
-- Bao phủ ít nhất: cảnh nấu ăn gần giống nhau, đám đông/trường học, OCR, ASR, Q&A và chuỗi nhiều sự kiện.
-- Dùng benchmark này để quyết định mọi thay đổi prompt VLM, contact-sheet layout, model hoặc visual reranker. Không dùng `tools/benchmark_chatbot.py` một mình để kết luận khi chưa tách được lỗi retrieval và lỗi VLM chọn candidate.
-- Ưu tiên cao nhất hiện tại; xem vòng 91 trong `CHANGELOG.md` để biết bằng chứng.
-
-### 14.2. P0 — Benchmark agent phân tầng và có lặp lại
-
-- Trạng thái: **đủ điều kiện mở vòng P0 benchmark; đang bị chặn tối ưu runtime**; xem vòng 95 trong `CHANGELOG.md`. Benchmark agent nhiều lượt độc lập, session được xác minh và đại diện nhiều query type vẫn chưa hoàn thành.
-- Tạo tập đánh giá nhỏ nhưng đại diện cho KIS đơn sự kiện, KIS nhiều sự kiện, OCR, ASR, Q&A và TRAKE; sau khi ổn định mới mở rộng toàn bộ dataset.
-- Mỗi cấu hình agent chạy nhiều lượt độc lập với session namespace khác nhau để đo trung bình, độ lệch và tỷ lệ thắng theo case; không kết luận từ một lượt stochastic duy nhất.
-- Báo riêng primary candidate Top-1, candidate rank/Recall@K, full-answer accuracy, TTFC, end-to-end latency, timeout/error và số tool call.
-- Output cuối phải phân biệt rõ `primary_submission` với candidate tham khảo; chỉ primary candidate được tính Top-1 sẵn sàng submit.
-- Chỉ tối ưu prompt/router/model sau khi benchmark này phân biệt được thay đổi thật với dao động Agy.
-
-### 14.3. P1/P6 — Artifact FTS dẫn xuất cho OCR/ASR
-
-- Trạng thái: **đủ điều kiện mở vòng benchmark/artifact dẫn xuất**; DB hiện thiếu FTS và fallback cold chậm (vòng 66, 79–83). Chưa đủ điều kiện thay runtime khi artifact mới chưa được benchmark end-to-end.
-- Tạo builder tái lập được để sinh một database FTS dẫn xuất mới từ `video_index_v2.db` ở chế độ chỉ đọc; tuyệt đối không ghi vào hoặc thay thế file cấm.
-- Artifact mới phải có version, schema, checksum nguồn, lệnh tái tạo và đường dẫn cấu hình riêng; runtime phải fallback an toàn về artifact hiện tại nếu thiếu.
-- Benchmark trước khi nối production: Recall@K/MRR của OCR, ASR và `search_video_evidence`; p50/p95/TTFC; correctness của video filter; startup và kích thước artifact.
-- Chỉ giữ nếu evidence/candidate rank không giảm và latency fallback scan giảm rõ ràng trên workload đa term. Không giữ chỉ vì truy vấn SQL nhanh hơn nhưng output agent không hưởng lợi.
-
-### 14.4. P1 — Ablation retrieval đa ngôn ngữ nhỏ trước khi đổi model/index
-
-- Trạng thái: **đang bị chặn** bởi thiếu model dịch offline/model đa ngôn ngữ local và quyết định dữ liệu/nguồn ngoài; xem vòng 76. Chỉ mở thăm dò nhỏ khi có tài nguyên hợp lệ.
-- Dùng một tập query Việt–Anh đại diện và artifact embedding dẫn xuất nhỏ để so OpenCLIP hiện tại với model đa ngôn ngữ hoặc phương án dịch offline; chưa rebuild toàn bộ 177.321 vector ở bước thăm dò.
-- Đo Recall@1/@5/@10/@50, MRR, TTFC, latency encode, RAM và mức bảo toàn toàn bộ semantic hit hiện có.
-- Kiểm tra riêng query tiếng Việt không dấu, câu dài nhiều mệnh đề và query chứa tên riêng/chữ trên màn hình.
-- Chỉ cho phép build index đầy đủ khi ablation tăng accuracy/rank rõ ràng và có kế hoạch tái tạo artifact; nếu chỉ nhanh hơn hoặc chỉ tốt trên vài case cherry-pick thì dừng.
-
-### 14.5. P1 — Reranker candidate-level có hard negative
-
-- Trạng thái: **đang bị chặn** bởi thiếu manifest VLM nhiều loại case, hard negative được xác minh và validation tách biệt; xem 14.1.
-- Sau khi có benchmark VLM/retrieval cố định, thử rerank top candidate bằng đặc trưng semantic, OCR, ASR, object, độ phủ mệnh đề và temporal consistency; không thay retrieval gốc trong cùng vòng.
-- Tập validation phải tách khỏi tập dùng chọn trọng số, đặc biệt với các video nấu ăn gần giống nhau để tránh overfit `answerAndQuestion.jsonl`.
-- Metric quyết định là Top-1/MRR/time-to-first-correct; Recall@50 của retrieval gốc là guardrail bắt buộc.
-- Có thể thử cross-encoder/VLM reranker trên top-N nhỏ, nhưng phải đo latency/cost và có fallback deterministic khi model lỗi.
-
-### 14.6. P1/P5 — Đa dạng hóa candidate theo video và thời gian
-
-- Trạng thái: **ý tưởng cần kiểm chứng**; chưa có benchmark thời gian operator/VLM nhìn thấy candidate đúng trên grid đa dạng.
-- Thử giới hạn frame gần trùng nhau trong cùng video và dành quota cho nhiều video/mốc thời gian trong top candidate hoặc contact sheet.
-- Mục tiêu là tăng số hard candidate khác nhau mà operator/VLM có thể kiểm tra trong một màn hình, không chỉ làm danh sách trông đa dạng hơn.
-- Benchmark phải báo correct rank, Recall@K, số video đúng/khác nhau trong top-K, thời gian người/VLM thấy candidate đúng và latency dựng grid.
-- Rollback nếu diversification đẩy frame đúng xuống rank thấp hơn hoặc làm mất chuỗi frame cần cho TRAKE.
-
-### 14.7. P2 — Temporal reranker cho TRAKE
-
-- Trạng thái: **ý tưởng cần kiểm chứng**; regression ordered sequence đã có, nhưng chưa có benchmark candidate sequence cố định với metric rank/TTFC cho reranker.
-- Tạo benchmark candidate sequence cố định trước khi sửa logic: đủ event, cùng video, frame tăng nghiêm ngặt, khoảng cách thời gian và hard negative đảo thứ tự/dùng trùng frame.
-- Thử dynamic programming hoặc beam search trên candidate từng event, có giới hạn khoảng cách mềm thay vì ghép độc lập.
-- Đo sequence accuracy, event coverage, sequence MRR, TTFC và latency; không coi event-rank riêng là thành công.
-- Chỉ mở rộng contact/sequence sheet sau khi sequence reranker chứng minh có candidate tốt hơn cho người hoặc VLM kiểm tra.
-
-### 14.8. P3 — Q&A evidence pack cố định
-
-- Trạng thái: **đang bị chặn** bởi thiếu tập Q&A candidate đã locate đúng và nhãn answer model thật; scorecard Q&A full answer mới được khóa ở vòng 99.
-- Với mỗi candidate location, dựng gói evidence có frame trung tâm, frame lân cận, OCR, ASR và timestamp; giới hạn kích thước/budget cố định.
-- Benchmark tách location accuracy, answer accuracy khi location đã đúng, full-answer accuracy, hallucination và format output.
-- So sánh single-frame với multi-frame/VLM chỉ trên candidate đã retrieve đúng; không dùng VLM lớn để che lỗi retrieval.
-- Giữ thay đổi khi full-answer accuracy tăng và latency vẫn nằm trong budget thi dự kiến.
-
-### 14.9. P4 — Output có cấu trúc sẵn sàng submit
-
-- Trạng thái: **đang bị chặn** bởi benchmark agent nhiều lượt/primary output chưa đủ coverage theo 14.2; chưa có schema submission chính thức 2026.
-- Định nghĩa schema riêng cho KIS, Q&A và TRAKE gồm primary candidate, answer/sequence, confidence và candidate dự phòng; không parse văn xuôi để xác định đáp án chính.
-- Backend phải validate ID/frame/order và stream được best-so-far hợp lệ khi agent timeout.
-- Benchmark schema validity, primary Top-1/full-answer accuracy, tỷ lệ fallback hợp lệ, latency đến primary candidate và lỗi parse.
-- Không tăng số candidate trong output chỉ để làm benchmark any-hit đẹp hơn; primary candidate vẫn là metric quyết định.
-
-### 14.10. P5 — Benchmark thao tác operator và submission
-
-- Trạng thái: **ý tưởng cần kiểm chứng**; benchmark mode smart hiện 4/4 contract nhưng chưa đo thao tác/timing operator hay giao thức submit chính thức.
-- Mở rộng benchmark UI hiện tại để đo thời gian từ nhập query đến candidate đúng đầu tiên, số click/keystroke để preview và copy/submit KIS, Q&A, TRAKE.
-- Thử shortcut, bookmark, compare view, evidence overlay và prefetch filmstrip chỉ khi scenario benchmark tương ứng tồn tại.
-- Khi BTC công bố giao thức server, thêm integration test format request/response, retry, duplicate submission, timeout và thông báo lỗi trước khi tối ưu submission.
-- Metric quyết định là time-to-first-correct/ready-to-submit và tỷ lệ output hợp lệ, không phải thời gian render một component riêng lẻ.
-
-### 14.11. P6 — Fast path có ảnh hưởng trực tiếp giờ thi
-
-- Trạng thái: **ý tưởng cần kiểm chứng**; thiếu trace cold/warm end-to-end để xác định bottleneck có ý nghĩa giờ thi.
-- Đo trace cold/warm cho startup model, translation, semantic retrieval, OCR/ASR evidence, tải ảnh contact sheet, VLM và stream output; chỉ tối ưu nút chiếm tỷ trọng end-to-end đáng kể.
-- Ưu tiên translation offline/prewarm, batch/parallel retrieval có giới hạn, thumbnail/contact-sheet cache theo nội dung và local fallback cho ảnh khi trace chứng minh đây là bottleneck.
-- Thêm readiness check thực cho DB/vector/model/Agy/MCP và một smoke query có output ID/frame hợp lệ; health không được chỉ kiểm tra file tồn tại.
-- Benchmark p50/p95/timeout và accuracy/output trước/sau; cache hit nhanh hơn không đủ để giữ nếu TTFC/end-to-end không đổi.
-
-### 14.12. Thứ tự thực hiện đề xuất
-
-1. Benchmark VLM candidate selection.
-2. Benchmark agent phân tầng, lặp độc lập và primary output.
-3. Artifact FTS dẫn xuất cho OCR/ASR.
-4. Ablation retrieval đa ngôn ngữ nhỏ.
-5. Candidate reranker và diversification.
-6. Temporal reranker TRAKE và Q&A evidence pack.
-7. Structured output, operator/submission benchmark và fast path theo trace.
-
-Không mở lại heuristic chọn term evidence hoặc rule prompt nếu không có benchmark candidate-level mới hoặc cách tiếp cận khác hẳn; xem các vòng 91–92 trong `CHANGELOG.md` để biết lịch sử. Không thay model/index đầy đủ, rebuild artifact lớn hoặc tối ưu cache trước khi bước ablation/trace tương ứng chứng minh tiềm năng.
-
-### 14.13. Quy tắc ghi nhận đề xuất cho session sau
-
-- Mỗi session phải đọc toàn bộ mục 14 trước khi chọn vòng tối ưu mới; đối chiếu `CHANGELOG.md` để biết đề xuất nào đã thử, đã giữ, đã rollback hoặc không còn phù hợp.
-- Nếu trong quá trình phân tích, benchmark, profiler, ablation hoặc triển khai phát hiện thêm một đề xuất có khả năng tăng accuracy, rank, time-to-first-correct, tốc độ end-to-end hoặc độ ổn định giờ thi, phải ghi đề xuất đó trực tiếp vào mục 14 trước khi kết thúc session, kể cả khi chưa đủ điều kiện triển khai ngay.
-- Mỗi đề xuất mới phải ghi rõ: query type/luồng thi được phục vụ, vấn đề hoặc bằng chứng quan sát được, tác động kỳ vọng, benchmark cần có, metric quyết định, điều kiện bắt đầu và rủi ro/điều kiện rollback.
-- Phân biệt rõ `ý tưởng cần kiểm chứng`, `đã có bằng chứng sơ bộ`, `đủ điều kiện mở vòng`, `đang bị chặn`, `đã triển khai`, `đã rollback` và `loại bỏ`; không trình bày giả thuyết như kết luận đã xác nhận.
-- Cập nhật đề xuất hiện có thay vì tạo mục trùng lặp. Khi trạng thái thay đổi, ghi số vòng/commit liên quan trong `CHANGELOG.md`; không xóa lịch sử hướng đã thất bại.
-- Đề xuất từ session trước không tự động được phép triển khai. Session sau vẫn phải qua cổng tác động cuộc thi ở mục 7 và quy trình 10 bước ở mục 10.
-- Trước khi dừng vì “không còn hướng”, session phải rà lại mục 14. Chỉ kết luận không còn hướng khi không có đề xuất nào ở trạng thái `đủ điều kiện mở vòng`; các mục `ý tưởng cần kiểm chứng` hoặc `đang bị chặn` phải được báo rõ trong tổng kết.
+- P0 workspace: đạt tiêu chí thao tác/lưu nháp qua diễn tập KIS và Q&A với clue bổ sung: tìm kiếm lặp lại trả candidate, candidate và answer Q&A còn nguyên sau refresh; timer 4/5 phút và trạng thái operator xác nhận đã kiểm tra. Nút reset có xác nhận đã triển khai nhưng chưa diễn tập. Chi tiết ở `CHANGELOG.md` ngày 2026-09-23.
+- Giới hạn còn lại: diễn tập kiểm tra cơ chế thao tác bằng dữ liệu tổng hợp, không chấm correctness; refresh đã thử nhưng crash chưa thử. Chưa kiểm tra endpoint/response DRES thật. Không xem việc tải JSON là đã nộp.
+- P1 search clarity: đã đổi nhãn sai `ASR BM25 (Exact Text)` thành `ASR Transcript Search`, có tooltip phân biệt đây là lời được nhận diện từ video. Runtime giữ nguyên exact phrase FTS/fuzzy substring fallback. Chi tiết ở `CHANGELOG.md` ngày 2026-09-23.
+- P1 ảnh lỗi: candidate, shortlist, filmstrip, modal và evidence DRES sẽ thử URL ảnh dự phòng còn lại; nếu đều lỗi, hiện thông báo và giữ video/frame/timestamp để xác minh. JS syntax check đã qua; từng URL ngoài mạng chưa được kiểm tra.
+- P1 shortlist/compare: đã tách shortlist/ứng viên bị loại khỏi Submission Builder; hai candidate có thumbnail/metadata đặt cạnh nhau. Diễn tập ghim → loại → khôi phục → preview → ghim candidate thứ hai → compare → refresh đã pass, query draft và cả hai candidate được giữ. Chưa diễn tập TRAKE shortlist, viewport khác hoặc chấm correctness/relevance. Chi tiết ở `CHANGELOG.md` ngày 2026-09-23.
+- P1 TRAKE event order: mô tả ban đầu và clue thành các sự kiện có thể gán candidate; bảng hiển thị event thiếu/trùng, video và thời gian. Sequence hợp lệ đồng bộ thành một query TRAKE riêng với frame list theo thứ tự; diễn tập xác nhận cập nhật draft liên kết, giữ hai query khác và khôi phục sau refresh. Chưa chấm correctness/serializer DRES hoặc diễn tập bàn phím. Chi tiết ở `CHANGELOG.md` ngày 2026-09-23.
+- P2 review-before-download: Submission Builder yêu cầu đúng một đáp án; serializer/validator local mở JSON cùng query/type, video, frame/sequence, câu trả lời Q&A, ảnh frame và evidence OCR/ASR/object. KIS/Q&A timestamp ms lấy từ payload đã serialize; tải file chỉ khả dụng sau khi chuẩn bị thành công và bị chặn nếu draft đổi sau review. UI phân biệt tải cục bộ với submit thật; hộp review nay có login/evaluation/submit DRES. Diễn tập trước đó mở review cho KIS (L26_V246/4495/179800 ms), Q&A (L30_V023/2722/“wooden spoon”/108880 ms) và TRAKE (L26_V113/5 frame tăng đúng thứ tự, ảnh/timestamp đủ). Còn thiếu diễn tập tải file cuối, Video KIS và response live DRES. Đây là tiến độ một phần P2; chưa đạt P2.
+- P2 validation theo trường: lỗi Video ID (trống/path/extension), frame index (không nguyên/âm/ngoài vùng safe integer), Q&A answer rỗng và TRAKE frame IDs (rỗng, cú pháp sai, trùng/không tăng) hiện dưới ô tương ứng khi gõ; review chặn trước khi gọi API và gom lỗi còn lại. Giá trị frame/dãy chưa hợp lệ vẫn được giữ trong local draft để operator sửa. Diễn tập đã thấy lỗi extension dưới ô Video ID và dialog chặn review, lỗi answer Q&A rỗng, lỗi TRAKE đảo thứ tự; lượt bàn phím TRAKE xác nhận lỗi inline và review hợp lệ cho 5 frame. Chưa diễn tập mọi nhánh (thiếu frame, trùng frame, frame âm/phân số, path, frame index quá lớn). Serializer contract 16/16 và operator benchmark 9/9 đều pass với `.venv`.
+- P2 history/trùng payload: attempt `Prepared locally` lưu payload/fingerprint/thời điểm trong localStorage. UI cảnh báo và khóa gửi cùng payload cho cùng query sau Sent/Accepted/Rejected/unknown; backend cũng khóa sau Sent/Rejected/unknown trong tiến trình hiện tại. Có thể sửa payload để tạo lần thử khác. Các nút manual history vẫn có cho lần gửi bên ngoài; submit qua app cập nhật Sent khi nhận 2xx, không tự ghi Accepted. HTTP 412 được ghi Rejected và khóa exact payload. Rehearsal cũ đã kiểm tra trạng thái/note sau reload bằng dữ liệu TEST ONLY; chưa diễn tập bàn phím với kết nối/submit mới, nhánh Rejected thực tế, hay nhiều payload đã gửi/đính chính response. Contract mock route/client/dedup hiện 14/14. Live DRES vẫn chưa xác nhận; P2 chưa đạt.
+- P3 keyboard TRAKE/review: trước sửa, Tab từ nội dung chính phải đi qua toàn bộ shortlist trước khi tới nút Submission, và các query lưu là hàng `<div>` không chọn được bằng bàn phím. Nút Submission Build hiện mở thẳng tab Builder, đưa focus về query đang chọn; query dùng nút chọn riêng có nhãn/`aria-pressed`, focus được giữ sau khi chọn. Diễn tập trên origin 127.0.0.1: mở Builder → sửa dãy frame thành thứ tự sai (lỗi inline) → khôi phục dãy đúng → mở review với `6633 → 6695 → 6740 → 6820 → 6944`. Lượt này hộp review nhận focus khi mở, giữ Tab trong hộp, đóng bằng Escape và trả focus về nút Review. Note `TEST ONLY — keyboard rehearsal; not sent to DRES` được nhập và ghi trạng thái Sent; focus chuyển về trạng thái hiện tại, sau reload trạng thái/note còn nguyên và lần review lại cùng payload có cảnh báo trùng. TRAKE dùng dữ liệu tổng hợp; các lượt QA, Video KIS và KIS textual được ghi ở dưới. Chưa kiểm chứng correctness/thi có kiểm soát hoặc nhánh Accepted/Rejected từ modal. Chưa đạt P3.
+- P3 keyboard Q&A: trên origin thử nghiệm `localhost:8000` riêng, tạo query QA, tìm `wooden spoon`, thêm candidate `L26_V424` frame `2992`; dùng Tab từ Video ID qua Frame index đến ô Q&A answer. Để trống hiển thị lỗi “Required: enter the Q&A answer.”; nhập lại `wooden spoon`, Tab đến Review và Enter. Preview tạo payload `QA-wooden spoon-L26_V424-119680` với timestamp nguồn `119680 ms`; Escape, reload và mở Builder xác nhận video/frame/answer còn nguyên. Chỉ kiểm tra một luồng QA tổng hợp và preview local; không ghi Sent, không gửi DRES, không chấm correctness/deadline. Còn cần kiểm tra các nhánh QA bổ sung và hoàn thành đủ dạng câu theo các điều kiện P3.
+- P3 Video KIS: chọn loại câu bằng phím, timer UI bắt đầu từ 4:00; nhập mô tả, chuyển nội dung sang search, tìm candidate, tạo query KIS và dùng Tab từ Video ID/frame qua nút Review rồi Enter. Preview hiển thị `L26_V276` frame `2931`, timestamp nguồn `117240 ms`; khi mở preview timer hiện khoảng 3:12. Sau Escape/reload, loại câu, mô tả, trạng thái và query/frame vẫn còn. Đây là diễn tập cục bộ tổng hợp, không chấm correctness hoặc đo thời gian thi có kiểm soát; không gửi DRES.
+- P3 KIS textual: chọn loại câu bằng phím, khởi động lại timer 5:00, nhập mô tả và chuyển sang search. Tìm kiếm trả 50 kết quả (badge API 445 ms); thêm `L26_V494` frame `2132` vào query riêng. Nhập frame `-1` cho thấy lỗi inline “Enter a whole, non-negative frame index.”; sửa lại `2132`, Tab đến Review và Enter. Preview ghi timestamp `85280 ms`; timer khi review khoảng `4:19`. Escape/reload khôi phục loại câu, mô tả và query/frame. Chỉ thử trên dữ liệu tổng hợp; badge API không phải thời gian end-to-end, không chấm correctness/thi có kiểm soát và không gửi DRES.
+- Bao phủ hiện tại: đã có lượt cục bộ bằng dữ liệu tổng hợp cho TRAKE, QA, Video KIS và KIS textual; checklist ngày thi đã viết tại `docs/DRES_OPERATOR_CHECKLIST.md`. Đã bổ sung fallback ảnh lỗi và quan sát trực tiếp UI localhost. P3 còn cần diễn tập reset, biến thể rỗng/clue/ứng viên sai, tải file cuối và bàn phím sau cập nhật DRES, đo thời gian toàn luồng trong deadline và xác nhận correctness. Endpoint/session DRES thật chưa được cấp/kiểm tra; P3 chưa đạt.

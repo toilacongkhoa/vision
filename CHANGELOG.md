@@ -2,6 +2,82 @@
 
 Lịch sử các vòng tối ưu hóa của dự án Vision, kèm benchmark trước và sau mỗi thay đổi.
 
+## 2026-09-24 — DRES session login từ server `.env`
+
+- Thêm tùy chọn lưu `DRES_USERNAME`/`DRES_PASSWORD` trong `.env` bị Git ignore. Hộp review có nút **Get session from .env**; backend chỉ gửi credentials khi operator bấm nút, nhận `sessionId`, rồi tải evaluation ACTIVE. Session vẫn ở RAM trình duyệt; secret không được trả về UI hoặc ghi log.
+- Route env-login từ chối cross-origin và mọi request không đến app same-origin trên loopback. Đăng nhập thủ công vẫn hoạt động.
+- Thêm contract test cho env login, guard cross-origin và trường hợp credential chưa cấu hình. Chưa gửi credential tới DRES live; cần xác nhận base URL của BTC trước lần login thật.
+
+## 2026-09-24 — P1 fallback khi ảnh keyframe không tải được
+
+- Candidate, shortlist, filmstrip và evidence trong review DRES thử lần lượt các URL ảnh có sẵn. Khi không còn nguồn ảnh, UI hiện nhãn ảnh không tải được trong khi giữ video ID/frame/timestamp và hành động preview.
+- Modal preview hiện hướng dẫn dùng metadata video/frame/timestamp nếu ảnh lỗi; không làm mất chi tiết bằng chứng.
+- Kiểm tra: JavaScript inline được trích từ trang và `node --check` thành công; không có URL từ BTC trong phiên để kiểm thử lỗi mạng thực tế.
+- Đã nạp backend hiện tại từ workspace để bật router DRES; health `/api/v1/health` báo healthy và route login/evaluation/submit/export trả 422 khi gửi body rỗng (xác nhận route tồn tại, không gọi DRES).
+- Kiểm tra regression sau sửa: DRES route/client 11/11, serializer 16/16, operator export 9/9, operator search 4/4, TRAKE 3/3, Q&A evidence 3/3, timing 6/6. Không gửi yêu cầu tới DRES.
+
+## 2026-09-23 — P2 DRES v2 client, API routes và guard gửi trùng
+
+- Nối `DresClient` HTTPS vào các route login, tải evaluation ACTIVE và submit; endpoint base lấy từ `DRES_API_BASE_URL`, mặc định `https://eventretrieval.one`. Login nhận cả `sessionId` trong JSON hoặc session cookie qua `/api/v2/user/session`.
+- Hộp review thêm login, chọn evaluation và nút submit yêu cầu xác nhận. Credential không lưu; session chỉ ở RAM trang. 2xx được ghi Sent, HTTP 412 là Rejected, còn timeout/5xx là kết quả chưa rõ; UI/backend chặn gửi lại cùng payload cho query đó. Operator chỉ ghi Accepted sau khi tự xác minh.
+- Bổ sung cảnh báo Video KIS và checklist vận hành tại `docs/DRES_OPERATOR_CHECKLIST.md`; cập nhật `plan.md`/`PROJECT_CONTEXT.md` theo hiện trạng và các cổng live còn lại.
+- Kiểm tra offline: DRES API route/client/dedup 11/11, serializer contract 16/16, operator export/UI 9/9, operator search 4/4, TRAKE sequence 3/3, Q&A evidence 3/3, Python compile, `node --check`, `git diff --check` đều pass. Không gửi request tới BTC/DRES thật; còn cần endpoint, credential, ACTIVE evaluation và xác nhận `start=end`/response trong buổi tập huấn.
+
+## 2026-09-23 — P3 kiểm tra KIS textual và lỗi frame bằng bàn phím
+
+- Trên origin thử nghiệm `localhost:8000`, chọn KIS textual bằng phím, khởi động timer từ 5:00, nhập mô tả và chạy tìm kiếm. API badge 445 ms, 50 kết quả; thêm `L26_V494` frame `2132` vào query riêng.
+- Nhập frame `-1` để kiểm tra lỗi inline “Enter a whole, non-negative frame index.”; sửa thành `2132`, dùng Tab tới Review và Enter mở preview. JSON KIS dùng timestamp nguồn `85280 ms`, evidence frame có trong review; timer tại thời điểm review khoảng `4:19`.
+- Sau Escape/reload, loại câu, mô tả, query và frame vẫn còn. Attempt chỉ `Prepared locally`; dữ liệu tổng hợp, badge API không đo toàn luồng, chưa chấm correctness/thi có kiểm soát và không gửi DRES.
+- `git diff --check` exit 0; lượt này chỉ đổi tài liệu, không sửa code.
+
+## 2026-09-23 — P3 diễn tập Video KIS tới preview bằng bàn phím
+
+- Trên origin thử nghiệm `localhost:8000`, chọn Video KIS bằng phím; timer bắt đầu tại 4:00. Nhập mô tả ban đầu, dùng nút đưa mô tả vào tìm kiếm, nhận 50 kết quả trong 888 ms theo badge API, tạo query KIS và thêm candidate đầu tiên `L26_V276` frame `2931`.
+- Dùng Tab từ Video ID qua frame và các nút row đến Review; Enter mở preview. Payload KIS ghi timestamp nguồn `117240 ms`, evidence frame hiện trong review, timer khi review hiển thị khoảng 3:12. Sau Escape/reload, loại Video KIS, mô tả, trạng thái Prepared và query/frame được khôi phục.
+- Đây là thao tác thử cục bộ với candidate tổng hợp; timer UI không phải phép đo thi có kiểm soát và nội dung chưa được chấm đúng/sai. Không tải hoặc gửi DRES; attempt chỉ `Prepared locally`.
+- Kiểm tra sau chỉnh sửa docs: `git diff --check` exit 0; contract/JS checks đã chạy trong lượt trước, không có thay đổi mã nguồn ở lượt này.
+
+## 2026-09-23 — P3 kiểm tra Q&A bằng bàn phím và review DRES
+
+- Trên origin thử nghiệm riêng `localhost:8000`, tạo query QA, tìm `wooden spoon`, thêm candidate `L26_V424`/frame `2992`; dùng Tab từ Video ID qua Frame index đến Q&A answer.
+- Xóa nội dung để xác nhận lỗi inline “Required: enter the Q&A answer.”, nhập lại `wooden spoon`, Tab tới Review và mở bằng Enter. Preview hiển thị JSON `QA-wooden spoon-L26_V424-119680`, timestamp nguồn `119680 ms` và evidence frame. Sau Escape/reload, query, frame và answer được khôi phục.
+- Chỉ lưu attempt `Prepared locally`; không ghi Sent/Accepted/Rejected và không gọi DRES. Bài thử tổng hợp không xác nhận correctness hoặc deadline; Video KIS và các kịch bản P3 còn lại vẫn chưa hoàn thành.
+- Kiểm tra sau chỉnh sửa: `node --check` cho hai script inline đạt, DRES serializer contract 16/16 và `git diff --check` exit 0 (chỉ cảnh báo chuẩn hóa CRLF của Git).
+
+## 2026-09-23 — P3 keyboard focus cho DRES review và lịch sử operator
+
+- Diễn tập tiếp tục phát hiện hộp DRES mở nhưng không nhận focus; bàn phím vẫn ở trang bên dưới. Bổ sung focus vào nút đóng khi mở, vòng Tab trong hộp, Escape để đóng và trả focus về nút Review. Sau mỗi lần ghi nhận trạng thái, focus chuyển tới trạng thái hiện tại thay vì rơi khỏi hộp.
+- Kiểm tra bằng bàn phím trên origin tổng hợp `127.0.0.1:8000`: mở review, Shift+Tab quay vòng tới Download, Tab nhiều lần vẫn trong hộp; Escape đóng và trả focus đúng. Ghi note `TEST ONLY — keyboard rehearsal; not sent to DRES`, ghi Sent, xác nhận focus status, tải lại, mở đúng payload và thấy trạng thái/note đã lưu cùng duplicate warning. Dữ liệu này chỉ là thao tác local tổng hợp, không có DRES request.
+- Kiểm tra: hai script inline parse được, `git diff --check` sạch và serializer contract 16/16. Chưa test Accepted/Rejected trong modal, mọi bước nhập note qua chuỗi Tab thuần (test nhập đã gửi phím tới trường qua AX), ba loại câu khác, deadline hoặc correctness.
+
+## 2026-09-23 — P3 mở Submission Builder và sửa TRAKE bằng bàn phím
+
+- Diễn tập phát hiện nút Submission Build chỉ mở sidebar nhưng giữ tab AI; thứ tự Tab đi qua vùng tìm kiếm/shortlist trước khi tới tab Submission. Danh sách query cũng dùng hàng có click chuột nhưng không thể chọn bằng bàn phím.
+- Nút Submission Build hiện chuyển thẳng sang Submission và focus query đang chọn (hoặc query đầu/ô tạo mới khi chưa có). Mỗi query có nút chọn bàn phím riêng với `aria-pressed`; khi chọn, focus được phục hồi về nút đó. Tên query được escape trong nội dung và thuộc tính.
+- Diễn tập bằng bàn phím tại `127.0.0.1:8000`: mở Builder → tới TRAKE frame IDs → nhập dãy giảm ở cuối, thấy lỗi inline “Frame IDs must be unique and strictly increasing.” → khôi phục dãy `6633, 6695, 6740, 6820, 6944` → mở review. Preview có đủ 5 frame theo đúng thứ tự, kèm timestamp/evidence. Sau reload, active TRAKE query và dãy frame đúng vẫn được khôi phục.
+- Kiểm tra: cả hai script inline parse được, `git diff --check` sạch và DRES serializer contract pass 16/16. Chưa hoàn thành toàn bộ P3: mới một kịch bản TRAKE trên một origin thử nghiệm; chưa đo deadline/correctness, chưa kiểm tra keyboard trong history/modal hoặc ba loại câu khác. Không có request DRES thật.
+
+## 2026-09-23 — P2 lịch sử operator và cảnh báo payload trùng
+
+- Mỗi lần review payload hợp lệ lưu attempt cục bộ `Prepared locally` với payload/fingerprint, query và thời điểm. Operator có thể lần lượt bấm ghi nhận đã gửi thủ công rồi Accepted/Rejected; ô note lưu phản hồi/note vào localStorage. Nút không gửi HTTP request.
+- Review so fingerprint JSON với lịch sử: nếu một attempt cùng payload từng được operator đánh dấu sent/accepted/rejected, hiện cảnh báo trùng và lịch sử bên dưới; vẫn để operator quyết định. Download không đổi trạng thái thành sent. Ghi nhận trạng thái cũng cập nhật operator aid Submission state.
+- Diễn tập ở origin tạm riêng: Prepared → Sent (note “TEST ONLY”) → Accepted với note nói rõ là mô phỏng; tải lại trang, chuẩn bị lại cùng payload `TR-L30_V023-2722`, xác nhận trạng thái cũ và warning trùng còn nguyên. Không có request/response DRES thật.
+- Giới hạn: chưa thử nhánh Rejected, response dài/chỉnh sửa, nhiều attempt có trạng thái khác nhau hoặc keyboard. Endpoint/session chính thức chưa được cấp; lịch sử local không xác nhận DRES nhận bài.
+
+## 2026-09-23 — P2 validation ngay tại trường trong Submission Builder
+
+- Bổ sung lỗi inline cho Video ID, frame index KIS/Q&A, answer Q&A và dãy frame TRAKE; các lỗi đang có cũng chặn bước mở DRES review trước khi gọi endpoint local. Serializer/validator backend vẫn là cổng xác nhận cuối.
+- Validation bao gồm ID trống/path/có extension, frame index không phải số nguyên không âm/an toàn, answer rỗng, dãy TRAKE rỗng/sai cú pháp/không tăng nghiêm ngặt. Input được lưu local khi gõ; raw dãy frame còn nguyên cho tới khi sửa, không âm thầm lọc mất phần tử.
+- Diễn tập UI: ID `L26_V246.mp4` hiện lỗi cạnh Video ID và review bị chặn; Q&A answer rỗng hiện lỗi; TRAKE đảo thứ tự hiện lỗi. Sau đó khôi phục dữ liệu mẫu, mở review thành công với dãy 5 frame tăng đúng thứ tự.
+- Giới hạn: chưa diễn tập mọi biên số và lỗi danh sách, hoặc keyboard; không thay đổi validator/backend và không gửi tới DRES. `tools/benchmark_dres_operator.py --json` không chạy được trong Python CLI hiện tại vì thiếu `torch` ở import `src.main`; DRES serializer contract vẫn pass 16/16 và tương tác UI được diễn tập trực tiếp.
+
+## 2026-09-23 — P2 Submission Builder review trước khi tải DRES JSON
+
+- Nút export DRES mở hộp review thay vì tải ngay. Hộp hiển thị query/type, video ID, frame hoặc chuỗi TRAKE có thứ tự, answer Q&A, timestamp ms lấy từ payload đã serialize, ảnh frame và OCR/ASR/object evidence nếu có, cùng JSON mà operator sẽ tải.
+- Chỉ bật tải khi backend local đã serialize/validate và lookup các frame evidence chính xác thành công. Nếu lựa chọn đổi trong lúc hộp review mở, yêu cầu chuẩn bị lại. Hộp và footer nêu rõ không gửi bài hoặc xác nhận DRES chấp nhận.
+- Diễn tập qua trình duyệt local: KIS `L26_V246` frame 4495 → 179800 ms; Q&A `L30_V023` frame 2722, answer “wooden spoon” → 108880 ms; TRAKE `L26_V113` đủ 5 frame theo thứ tự 6633, 6695, 6740, 6820, 6944, đều có ảnh và timestamp. Ba hộp review hiện payload đúng dạng; không tải file cuối trong lượt này.
+- Phạm vi: một nút thắt của P2 là operator chưa thể đối chiếu dữ liệu nguồn và JSON trước khi tải. Chưa hoàn tất validation lỗi ngay tại từng trường, history gửi/response/trùng bài, test keyboard/tải cuối hay endpoint DRES thật; `plan.md` ghi P2 vẫn đang làm.
+
 ### Tiêu chí benchmark hiện hành
 
 Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `frame_idx / fps` theo `video_fps_map.json`, với dung sai **150 giây (±2.5 phút)**. KIS dùng một frame, TRAKE dùng từng mốc đúng thứ tự; QA báo riêng vị trí và `text_answer`, trong đó câu QA hoàn chỉnh cần cả hai phần đúng. Các số liệu của vòng 1 và 2 bên dưới được ghi theo tiêu chí cũ (frame khớp tuyệt đối).
@@ -1145,3 +1221,145 @@ Từ vòng kế tiếp, so khớp frame dùng cùng `video_id` và thời gian `
 - Checkpoint bước 5: empty commit `aa724b9`, không stage thay đổi người dùng. Bước 6 chỉ sửa `tools/benchmark_vlm_selection.py`: Q&A manifest bắt buộc có `accepted_answers`, result `answer`; báo answer accuracy khi location đúng và full-answer accuracy, tính confidence cao nhưng answer sai là lỗi; comparator hỗ trợ full-answer metric. Không sửa runtime/model/prompt/dữ liệu cấm, không có sửa phụ hoặc đề xuất mới.
 - Đo sau cùng fixture: location Top-1 vẫn 5/5, full answer 0/5, answer-given-location 0, coverage đủ 5 và không input error. Contract synthetic xác nhận answer đúng/alias pass, wrong answer, wrong location, missing answer fail, thiếu nhãn manifest bị từ chối, full-answer gain so sánh được. Self-test 16/16→23/23, Q&A evidence 3/3, TRAKE 3/3, compile pass. Smoke KIS thật giữ Top-1/full 3/3, MRR 1,0 nhưng coverage vẫn false vì chỉ 3 lượt; VLM latency/TTFC/cost unavailable. Retrieval sau: accuracy 2/57, R@1/5/10/50 = 0/1/2/2, MRR 0,0079, latency p50/p95 473,84/966,12 ms, TTFC 728,19/878,22 ms, error 0; latency dao động khi runtime không đổi.
 - Bước 8: **giữ sửa benchmark** vì lỗi chấm full answer có thể phá quyết định runtime đã chuyển fail→pass trong 7 contract mới; output ID/frame/sequence và guardrail không hồi quy. `PROJECT_CONTEXT.md` và trạng thái mục 14 đã cập nhật. Tổng session: giữ 3 vòng, rollback 0, không triển khai 0. Dừng theo mục 11 sau **3 vòng liên tiếp không cải thiện metric thi chính**; không mở vòng thứ tư hoặc kiểm tra end-to-end mốc 5 vòng.
+
+## 2026-09-23 — Vòng tối ưu 100: ablation FTS OCR/ASR trước khi tạo artifact
+
+- Query/luồng: OCR/ASR candidate cho KIS/Q&A và evidence của agent (backlog 14.3). Cổng tác động: mục tiêu là tăng Recall/MRR hoặc TTFC của candidate đúng; benchmark quyết định là `tools/benchmark_multimodal.py` trên 57 case/63 target với top-K 50, 6 lexical terms, dung sai ±150 giây. Guardrail là không mất case đúng của fallback; BTC xác nhận multimedia retrieval nhưng dạng đề Chung kết chưa xác nhận. Nếu mất hit ASR cũ, agent không còn frame đúng để chọn.
+- Bối cảnh: 14.1/14.2 vẫn thiếu manifest đa dạng và ≥5 session độc lập; session này chưa có phạm vi cho phép gửi thêm query/ảnh thi ra model ngoài. DB gốc có `keyframes` nhưng không có `ocr_fts`/`asr_fts`; đọc read-only xác nhận 159.256 hàng ASR và 69.160 hàng OCR có text. Vòng 38/50/66 đã ghi nhận fallback và bottleneck thiếu FTS.
+- Baseline cố định: `.venv\\Scripts\\python.exe tools\\benchmark_multimodal.py --strategies ocr asr --top-k 50 --max-lexical-terms 6 --tolerance-seconds 150 --json`. ASR đúng 7/57, R@1/5/10/50 = 2/2/3/7 trên 63 target, MRR 0,0358, latency p50/p95 1.188,53/2.813,70 ms, TTFC p50/p95 1.425,19/4.772,16 ms, 0 lỗi. OCR đúng 0/57, Recall@50 0, MRR 0, latency p50/p95 1.194,10/3.106,51 ms, TTFC không có, 0 lỗi. Raw output: `tools/benchmark_data/fts_baseline.txt`. Q&A evidence 3/3, TRAKE sequence 3/3 và VLM scorecard self-test tổng hợp 23/23 pass; không phải accuracy model.
+- Ablation read-only: dùng chính `reduce_lexical_query(query, 6)` và FTS5 phrase expression mà runtime `_fts_text_search` tạo, lập FTS tạm trong bộ nhớ từ ASR của bảy video có hit baseline. Cả 7/7 query cho 0 match trên các video đúng; phép thử `LIKE` nguyên cụm cũng cho 0/7. Một hướng khác dùng FTS `OR`/BM25 trên toàn bộ 159.256 hàng ASR có 8/63 location hit (R@1/5/10/50 = 1/3/4/8, MRR 0,0366) nhưng chỉ 6/57 full-correct, thấp hơn fallback 7/57. Nó giữ location của bảy case cũ nhưng làm mất answer evidence của `query-p2-23-qa`; case Q&A mới `query-p3-8-qa` cũng chỉ đúng location, sai full answer. Đây là ablation offline, chưa phải benchmark agent end-to-end hay DB dẫn xuất đầy đủ; thời gian SQL ngắn không thay thế TTFC/end-to-end.
+- Checkpoint trước khi ghi chú: `48bf4a9` (empty commit, không stage bản `plan.md` người dùng đã sửa). Không thay runtime, DB gốc, file cấm, dataset, model hoặc prompt; không có đo sau runtime vì ablation Bước 3 loại hướng này trước khi triển khai. Không tạo builder/artifact DB lớn và không tuyên bố tăng điểm thi hoặc tốc độ end-to-end. `PROJECT_CONTEXT.md` không đổi vì kiến trúc/API/workflow không đổi.
+- Quyết định: **không triển khai**, cập nhật 14.3 thành bị chặn trước khi nối runtime. Muốn mở lại cần query semantics FTS bảo toàn full answer cũ và benchmark agent evidence/Recall/MRR/TTFC trên artifact dẫn xuất; nếu hồi quy thì rollback. Session hiện có 0 vòng giữ runtime, 0 rollback, 1 hướng không triển khai; dừng vì 14.1/14.2 cần coverage và phạm vi dữ liệu cho model, còn 14.3 không qua cổng accuracy/guardrail ở ablation. Các mục 14.4/14.5/14.8/14.9 đang bị chặn; 14.7/14.11 là ý tưởng cần kiểm chứng. Không tới mốc kiểm tra end-to-end sau 5 vòng.
+
+## 2026-09-23 — Vòng tối ưu 101: benchmark đa dạng chọn candidate VLM
+
+- Query/luồng: KIS cooking, school, multi-event và classroom/OCR; Q&A geography và biology. Mục tiêu của 14.1 là tăng primary Top-1/full-answer/MRR, đồng thời giảm latency; benchmark candidate cố định, guardrail chấm đúng answer QA và giữ nguyên thứ tự/bộ candidate. Workload là tập tham khảo AI Challenge 2026, chưa đại diện phân bố Chung kết.
+- Bước 3: ablation một thay đổi prompt `evidence`, yêu cầu kiểm từng vật thể/hành động/chữ/chuỗi và căn cứ answer tại location được chọn. Không sửa prompt runtime. Baseline trước vòng trên manifest quyết định: 6 case, 5 lượt độc lập/case; 30 phiên, candidate grid 5 frame/case.
+- Checkpoint bước 5: `7ecd2ab` (empty commit trước khi thêm manifest/runner; không stage thay đổi đã có của người dùng). Thêm `tools/run_vlm_selection.py` để chạy từng phiên Agy biệt lập, xác minh conversation ID, đúng model, đúng 5 cặp candidate và đúng một lần gọi `inspect_candidate_grid`; lưu event stream để audit. Tạo manifest cố định `tools/benchmark_data/vlm_diverse_6.json` cùng JSONL và raw streams cho baseline/evidence. Chỉ gửi query gắn nhãn và tối đa 5 frame/case; không gửi DB/config. Cho phép đọc schema tool và đúng ảnh contact sheet do tool trả về để kiểm protocol.
+- Config: Agy 1.2.9, Gemini 3.8 Flash Medium; 5 panel độc lập × 6 case/config; candidate set giống hệt. Runner/re-audit xác nhận 30/30 phiên mỗi cấu hình có conversation ID duy nhất, đúng hợp đồng tool, không lỗi/timeout; coverage 6/6 case đủ 5 lượt. MRR là rank của candidate accepted trong năm lựa chọn. QA full answer cần đúng cả primary location và answer.
+- Baseline → evidence: Top-1 11/30 (36,7%) → 9/30 (30,0%); full answer 10/30 (33,3%) → 6/30 (20,0%); Hit@3 22/30 → 21/30; Hit@5 30/30 → 30/30; MRR 0,599 → 0,544; answer QA đúng khi location đúng 0 ở cả hai. Confidence sai cao 20/30 → 24/30. Không timeout. Latency trung bình theo panel 35,09 s → 39,63 s (+12,9%); raw attempt p50/p95 30,67/60,29 s → 41,73/58,28 s. Candidate retrieval không được đo; latency không phải end-to-end query→retrieval.
+- So sánh theo panel: Top-1 chênh lệch −0,067, CI95% bảo thủ [−0,312; 0,178], baseline SD 0,139; full-answer chênh lệch −0,133, CI [−0,306; 0,040]; MRR chênh lệch −0,054, CI [−0,221; 0,112]. Không metric nào đạt cổng CI/2×SD. Hồi quy Top-1 ở hai case KIS (`query-p3-2-kis`, `query-p3-3-kis`); MRR giảm ở bốn case. Latency theo panel xấu đi, không đạt cổng tốc độ.
+- Quyết định: **không giữ prompt evidence, không sửa runtime**. Baseline tiếp tục là cấu hình tham chiếu; scorecard/runner và dữ liệu kết quả được giữ làm artifact benchmark. Không có thay đổi cần rollback trong runtime. `PROJECT_CONTEXT.md` ghi workflow và kết quả; plan 14.1 cập nhật sang đã đủ lượt benchmark, runtime vẫn bị chặn. Bước kế tiếp theo backlog là 14.2, nhưng cần workload agent end-to-end có nhãn OCR/ASR/TRAKE và output cuối; sáu case của vòng này không đủ cho kết luận phân tầng agent.
+
+## 2026-09-23 — Vòng tối ưu 102: DRES serializer và scoring offline
+
+- Query/luồng: DRES output cho Textual KIS, Video KIS, Q&A và TRAKE (backlog 14.10, giai đoạn A). Cổng tác động: đúng payload/location tránh đáp án không được nhận; bộ quyết định là contract benchmark DRES, retrieval 57 case và Q&A/TRAKE regressions. Hướng dẫn PDF quy định DRES/payload và điểm theo thời điểm nộp; adapter offline chưa tồn tại nên baseline serializer/validator là 0 scenario tự động.
+- Chọn vòng: 14.2 là mục kế tiếp nhưng cần lượt agent mới với query/candidate gửi tới model bên ngoài. CHANGELOG/PROJECT_CONTEXT ghi cần phạm vi cho phép riêng; yêu cầu “thực hiện plan” hiện tại không mở phạm vi gửi dữ liệu thi mới, nên không chạy model và chuyển sang 14.10, mục đủ điều kiện kế tiếp.
+- Cổng 5 câu: (1) cả bốn dạng truy vấn ở bước primary output; (2) tăng validity của payload, frame/timestamp và score calculator lên 100% ở golden contracts; (3) `tools/benchmark_dres_submission.py`, guardrails retrieval/Q&A/TRAKE/compile; (4) workload và định dạng lấy trực tiếp từ hướng dẫn Chung kết; (5) lỗi format hoặc đơn vị thời gian có thể làm mất điểm dù candidate đúng.
+- Khám phá: frontend hiện xuất CSV trong ZIP, chưa gọi DRES. Retrieval result đã có `pts_time` theo giây từ `keyframes.raw_json`; dùng timestamp nguồn để đổi ms, không nội suy FPS. KIS dùng timestamp điểm nên serializer đặt `start=end`; chấp nhận trường này chưa được xác minh với server.
+- Baseline: `.venv\\Scripts\\python.exe tools\\benchmark.py --top-k 50` đạt 2/57 (KIS 1/39, Q&A 1/16, TRAKE 0/2); R@1/5/10/50 = 0/1/2/2 trên 63 target, MRR 0,0079, latency p50/p95 844,42/1.772,35 ms, TTFC p50/p95 1.499,58/1.662,63 ms, 0 lỗi. Không có adapter DRES nên contract format coverage 0/4. Benchmark này đánh giá retrieval hiện có, không phải DRES submission.
+- Checkpoint bước 5: `90c3117` (`chore: checkpoint before DRES submission adapter`), empty commit; mọi thay đổi người dùng đã có vẫn để nguyên trong working tree.
+- Thay đổi: thêm `src/dres_submission.py` cho KIS/Video KIS millisecond payload, Q&A `QA-...`, TRAKE `TR-...`; validate schema/ID/sequence, convert PTS giây sang ms bằng Decimal half-up, chống lặp cùng payload cho cùng query nhưng cho phép đáp án sửa khác, tính điểm full và partial TRAKE. Thêm `tools/benchmark_dres_submission.py` với 16 contract synthetic. Không gọi mạng, không dùng credentials, không sửa retrieval/model/index/file cấm hay nối adapter vào UI.
+- Đo sau: DRES contract 16/16 pass; compile serializer/benchmark pass. Guardrails Q&A evidence 3/3 và TRAKE sequence 3/3 pass. Retrieval 2/57, KIS 1/39, Q&A 1/16, TRAKE 0/2; R@1/5/10/50 = 0/1/2/2, MRR 0,0079, latency p50/p95 835,83/1.418,17 ms, TTFC p50/p95 1.326,68/1.422,80 ms, 0 lỗi. Accuracy/rank giữ nguyên; latency dao động giữa lượt và không được tính là cải thiện vì retrieval code không đổi.
+- Quyết định: **giữ giai đoạn A offline** vì contract payload/scoring tăng từ 0 lên 16/16 và retrieval/Q&A/TRAKE không hồi quy. Không tuyên bố DRES server chấp nhận payload, `start=end` đúng semantics API hay UI đã sẵn sàng thi. 14.10 còn giai đoạn E (operator, chiến thuật nộp, endpoint integration); bước 14.2 agent benchmark tiếp tục cần phạm vi dữ liệu được phép. Đây là vòng thứ ba liên tiếp không tăng accuracy/rank thi chính (vòng 100–102), nên dừng theo mục 11. `PROJECT_CONTEXT.md` và backlog cập nhật; chưa tới mốc end-to-end 5 vòng.
+
+## 2026-09-23 — Vòng tối ưu 103: xuất JSON DRES cục bộ từ Submission Builder
+
+- Query/luồng: KIS, Q&A, TRAKE; backlog 14.10, giai đoạn E (operator export). Cổng tác động: cho phép lấy đúng payload đã serialize từ một primary result để giảm lỗi chép ID/timestamp/answer/sequence; benchmark quyết định là route/UI contract DRES, với DRES serializer, tìm kiếm operator, Q&A/TRAKE guardrails làm regression checks. Kỳ vọng: export hợp lệ cho cả ba query type và từ chối thiếu hụt/sequence sai; mục này không nhắm tăng retrieval accuracy.
+- Chọn vòng: theo phần tiếp tục được người dùng yêu cầu, hoàn tất phần offline còn lại trong 14.10. Không có DRES endpoint/session được cấp, nên scope là JSON download local, không gửi payload ra ngoài.
+- Baseline: `tools/benchmark_operator_search.py --json` 4/4 (smart mode/search routing); `tools/benchmark_dres_submission.py --json` 16/16. UI chưa có DRES JSON download route, DRES operator export coverage 0/9.
+- Checkpoint bước 5: `625892d` (`chore: checkpoint before DRES operator export`), empty commit; không stage thay đổi người dùng hoặc artifact đang có.
+- Thay đổi: `POST /api/v1/submission/dres/export` resolve frame chính xác và gọi serializer offline cho KIS/QA/TRAKE; Submission Builder thêm nút tải DRES JSON cho đúng một kết quả đang chọn, vẫn giữ export CSV/ZIP. Benchmark mới `tools/benchmark_dres_operator.py` kiểm KIS timestamp nguồn, QA, TRAKE giữ thứ tự, frame thiếu, TRAKE sai và các ràng buộc UI. Không thêm HTTP submit, credential hay thay đổi retrieval/model/index.
+- Đo sau: operator DRES 9/9; DRES contract 16/16; operator search 4/4; Q&A evidence 3/3; TRAKE sequence 3/3; compile các module/benchmark DRES pass; `git diff --check` không phát hiện lỗi whitespace. Retrieval benchmark không chạy lại trong vòng này; runtime tìm kiếm không đổi. Accuracy/rank thi chính không được tuyên bố cải thiện.
+- Quyết định: **giữ export cục bộ** vì 9 contract chuyển từ chưa có coverage lên pass và serializer/guardrail liên quan đều pass. Chưa xác nhận server chấp nhận payload hoặc semantics `start=end`; chưa đo chiến thuật nộp sớm/chờ, preview/count submit, hay end-to-end dưới deadline. `PROJECT_CONTEXT.md` và backlog 14.10 cập nhật; bước kế tiếp là mô phỏng scoring theo thời điểm nộp offline. Tích hợp evaluation thật chỉ sau khi có endpoint/session và format được BTC cấp.
+
+## 2026-09-23 — Vòng tối ưu 104: mô phỏng điểm nộp sớm hoặc chờ
+
+- Query/luồng: KIS, Q&A, TRAKE, backlog 14.10 giai đoạn E. Cổng tác động: giúp operator so sánh expected score dưới xác suất thành công khác nhau, gồm penalty khi nộp sai sớm rồi sửa; không kỳ vọng tăng retrieval accuracy. Điểm chấm tính theo công thức hướng dẫn Chung kết 2026.
+- Baseline: serializer đã có công thức điểm nhưng chưa có simulator chiến thuật (0 scenario). DRES contract benchmark 16/16 trước khi sửa.
+- Checkpoint bước 5: `19b5010` (`chore: checkpoint before DRES timing simulator`), empty commit; không stage các thay đổi đang có.
+- Thay đổi: thêm `compare_submission_timing` và CLI `tools/simulate_dres_timing.py`; so sánh một lần nộp sớm (nếu sai có xác suất sửa ở checkpoint sau, chịu thêm một penalty) với chỉ nộp tại checkpoint chờ. Tính điểm kỳ vọng, chênh lệch và xác suất hòa vốn đầu vào. Các xác suất do operator nhập; kết quả gắn rõ giả định, không được xem là khuyến nghị đã hiệu chuẩn hoặc policy tự động. Thêm `tools/benchmark_dres_timing.py` với sáu contract.
+- Ví dụ tổng hợp 300 giây: nộp ở giây 60 với xác suất đúng 0,55; chờ giây 240 với xác suất đúng 0,82; nếu sai sớm thì xác suất sửa đúng 0,60. Mô hình cho 63,0 điểm kỳ vọng (sớm) so với 49,2 (chờ), với xác suất đúng sớm hòa vốn 0,32. Đây là minh họa giả định, không phải kết quả benchmark người dự thi.
+- Đo sau: timing simulator 6/6; serializer/scoring 16/16; compile pass; `git diff --check` không phát hiện lỗi whitespace. Một lần chạy đầu có hai assert quá chặt với float; làm tròn output simulator tới 6 chữ số, chạy lại đạt 6/6. Không chạy retrieval benchmark vì không đổi retrieval.
+- Quyết định: **giữ công cụ mô phỏng offline** vì các contract thắng/thua/hòa vốn, penalty và validation pass. Chưa có xác suất hiệu chuẩn theo query type/evidence; chưa nối simulator vào UI, chưa xác nhận DRES API thật hoặc `start=end`. `PROJECT_CONTEXT.md` và backlog cập nhật. Bước kế tiếp cần dữ liệu có nhãn theo checkpoint để hiệu chuẩn xác suất, rồi preview/count trong UI và diễn tập với endpoint khi BTC cấp session.
+
+## 2026-09-23 — Vòng tối ưu 105: audit khả năng hiệu chuẩn xác suất DRES
+
+- Query/luồng: VLM primary KIS/Q&A làm đầu vào tiềm năng cho DRES timing simulator (14.10). Cổng tác động: chỉ dùng expected score khi xác suất đúng có độ tin cậy; metric phân tích là Top-1 correctness so với confidence/Brier, guardrail là cùng manifest/nhãn/candidate và không diễn giải confidence model thành xác suất thời gian khi thiếu checkpoint.
+- Baseline: chưa có audit confidence→correctness. Dùng manifest `vlm_diverse_6.json` và kết quả vòng 101 baseline/evidence, mỗi cấu hình 30 output trên 6 query, candidate cố định; nhãn lấy từ `accepted_candidate_ids`, kết quả đúng khi `primary_candidate_id` thuộc tập nhãn. Năm lượt/query không phải 30 query độc lập.
+- Checkpoint bước 5: `af5945d` (`chore: checkpoint before DRES calibration audit`), empty commit; không stage thay đổi đang có.
+- Phân tích read-only: baseline Top-1 11/30 (0,367), confidence trung bình 0,941, Brier 0,554; evidence Top-1 9/30 (0,300), confidence 0,942, Brier 0,617. Ở ngưỡng confidence ≥0,9 lần lượt 9/23 (0,391; mean confidence 0,963) và 8/25 (0,320; mean 0,957). Dữ liệu chỉ giữ một output cuối và latency/query, không có dự đoán theo checkpoint sớm/muộn hay nhãn độc lập theo thời gian; cỡ mẫu 6 query nhỏ và lặp panel.
+- Quyết định: **không hiệu chuẩn và không nối confidence vào timing policy**. Confidence cao không phản ánh xác suất đúng trong mẫu này, và dữ liệu hiện tại không thể xác định đường cong cải thiện theo thời gian. Backlog 14.10 ghi rõ bị chặn hiệu chuẩn đến khi có output/nhãn tại nhiều checkpoint hợp lệ; endpoint DRES vẫn chờ session của BTC. Không thay runtime, mô hình hay retrieval; metric thi chính không tăng. `PROJECT_CONTEXT.md` và `plan.md` cập nhật.
+- Dừng chuỗi theo mục 11: trong lượt tiếp tục này, ba vòng 103–105 liên tiếp không tăng accuracy/rank thi chính. Đã hoàn tất các hợp đồng DRES offline và ghi trạng thái blocker; dừng trước khi mở vòng tiếp theo. Muốn tiếp tục hiệu chuẩn cần benchmark có nhãn đúng/sai tại nhiều mốc của cùng query hoặc dữ liệu vận hành được phép.
+
+## 2026-09-23 — Vòng tối ưu 106: ablation gộp thứ hạng ASR và hybrid
+
+- Query/luồng: candidate KIS/Q&A/TRAKE, kiểm tra 14.3 (ASR/FTS) và tiền điều kiện 14.7 (TRAKE temporal). Metric chính: full-correct 57 query, Recall@K/MRR trên 63 target; cổng: ít nhất +2 hit, không mất hit full-correct cũ, latency/MRR không có hồi quy đáng kể. Không gọi model/dịch vụ ngoài.
+- Baseline `.venv\Scripts\python.exe tools\benchmark.py --top-k 50`, tolerance ±150 giây: semantic 2/57, R@1/5/10/50=0/1/2/2, MRR 0,0079, latency p50/p95 405/1.559 ms, TTFC 1.327/1.423 ms. Cùng cấu hình `benchmark_multimodal.py`, max lexical terms 6: ASR 7/57, R@1/5/10/50=2/2/3/7, MRR 0,0358, p50/p95 872/1.894 ms; hybrid 8/57, R@1/5/10/50=0/3/4/8, MRR 0,0232, p50/p95 1.441/3.833 ms. Hybrid thêm hit tại `query-p3-5-qa`, `query-p2-25-kis`, nhưng mất ASR hit `query-p3-29-kis`.
+- Tiền điều kiện 14.7: TRAKE 0/2 sequence, 0/8 event hit ở top-50; chưa có candidate đúng để tối ưu thứ tự temporal.
+- Checkpoint bước 5: `ba75d3a` (`chore: checkpoint before ASR hybrid rank fusion experiment`), empty commit; thay đổi benchmark thử nghiệm được gỡ sau khi ablation không đạt.
+- Ablation benchmark-only weighted reciprocal-rank fusion trên cùng 57 case: (ASR:hybrid)=2:1 cho 7/57, MRR 0,0358; p50/p95 1.098/1.679 ms. Tỉ lệ 1:2 cho 8/57, MRR 0,0363; p50/p95 1.062/1.475 ms. Cấu hình 1:2 vẫn mất một hit ASR cũ và chỉ tăng ròng 1/57 (1,75 điểm phần trăm), dưới cổng +2 hits; cấu hình 2:1 không tăng accuracy. Cả hai chậm hơn ASR đơn. Kiểm tra read-only candidate counts cho thấy ASR luôn trả 50 kết quả ở các query xem xét, không tạo được gate đơn giản theo số lượng kết quả.
+- Quyết định: **không giữ fusion và không đổi runtime**. RRF không qua ngưỡng tăng hit/preserve; MRR cải thiện 0,00045 ở tỉ lệ 1:2 không đủ và có hồi quy theo case. `tools/benchmark_multimodal.py` đã khôi phục nguyên trạng. `plan.md` ghi 14.3 vẫn bị chặn trước runtime và 14.7 bị chặn vì event candidate recall 0/8; context cập nhật. Accuracy/rank chính không được cải thiện.
+
+## 2026-09-23 — Vòng tối ưu 107: profile retrieval fast path
+
+- Query/luồng: KIS/Q&A/TRAKE trên semantic retrieval 57 case, backlog 14.11. Metric dự kiến là latency/TTFC end-to-end; không sửa runtime trước khi có trace nút thắt.
+- Baseline: `.venv\Scripts\python.exe tools\benchmark.py --top-k 50`, semantic 2/57, MRR 0,0079, latency p50/p95 405/1.559 ms, TTFC 1.327/1.423 ms; cProfile instrumentation giữ 2/57 và MRR nhưng chỉ dùng attribution, không dùng timing đã instrument làm baseline.
+- Checkpoint: `e592119` (`chore: checkpoint before retrieval latency profile`), empty commit; không stage thay đổi người dùng.
+- Profile cProfile: 4.330.733 calls, 52,684 giây tổng theo profiler; model initialization khoảng 6,44 giây. `SQLiteSearchEngine._encode_texts_cached` cumulative 24,65 giây/63 calls; OpenCLIP `encode_text` 24,07 giây/64 calls. `SQLiteSearchEngine.search` cumulative 11,48 giây qua 57 truy vấn/18 calls profiled. PyTorch linear operators chiếm 19,80 giây cumulative dưới profiler. Cumulative đa luồng có thể lớn hơn elapsed wall time, nên các giá trị này chỉ dùng để xếp hạng hotspot. Hotspot rõ nhất ở text encoder; startup là cold-start riêng.
+- Quyết định: **chưa đổi runtime**; profile chỉ nêu hotspot, chưa chứng minh hướng tối ưu end-to-end. Thử nghiệm cấu hình thread được ghi ở vòng tiếp theo.
+
+## 2026-09-23 — Vòng tối ưu 108: sàng lọc PyTorch 4 thread
+
+- Query/luồng: cùng semantic benchmark 57 case, thử giảm intra-op/inter-op threads từ mặc định 14/14 xuống 4/4 theo hotspot text encoder. Kỳ vọng giảm latency ≥10%, giữ accuracy/rank; đây là screening một lượt, chưa đủ ngưỡng để giữ tối ưu tốc độ.
+- Checkpoint trước profile/thử nghiệm: `e592119` (`chore: checkpoint before retrieval latency profile`), empty commit; không thay đổi file runtime.
+- Đo: accuracy giữ 2/57; R@1/5/10/50 giữ 0/1/2/2, MRR 0,0079. Latency p50/p95 843/1.758 ms so với baseline mặc định 405/1.559 ms; TTFC p50/p95 1.663/1.784 ms so với 1.327/1.423 ms. Thời gian load model 5,91 giây so với khoảng 5,12 giây ở baseline gần nhất. 4 thread làm latency tệ hơn, không đạt ngưỡng giảm 10%.
+- Quyết định: **loại cấu hình 4 thread**, không sửa runtime hay cấu hình thread global. `plan.md`/`PROJECT_CONTEXT.md` ghi kết quả fast-path; kết quả cProfile không dùng thay cho benchmark timing. Vòng 106–108 liên tiếp không đem lại cải thiện accuracy/rank hoặc latency thi được giữ; dừng theo mục 11. Muốn mở lại 14.11 cần hướng encoder khác và ≥3 lượt trước/sau chứng minh TTFC/end-to-end giảm ≥10% không mất accuracy.
+
+## 2026-09-23 — Vòng tối ưu 109: xác minh cấu hình PyTorch 1 thread
+
+- Query/luồng: cùng semantic benchmark 57 case/63 target, sàng lọc intra-op/inter-op threads=1 sau khi lượt đầu có vẻ nhanh. Giữ chỉ khi accuracy/rank không giảm và latency cải thiện có thể tái lập.
+- Baseline mặc định ba lượt gần nhất: accuracy 2/57, MRR 0,0079 mỗi lượt; latency p50 median 487 ms, p95 median 1.559 ms; TTFC p50/p95 median 1.327/1.423 ms.
+- Checkpoint bước 5: `645746f` (`chore: checkpoint before single-thread retrieval screening`), empty commit; không sửa runtime.
+- Đo candidate: lượt 1 accuracy 2/57, MRR 0,0079, latency p50/p95 268/579 ms, TTFC p50/p95 415/439 ms. Lượt 2 giữ 2/57, MRR 0,0079 nhưng chậm mạnh: p50/p95 1.629/3.289 ms, TTFC 2.658/2.750 ms. Hai-lượt median p50/p95 949/1.934 ms và TTFC 1.536/1.595 ms, đều xấu hơn baseline median. Không cần lượt thứ ba vì candidate đã trượt screening và không thể đạt ngưỡng tốc độ trên phép gộp hiện có.
+- Rủi ro benchmark: đọc lại code cho thấy `tools/benchmark.py` có thể dùng Google Translate/MyMemory khi FastTranslator gặp query tiếng Việt cache miss. Mạng bị giới hạn nên không xác nhận được các fallback request trước có thành công hay không; các lượt vừa chạy có thể đã thử gửi query. Không chạy lại benchmark qua đường này cho đến khi có chế độ offline an toàn. Không có runtime thay đổi được giữ.
+- Quyết định: **loại cấu hình 1 thread**, cập nhật `plan.md`/`PROJECT_CONTEXT.md`; baseline hiệu quả hiện vẫn 2/57, không có cải thiện thi được giữ lại.
+
+## 2026-09-23 — Vòng tối ưu 110: khóa fallback dịch trực tuyến trong retrieval benchmarks
+
+- Query/luồng: retrieval KIS/Q&A/TRAKE; mục 14.11 cần đo latency lặp lại mà không có network translator gây biến thiên hoặc gửi query ngoài phạm vi. Metric: accuracy/rank giữ nguyên, median end-to-end p50/p95, TTFC qua ba lượt độc lập.
+- Checkpoint bước 5: `582a216` (`chore: checkpoint before offline benchmark guard`), empty commit; không stage thay đổi sẵn có.
+- Thay đổi công cụ: `tools/benchmark.py` và `tools/benchmark_multimodal.py` mặc định disable online và local translator fallback, vẫn cho đọc translation cache cục bộ; cờ `--allow-online-translation` bật fallback khi đã được phép. `--api-url` của benchmark chính yêu cầu cờ vì client không thể khóa cấu hình network của server. Không sửa runtime/translation behavior của ứng dụng.
+- Kiểm tra policy offline: smoke test đặt GoogleTranslator/MyMemoryTranslator thành fail nếu bị gọi, query cache-miss trả nguyên văn và cả hai provider không được gọi. `--help` cho thấy cờ ở cả hai runner; compile/diff check.
+- Benchmark offline cùng 57 case/top-K 50/tolerance 150 giây: mặc định 14 threads ba lượt đều 2/57, MRR 0,0079. Median latency p50/p95 420/1.186 ms, TTFC p50/p95 567/686 ms. 1 thread một lượt 2/57, MRR 0,0079 nhưng p50/p95 779/4.094 ms và TTFC 4.081/7.329 ms; không qua sàng lọc nên không chạy đủ ba lượt.
+- Giới hạn so sánh: cache local hiện có thể đã nhận bản dịch mới từ các benchmark trước có fallback; offline results không so trực tiếp được với baseline trước vòng 110. Mạng có giới hạn nên không xác nhận được benchmark trước có hoàn tất request dịch ngoài hay không; các lượt đó có thể đã thử gửi cache-miss queries. Những benchmark cũ không được dùng làm phép đo sạch về egress.
+- Quyết định: **giữ safeguard benchmark offline, loại cấu hình 1 thread**. Accuracy/rank không đổi, speed không cải thiện tái lập. `plan.md` và `PROJECT_CONTEXT.md` cập nhật; retrieval benchmark kế tiếp mặc định an toàn offline. Chưa thay retrieval/model/UI.
+## 2026-09-23 — P0 UI: workspace cho câu thi đang hoạt động
+
+- Nút thắt trước khi sửa: frontend không có trạng thái câu thi, đồng hồ 4/5 phút, lịch sử gợi ý hoặc trạng thái nộp operator xác nhận; phần query/candidate nằm trong Submission Builder riêng. Baseline xác định bằng đọc luồng UI hiện tại, chưa đo thời gian thao tác.
+- Thay đổi: thêm workspace câu thi cho Textual KIS, Video KIS, Q&A và TRAKE; ghi câu hỏi/mô tả ban đầu, thêm clue theo thứ tự thời gian và đưa câu hỏi/clue vào ô tìm kiếm bằng một thao tác. Đồng hồ chạy theo hạn dạng câu; operator có thể chọn trạng thái draft/final/prepared/sent/accepted/rejected. Nhãn trạng thái gửi/nhận đều ghi rõ cần operator xác nhận. Reset có xác nhận và giữ các candidate đã lưu. Workspace cùng query tìm kiếm được lưu trong `localStorage` để khôi phục sau refresh; Submission Builder hiện có vẫn lưu candidate/answer.
+- Giới hạn: timer là đồng hồ phía trình duyệt, không đồng bộ với đồng hồ chính thức; trạng thái gửi/nhận là ghi nhận thủ công. Các câu và answer trong diễn tập là dữ liệu tổng hợp để kiểm tra thao tác, không chấm correctness.
+- Diễn tập local: Q&A có câu hỏi + clue bổ sung; Textual KIS có hai clue; từng clue được đưa vào ô tìm kiếm, trạng thái và nội dung khôi phục được sau refresh. Chọn `Sent (operator confirmed)` được lưu như ghi nhận operator; chưa có DRES response. Đồng hồ 5 phút cho Q&A và 4 phút cho Video KIS hiển thị đúng sau khi bắt đầu.
+- Sửa trong diễn tập: đổi loại câu trước khi bật timer ban đầu bị reset về Textual KIS; đã sửa handler để lưu loại câu ngay khi operator chọn.
+- Diễn tập với backend đang chạy: health healthy; KIS query trả 50 kết quả (API 1.372 giây), lưu candidate `L26_V246` frame 4495, chạy thêm clue/tìm lại rồi refresh — candidate vẫn còn. Q&A query trả 50 kết quả (API 505 ms), lưu candidate `L30_V023` frame 2722, nhập answer `wooden spoon`, chạy tìm kiếm clue kế tiếp rồi refresh — video/frame, answer, query, clue và trạng thái `Prepared for export` được khôi phục. Timer 5 phút Q&A và 4 phút Video KIS hiển thị đúng lúc bắt đầu. Trạng thái gửi/nhận vẫn chỉ là operator ghi nhận; không có DRES response.
+- Sửa trong diễn tập: trường Answer ban đầu chỉ lưu ở `change` và mất khi refresh; chuyển sang autosave mỗi lần nhập. Lặp lại thao tác rồi refresh xác nhận answer còn nguyên.
+- Kết quả: **đạt P0 workspace cho lưu/khôi phục và luồng clue → search → chọn candidate** theo tiêu chí thao tác. Chưa đo tính đúng của câu trả lời tổng hợp, chưa kiểm tra crash ngoài refresh, và chưa xác minh nộp thật trên DRES. Không có backend/API thay đổi.
+
+## 2026-09-23 — P1 UI: làm rõ nhãn tìm transcript ASR
+
+- Nút thắt: dropdown gọi ASR là `BM25 (Exact Text)`, trong khi `/api/v1/search` dùng `exact_asr_search`; engine chạy FTS exact phrase nếu bảng tồn tại và fuzzy substring fallback nếu không có bảng hoặc FTS lỗi.
+- Thay đổi: đổi nhãn thành `ASR Transcript Search` và thêm tooltip giải thích đây là tìm từ được nhận diện từ lời nói. Không đổi search mode, API hay ranking.
+- Kết quả kiểm tra: đối chiếu trực tiếp route `src/main.py` và `_fts_text_search` trong `src/sqlite_engine.py`; `git diff --check` sạch. Đây là sửa độ rõ nhãn; chưa thay đổi các luồng P1 so sánh/shortlist.
+
+## 2026-09-23 — P1 UI: shortlist riêng với đáp án
+
+- Nút thắt: dấu `+` trên result card thêm thẳng vào Submission Builder, nên operator chưa có vùng riêng để lưu ứng viên cần so sánh hoặc đánh dấu ứng viên đã loại.
+- Thay đổi: thêm `Pin candidate` và `Mark eliminated`/`Restore` trên mỗi thẻ. Workspace câu thi hiển thị hai danh sách riêng; mỗi candidate giữ video ID, frame, timestamp, score và URL/ID cần thiết để mở preview sau khi đổi query hoặc refresh. Shortlist có hành động Preview, Select sang Submission Builder hoặc bỏ ghim; eliminated có thể Preview/Restore. Trạng thái gắn với active question và lưu trong `vrs_submission_v2`; không đổi retrieval/API hay tự coi shortlist là đáp án.
+- Diễn tập UI trên backend healthy: tìm 50 candidate; ghim `L26_V113` frame 6633, chuyển sang eliminated, khôi phục về shortlist, mở preview; refresh và mở lại preview thành công. Browser console không có error.
+- Bổ sung so sánh: shortlist hiện dùng thẻ hai cột, mỗi thẻ hiển thị thumbnail, video/frame, timestamp và score cạnh nhau. Diễn tập ghim thêm `L26_V184` frame 5946; cả hai ảnh tải và hiển thị cạnh nhau, query tìm kiếm còn nguyên sau thao tác ghim. Refresh vẫn khôi phục đủ hai candidate và query draft. Console không có error.
+- Giới hạn: diễn tập compare chỉ với hai candidate KIS/Q&A trên viewport hiện tại; chưa diễn tập TRAKE sequence, keyboard navigation, các breakpoint khác hoặc chấm relevance/correctness. Browser ghi một cảnh báo Tailwind CDN có sẵn, không có lỗi JavaScript.
+
+## 2026-09-23 — P1 UI: kiểm tra thứ tự sự kiện TRAKE
+
+- Nút thắt: Submission Builder nhận danh sách frame TRAKE nhưng workspace câu thi chưa cho đối chiếu ứng viên với từng sự kiện hoặc thấy sự kiện còn thiếu, video không khớp và thời gian bị đảo.
+- Thay đổi: trong câu TRAKE, mô tả ban đầu và các clue theo thứ tự thời gian tạo danh sách event. Mỗi candidate ghim có dropdown gán event, mặc định `Unassigned`; bảng tổng quan hiển thị candidate theo thứ tự event, video ID, timestamp và frame. Trạng thái sequence chỉ sẵn sàng khi mỗi event có đúng một candidate, tất cả cùng video và `pts_time` tăng nghiêm ngặt. Lưu gán event trong active question/localStorage; không tự sửa Submission Builder hoặc xuất/nộp đáp án.
+- Diễn tập UI trên origin cô lập `http://127.0.0.1:8000`: 50 kết quả ban đầu, lọc một video và nạp 23 frame tiếp theo; bảng báo thiếu candidate, báo candidate trùng event, báo nhiều video và báo timestamp đảo. Gán 5 frame của `L26_V113` theo thứ tự 6633, 6695, 6740, 6820, 6848 hiển thị `Sequence ready`; hoán đổi event để gây đảo timestamp rồi khôi phục lại trạng thái hợp lệ. Refresh giữ nguyên mapping và trạng thái. Candidate ghim mới hiển thị `Unassigned`. Console không có error.
+- Lỗi phát hiện/sửa trong diễn tập: `Number(null)` bằng 0 làm candidate đã bỏ gán bị tính vào event đầu; bộ lọc và selected option nay kiểm tra null/undefined rõ ràng. Không tự động gán candidate mới vào event đầu để tránh nhiều ảnh cùng dồn vào một event.
+- Giới hạn: query và frame diễn tập dùng dữ liệu tổng hợp, không chứng minh sequence đúng nội dung; chưa nối các event đã gán sang Submission Builder, chưa diễn tập keyboard hoặc DRES thật.
+
+## 2026-09-23 — P1 UI: đưa sequence TRAKE hợp lệ vào Submission Builder
+
+- Thay đổi: sequence TRAKE chỉ hiện nút đồng bộ khi đủ một candidate mỗi event, cùng video và `pts_time` tăng nghiêm ngặt. Nút tạo query TRAKE riêng gồm một row với video ID và danh sách frame theo thứ tự event, chuyển sidebar sang Submission Builder và đặt query mới làm active. Nút chỉ tạo/cập nhật draft, không gửi bài.
+- Bảo toàn chỉnh sửa operator: lần đồng bộ tiếp theo cập nhật query đã liên kết nếu row của query còn khớp snapshot trước đó; nếu operator đã sửa query hoặc đổi loại, giữ nguyên query đó và tạo query TRAKE riêng mới.
+- Diễn tập trên origin cô lập: đồng bộ sequence 5 frame tạo query TRAKE thứ ba mà không sửa hai query có sẵn; Builder hiển thị `L26_V113` với frames `6633, 6695, 6740, 6820, 6848`. Đổi event cuối sang frame 6944 và đồng bộ lại cập nhật đúng query đã liên kết, số query vẫn là 3. Refresh khôi phục query, thứ tự frame và sequence đã gán. Không có lỗi console.
+- Giới hạn: chỉ xác nhận cấu trúc draft UI/localStorage với dữ liệu tổng hợp; chưa xác minh serializer hoặc nhận bài trên DRES, chưa chấm correctness và chưa diễn tập keyboard.

@@ -38,9 +38,10 @@
 <body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-10 shrink-0">
-        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Video Retrieval System 2.0</h1>
-        <div class="flex items-center gap-4">
+    <header class="bg-gray-800 border-b border-gray-700 p-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 z-10 shrink-0">
+        <h1 class="min-w-0 truncate text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Video Retrieval System 2.0</h1>
+        <span id="questionClock" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
+        <div class="justify-self-end flex items-center gap-4">
             <div id="statsBadge" class="text-sm px-3 py-1 bg-gray-700 rounded-full border border-gray-600">Status: <span class="text-yellow-400">Checking...</span></div>
             <button id="sidebarToggle" class="relative px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-semibold">
                 Submission Build
@@ -52,7 +53,34 @@
     <!-- Main Workspace -->
     <main class="flex-1 flex overflow-hidden relative">
         <!-- Content Area -->
-        <div id="mainContentArea" class="flex-1 flex flex-col overflow-hidden p-4 relative z-0 transition-all duration-300">
+        <div id="mainContentArea" class="flex-1 min-h-0 flex flex-col overflow-x-hidden overflow-y-auto p-4 relative z-0 transition-all duration-300">
+            <section id="activeQuestionWorkspace" class="shrink-0 mb-3 rounded-lg border border-indigo-700/70 bg-gray-800 p-3 shadow-lg">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                    <strong class="text-indigo-300">Active competition question</strong>
+                    <select id="questionType" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white" aria-label="Question type">
+                        <option value="KIS_TEXT">Textual KIS</option>
+                        <option value="KIS_VIDEO">Video KIS</option>
+                        <option value="QA">Q&amp;A</option>
+                        <option value="TRAKE">TRAKE</option>
+                    </select>
+                    <button id="startQuestionTimer" type="button" class="rounded bg-indigo-600 hover:bg-indigo-700 px-3 py-1 text-sm font-semibold">Start / restart timer</button>
+                    <button id="resetQuestion" type="button" class="ml-auto rounded border border-red-700 px-3 py-1 text-sm text-red-300 hover:bg-red-950">Reset question…</button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-2">
+                    <div>
+                        <label for="questionInitialText" class="block text-xs text-gray-400 mb-1">Question / initial description (kept fixed for Q&amp;A)</label>
+                        <textarea id="questionInitialText" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500" placeholder="Record the question or initial event description…"></textarea>
+                    </div>
+                    <div>
+                        <label for="questionHintInput" class="mb-1 block text-xs text-gray-400">Additional clue / event description</label>
+                        <div class="flex items-center gap-2">
+                            <textarea id="questionHintInput" rows="1" class="min-h-[42px] max-h-[35vh] min-w-0 flex-1 resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500" placeholder="Add a clue without replacing earlier ones…"></textarea>
+                            <button id="addQuestionHint" type="button" aria-label="Add clue without searching" title="Add clue without searching" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-600 bg-gray-700 text-sm font-bold text-white hover:bg-gray-600">+</button>
+                        </div>
+                        <div id="questionHintHistory" class="mt-1 max-h-16 overflow-y-auto text-xs text-gray-300" aria-live="polite"></div>
+                    </div>
+                </div>
+            </section>
             <!-- Tabs Navigation -->
             <div class="flex gap-2 mb-0">
                 <button id="tabTextSearch" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-t-lg border-t border-l border-r border-blue-600 shadow-md transition-colors">Text Search</button>
@@ -67,7 +95,7 @@
                 <form id="searchForm" class="flex flex-wrap gap-4 items-end">
                     <div class="flex-1 min-w-[200px]">
                         <label class="block text-sm text-gray-400 mb-1">Search Query</label>
-                        <input id="queryInput" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors" placeholder="Enter text to search frames...">
+                        <textarea id="queryInput" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors" placeholder="Enter text to search frames..." aria-label="Search query"></textarea>
                     </div>
                     <div class="w-40">
                         <label class="block text-sm text-gray-400 mb-1">Mode</label>
@@ -75,7 +103,7 @@
                             <option value="semantic" selected>Semantic AI (CLIP only)</option>
                             <option value="smart">Smart Hybrid (Semantic + ASR)</option>
                             <option value="ocr">OCR (Exact Text)</option>
-                            <option value="asr">ASR BM25 (Exact Text)</option>
+                            <option value="asr" title="Search words recognized from speech in video transcripts">ASR Transcript Search</option>
                         </select>
                     </div>
                     <div class="w-32">
@@ -214,7 +242,7 @@
             </div>
 
             <!-- Results Grid -->
-            <div class="flex-1 overflow-y-auto pr-2 relative">
+            <div id="resultsScroller" class="flex-none min-h-[40vh] overflow-visible pr-2 relative">
                 <div id="spinner" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
                     <div class="spinner"></div>
                 </div>
@@ -283,14 +311,14 @@
                     <!-- Create Query -->
                     <div class="bg-gray-900 p-3 rounded-lg border border-gray-700 mb-6 shadow-inner">
                         <h3 class="text-sm font-bold text-blue-400 mb-2 uppercase tracking-wide">New Query File</h3>
-                        <div class="flex gap-2">
-                            <input id="newQueryName" type="text" placeholder="Filename (e.g. q-1)" class="flex-1 bg-gray-800 border border-gray-600 rounded px-2 text-sm text-white focus:border-blue-500 outline-none">
-                            <select id="newQueryType" class="bg-gray-800 border border-gray-600 rounded px-2 text-sm text-white font-mono">
-                                <option value="KIS">KIS</option>
-                                <option value="QA">QA</option>
+                        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                            <input id="newQueryName" type="text" placeholder="Filename" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
+                            <select id="newQueryType" class="w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white font-mono">
+                                <option value="KIS">KIS (Textual / Video)</option>
+                                <option value="QA">Q&amp;A</option>
                                 <option value="TRAKE">TRAKE</option>
                             </select>
-                            <button id="btnCreateQuery" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white font-bold transition-colors">+</button>
+                            <button id="btnCreateQuery" type="button" aria-label="Create query" title="Create query" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Create</span></button>
                         </div>
                     </div>
 
@@ -303,20 +331,22 @@
                         <div class="flex justify-between items-center mb-3">
                             <h3 id="activeQueryTitle" class="text-md font-bold text-blue-400">No Active Query</h3>
                             <div class="flex gap-2">
-                                <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Tch chui mi</button>
+                                <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Thêm dòng mới</button>
                                 <button id="btnClearQuery" class="text-xs text-red-400 hover:text-red-300 hidden bg-red-400/10 px-2 py-1 rounded">Clear All</button>
                             </div>
                         </div>
-                        <div id="activeQueryItems" class="flex flex-col gap-2"></div>
+                        <div id="activeQueryItems" class="min-h-20 flex flex-col gap-2"></div>
                     </div>
-                </div>
 
-                <div class="p-4 border-t border-gray-700 bg-gray-900 shrink-0">
-                    <button id="btnExportZip" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Download submission.zip
-                    </button>
-                </div>
+                    <div class="-mx-4 -mb-4 mt-6 border-t border-gray-700 bg-gray-900 p-4">
+                        <button id="btnExportDres" class="w-full py-2.5 mb-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold shadow flex items-center justify-center gap-2 transition-transform active:scale-95">
+                            Review active DRES JSON
+                        </button>
+                        <button id="btnExportZip" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Download submission.zip
+                        </button>
+                    </div>
             </div>
 
         </div>
@@ -332,6 +362,7 @@
         <div class="max-w-[95vw] w-full h-[92vh] flex flex-col items-center relative z-50">
             <div id="previewImageContainer" class="relative inline-block mb-2 min-h-0 flex-1">
                 <img id="modalImg" class="h-full max-h-[calc(92vh-190px)] w-auto max-w-full object-contain rounded shadow-2xl cursor-grab select-none transition-transform duration-200" src="" alt="Preview" draggable="false">
+                <div id="modalImageFallback" class="hidden absolute inset-0 flex items-center justify-center rounded bg-gray-950 px-6 text-center text-sm text-gray-300">Frame image could not be loaded. Check the video ID, frame number, and timestamp below.</div>
                 <div id="bboxesOverlay" class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded"></div>
             </div>
             <div id="filmstrip" class="w-full max-w-5xl h-[104px] mb-2 hidden shrink-0">
@@ -365,6 +396,61 @@
         </div>
     </div>
 
+    <!-- DRES review: showing this payload does not submit it. -->
+    <div id="dresReviewModal" class="hidden fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dresReviewTitle">
+        <div class="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-xl border border-gray-600 bg-gray-900 shadow-2xl">
+            <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-gray-700 bg-gray-900 px-5 py-4">
+                <h2 id="dresReviewTitle" class="min-w-0 text-lg font-bold text-indigo-300">Review DRES answer</h2>
+                <span id="questionClockDresReview" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
+                <button id="btnCloseDresReview" type="button" class="justify-self-end text-gray-300 hover:text-white text-3xl leading-none" aria-label="Close review">&times;</button>
+            </div>
+            <div class="space-y-4 p-5">
+                <div id="dresReviewError" class="hidden rounded border border-red-500/50 bg-red-950/40 p-3 text-sm text-red-200"></div>
+                <section>
+                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">Selected answer and evidence</h3>
+                    <div id="dresReviewSummary" class="grid gap-3 sm:grid-cols-2"></div>
+                    <div id="dresReviewFrames" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+                </section>
+                <section>
+                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">DRES JSON payload</h3>
+                    <pre id="dresReviewJson" class="rounded border border-gray-700 bg-gray-950 p-4 text-xs text-green-200 whitespace-pre-wrap break-words"><code></code></pre>
+                </section>
+                <fieldset class="rounded border border-gray-700 bg-gray-900/70 p-3">
+                        <legend class="px-1 text-xs font-bold uppercase tracking-wide text-gray-300">DRES connection</legend>
+                        <div class="flex flex-wrap items-end gap-2">
+                            <div class="min-w-56 flex-1 text-xs text-gray-300">
+                                <label for="dresSessionIdDisplay">Session ID</label>
+                                <code id="dresSessionIdDisplay" class="mt-1 block min-h-9 w-full break-all rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm font-sans text-gray-500">Not connected</code>
+                            </div>
+                            <button id="btnDresRefreshSession" type="button" aria-label="Refresh" title="Refresh" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 disabled:cursor-wait disabled:opacity-50">
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-end gap-2">
+                            <label class="min-w-56 flex-1 text-xs text-gray-300">Active evaluation<select id="dresEvaluationSelect" class="mt-1 w-full rounded border border-gray-600 bg-gray-950 p-2 text-sm text-white" disabled><option value="">Log in to load active evaluations</option></select></label>
+                            <button id="btnDresLoadEvaluations" type="button" aria-label="Refresh" title="Refresh" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800" disabled>Refresh</button>
+                        </div>
+                        <div class="mt-8 flex justify-end">
+                            <button id="btnDresSubmit" type="button" class="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50" disabled>Submit reviewed answer</button>
+                        </div>
+                </fieldset>
+                <section id="dresHistorySection" class="hidden rounded border border-gray-700 bg-gray-800/60 p-4">
+                    <div id="dresDuplicateWarning" class="hidden mb-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200" role="status"></div>
+                    <div id="dresCurrentAttemptStatus" class="mb-3 text-sm font-semibold text-gray-200" aria-live="polite" tabindex="-1"></div>
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        <button id="btnRecordDresAccepted" type="button" class="hidden rounded bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600">Record accepted</button>
+                        <button id="btnRecordDresRejected" type="button" class="hidden rounded bg-red-800 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">Record rejected</button>
+                    </div>
+                    <div id="dresHistoryEntries" class="max-h-72 space-y-2 overflow-y-auto text-xs text-gray-300"></div>
+                </section>
+            </div>
+            <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-gray-700 bg-gray-900 px-5 py-4">
+                <button id="btnCancelDresReview" type="button" class="rounded border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800">Close</button>
+                <button id="btnDownloadReviewedDres" type="button" class="rounded bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled>Download reviewed JSON</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const PROD_BACKEND_URL = 'http://localhost:8000'; 
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
@@ -386,25 +472,178 @@
         const resultsCount = document.getElementById('resultsCount');
         const spinner = document.getElementById('spinner');
 
-        let appState = { queries: [], activeId: null };
+        function resizeAutoGrowTextarea(textarea) {
+            const minHeight = parseFloat(window.getComputedStyle(textarea).minHeight) || 42;
+            const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.35));
+            textarea.style.height = 'auto';
+            const contentHeight = textarea.scrollHeight;
+            textarea.style.height = `${Math.min(contentHeight, maxHeight)}px`;
+            textarea.style.overflowY = contentHeight > maxHeight ? 'auto' : 'hidden';
+        }
+
+        let appState = { queries: [], activeId: null, activeQuestion: null, searchDraft: {}, dresSubmissionHistory: [] };
         let lastResults = [];
 
         function loadState() {
             const saved = localStorage.getItem('vrs_submission_v2');
-            if (saved) { try { appState = JSON.parse(saved); } catch(e) {} }
+            if (saved) { try { appState = { ...appState, ...JSON.parse(saved) }; } catch(e) {} }
+            if (appState.activeQuestion) {
+                delete appState.activeQuestion.submissionState;
+                if (!Array.isArray(appState.activeQuestion.pinnedFrames)) appState.activeQuestion.pinnedFrames = Array.isArray(appState.activeQuestion.shortlist) ? appState.activeQuestion.shortlist : [];
+                appState.activeQuestion.pinnedFrames.forEach(frame => { if (frame) delete frame.stageIndex; });
+                delete appState.activeQuestion.shortlist;
+                delete appState.activeQuestion.eliminated;
+            }
             renderSidebar();
+            renderQuestionWorkspace();
         }
         function saveState() {
             localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
             renderSidebar();
+            renderQuestionWorkspace();
             if(lastResults.length) renderResults(lastResults);
         }
+        const questionTypeEl = document.getElementById('questionType');
+        const questionClockEl = document.getElementById('questionClock');
+        const dresReviewClockEl = document.getElementById('questionClockDresReview');
+        function setQuestionClockDisplay(text, className) {
+            [questionClockEl, dresReviewClockEl].forEach(clock => {
+                clock.textContent = text;
+                clock.className = className;
+            });
+        }
         loadState();
+        let questionClockInterval = null;
+        function questionDurationMs(type) { return type === 'KIS_VIDEO' ? 4 * 60 * 1000 : 5 * 60 * 1000; }
+        function renderQuestionWorkspace() {
+            const question = appState.activeQuestion || { type: 'KIS_TEXT', initialText: '', hints: [], startedAt: null };
+            if (questionTypeEl) questionTypeEl.value = question.type || 'KIS_TEXT';
+            const initialTextInput = document.getElementById('questionInitialText');
+            initialTextInput.value = question.initialText || '';
+            resizeAutoGrowTextarea(initialTextInput);
+            const history = document.getElementById('questionHintHistory');
+            history.innerHTML = (question.hints || []).length
+                ? question.hints.map((hint, index) => `<div class="flex min-w-0 items-start gap-2 py-0.5"><span class="shrink-0 text-gray-500">${index + 1}. ${new Date(hint.at).toLocaleTimeString()}</span><span class="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">${escapeHtml(hint.text)}</span><button type="button" class="relative z-10 shrink-0 rounded px-1 text-gray-400 hover:bg-red-900/60 hover:text-red-300" onclick="removeQuestionHint(${index})" aria-label="Delete clue ${index + 1}" title="Delete this clue">×</button></div>`).join('')
+                : '<span class="text-gray-500 italic">No additional clues yet.</span>';
+            updateQuestionClock();
+        }
+        function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+        function updateQuestionClock() {
+            const question = appState.activeQuestion;
+            if (!question || !question.startedAt) {
+                const seconds = Math.ceil(questionDurationMs(question?.type || questionTypeEl.value) / 1000);
+                setQuestionClockDisplay(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, 'justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400');
+                return;
+            }
+            const remaining = Math.max(0, questionDurationMs(question.type) - (Date.now() - question.startedAt));
+            const seconds = Math.ceil(remaining / 1000);
+            setQuestionClockDisplay(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, `justify-self-center whitespace-nowrap font-mono text-xl font-bold ${remaining ? (remaining <= 60000 ? 'text-red-300' : 'text-emerald-300') : 'text-red-400'}`);
+        }
+        function persistSearchDraft() {
+            appState.searchDraft = { text: queryInput.value, mode: document.getElementById('searchMode').value, videoId: videoIdInput.value, topK: topKSelect.value };
+            localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
+        }
+        function candidateKey(videoId, frameIdx) { return `${String(videoId || '').replace(/\.[^/.]+$/, '')}|${Math.round(Number(frameIdx))}`; }
+        function candidateSummary(item) {
+            return { video_id: String(item.video_id || '').replace(/\.[^/.]+$/, ''), frame_idx: Math.round(Number(item.frame_idx)), timestamp: item.timestamp || '', pts_time: Number(item.pts_time) || 0, score: Number(item.score) || 0, r2_url: item.r2_url || '', gdrive_file_id: item.gdrive_file_id || '', image_path: item.image_path || '', object_file_id: item.object_file_id || '', ocr_json_id: item.ocr_json_id || '', vector_id: item.vector_id };
+        }
+        window.togglePinnedFrame = index => {
+            const item = lastResults[index]; if (!item) return;
+            const question = appState.activeQuestion || { type: questionTypeEl.value, initialText: '', hints: [], startedAt: null };
+            const candidate = candidateSummary(item); const key = candidateKey(candidate.video_id, candidate.frame_idx);
+            question.pinnedFrames = question.pinnedFrames || [];
+            const existingIndex = question.pinnedFrames.findIndex(entry => candidateKey(entry.video_id, entry.frame_idx) === key);
+            if (existingIndex >= 0) question.pinnedFrames.splice(existingIndex, 1);
+            else question.pinnedFrames.push(candidate);
+            appState.activeQuestion = question; saveState();
+        };
+        const savedSearchDraft = appState.searchDraft || {};
+        if (savedSearchDraft.text) queryInput.value = savedSearchDraft.text;
+        resizeAutoGrowTextarea(queryInput);
+        if (savedSearchDraft.mode) document.getElementById('searchMode').value = savedSearchDraft.mode;
+        if (savedSearchDraft.videoId) videoIdInput.value = savedSearchDraft.videoId;
+        if (savedSearchDraft.topK) topKSelect.value = savedSearchDraft.topK;
+        queryInput.addEventListener('input', () => { resizeAutoGrowTextarea(queryInput); persistSearchDraft(); });
+        window.addEventListener('resize', () => [queryInput, document.getElementById('questionInitialText'), document.getElementById('questionHintInput')].forEach(resizeAutoGrowTextarea));
+        queryInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+                event.preventDefault();
+                searchForm.requestSubmit();
+            }
+        });
+        [document.getElementById('searchMode'), videoIdInput, topKSelect].forEach(el => el.addEventListener('input', persistSearchDraft));
+        document.getElementById('startQuestionTimer').onclick = () => {
+            appState.activeQuestion = { ...(appState.activeQuestion || {}), type: questionTypeEl.value, startedAt: Date.now(), initialText: document.getElementById('questionInitialText').value, hints: appState.activeQuestion?.hints || [] };
+            ensureSubmissionQueryMatchesActiveQuestion();
+            saveState();
+            clearInterval(questionClockInterval); questionClockInterval = setInterval(updateQuestionClock, 250);
+        };
+        questionTypeEl.onchange = () => {
+            const current = appState.activeQuestion || {};
+            const nextType = questionTypeEl.value;
+            const timerRemaining = current.startedAt
+                ? questionDurationMs(current.type || 'KIS_TEXT') - (Date.now() - current.startedAt)
+                : 0;
+            if (nextType !== current.type && timerRemaining > 0 && !window.confirm('The current question timer is still running. Changing the question type will reset the timer. Continue?')) {
+                questionTypeEl.value = current.type;
+                return;
+            }
+            clearInterval(questionClockInterval);
+            questionClockInterval = null;
+            appState.activeQuestion = { ...current, type: nextType, startedAt: null, initialText: current.initialText ?? document.getElementById('questionInitialText').value, hints: current.hints || [] };
+            saveState();
+        };
+        document.getElementById('questionInitialText').oninput = event => {
+            resizeAutoGrowTextarea(event.target);
+            appState.activeQuestion = { ...(appState.activeQuestion || {}), type: questionTypeEl.value, startedAt: appState.activeQuestion?.startedAt || null, hints: appState.activeQuestion?.hints || [], initialText: event.target.value };
+            localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
+        };
+        document.getElementById('questionHintInput').addEventListener('input', event => resizeAutoGrowTextarea(event.target));
+        const addQuestionHint = () => {
+            const input = document.getElementById('questionHintInput');
+            const text = input.value.trim();
+            if (!text) { input.focus(); return; }
+            const previousQuestion = appState.activeQuestion || {};
+            appState.activeQuestion = {
+                ...previousQuestion,
+                type: questionTypeEl.value,
+                startedAt: previousQuestion.startedAt || null,
+                initialText: document.getElementById('questionInitialText').value,
+                hints: [...(previousQuestion.hints || []), { text, at: Date.now() }]
+            };
+            input.value = '';
+            resizeAutoGrowTextarea(input);
+            saveState();
+            input.focus();
+        };
+        document.getElementById('addQuestionHint').onclick = addQuestionHint;
+        window.removeQuestionHint = index => {
+            const question = appState.activeQuestion;
+            if (!question?.hints || index < 0 || index >= question.hints.length) return;
+            question.hints.splice(index, 1);
+            saveState();
+        };
+        document.getElementById('questionHintInput').addEventListener('keydown', event => {
+            if (event.key === 'Enter' && event.ctrlKey && !event.isComposing) {
+                event.preventDefault();
+                addQuestionHint();
+            }
+        });
+        document.getElementById('resetQuestion').onclick = () => {
+            if (!confirm('Reset the active question, timer, and clue history? Saved candidate lists in Submission Builder will be kept.')) return;
+            appState.activeQuestion = null; saveState(); clearInterval(questionClockInterval);
+        };
+        if (appState.activeQuestion?.startedAt) questionClockInterval = setInterval(updateQuestionClock, 250);
 
         document.getElementById('sidebarToggle').onclick = () => {
             document.getElementById('submissionSidebar').classList.add('open');
             if(window.innerWidth >= 640) document.getElementById('mainContentArea').style.marginRight = '420px';
-            if(window.innerWidth >= 640) document.getElementById('mainContentArea').style.marginRight = '420px';
+            document.getElementById('tabSubmitBtn')?.click();
+            requestAnimationFrame(() => {
+                const activeQueryButton = [...document.querySelectorAll('#queriesList .query-select-button')]
+                    .find(button => button.dataset.queryId === appState.activeId);
+                (activeQueryButton || document.querySelector('#queriesList .query-select-button') || document.getElementById('newQueryName'))?.focus();
+            });
         };
         document.getElementById('closeSidebar').onclick = () => {
             document.getElementById('submissionSidebar').classList.remove('open');
@@ -431,9 +670,24 @@
         const FILMSTRIP_PAGE_SIZE = 40;
 
         function frameImageUrl(item) {
+            return frameImageSources(item)[0] || '';
+        }
+        function frameImageSources(item) {
             const fileId = item.gdrive_file_id;
             const path = item.image_path || '';
-            return item.r2_url || (fileId ? `${API_BASE}/api/v1/drive/proxy/${fileId}` : (path.startsWith('http') ? path : ''));
+            return [...new Set([
+                item.r2_url || '',
+                fileId ? `${API_BASE}/api/v1/drive/proxy/${fileId}` : '',
+                path.startsWith('http') ? path : ''
+            ].filter(Boolean))];
+        }
+        function handleFrameImageError(image) {
+            const sources = JSON.parse(image.dataset.imageSources || '[]');
+            const nextSource = sources.shift();
+            image.dataset.imageSources = JSON.stringify(sources);
+            if (nextSource) { image.src = nextSource; return; }
+            image.classList.add('hidden');
+            image.parentElement?.querySelector('[data-image-fallback]')?.classList.remove('hidden');
         }
 
         function renderFilmstrip() {
@@ -444,7 +698,7 @@
             track.innerHTML = filmstripFrames.map((item) => {
                 const active = Number(item.frame_idx) === Number(filmstripCenterFrame);
                 return `<button type="button" data-frame="${item.frame_idx}" class="film-frame shrink-0 w-24 ${active ? 'ring-2 ring-blue-400 scale-105 opacity-100' : 'opacity-70 hover:opacity-100'} rounded overflow-hidden bg-gray-800 transition" title="Frame ${item.frame_idx}">
-                    <img src="${frameImageUrl(item)}" class="w-24 h-14 object-contain" loading="lazy" alt="Frame ${item.frame_idx}">
+                    <span class="relative block h-14 w-24"><img src="${frameImageUrl(item)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" onerror="handleFrameImageError(this)" class="h-14 w-24 object-contain" loading="lazy" alt="Frame ${item.frame_idx}"><span data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-1 text-center text-[9px] text-gray-400">Image unavailable</span></span>
                     <span class="block text-[10px] text-gray-300 font-mono py-0.5">${item.timestamp || item.frame_idx}</span>
                 </button>`;
             }).join('');
@@ -607,7 +861,10 @@
             document.getElementById('bboxesOverlay').innerHTML = ''; // clear old bboxes
             
             // Attach onload to draw bboxes once image has proper dimensions
-            modalImg.onload = drawBboxes;
+            modalImg.classList.remove('hidden');
+            document.getElementById('modalImageFallback').classList.add('hidden');
+            modalImg.onload = () => { modalImg.classList.remove('hidden'); document.getElementById('modalImageFallback').classList.add('hidden'); drawBboxes(); };
+            modalImg.onerror = () => { modalImg.classList.add('hidden'); document.getElementById('modalImageFallback').classList.remove('hidden'); };
             modalImg.src = imgSrc;
             
             // Add a small pop animation
@@ -724,10 +981,41 @@
             }
         };
 
+        function expectedSubmissionTypeForActiveQuestion() {
+            const questionType = appState.activeQuestion?.type || questionTypeEl.value;
+            if (questionType === 'QA') return 'QA';
+            if (questionType === 'TRAKE') return 'TRAKE';
+            return 'KIS';
+        }
+        function ensureSubmissionQueryMatchesActiveQuestion() {
+            const expectedType = expectedSubmissionTypeForActiveQuestion();
+            const activeQuery = appState.queries.find(query => query.id === appState.activeId);
+            if (activeQuery?.type === expectedType) return activeQuery;
+
+            const query = {
+                id: Math.random().toString(36).slice(2, 11),
+                name: `Question ${new Date().toLocaleTimeString()}`,
+                type: expectedType,
+                items: []
+            };
+            appState.queries.push(query);
+            appState.activeId = query.id;
+            const queryTypeSelect = document.getElementById('newQueryType');
+            if (queryTypeSelect) queryTypeSelect.value = expectedType;
+            return query;
+        }
+        function getSubmissionTypeMismatch(query) {
+            if (!query) return '';
+            const expectedType = expectedSubmissionTypeForActiveQuestion();
+            if (query.type === expectedType) return '';
+            const questionType = appState.activeQuestion?.type || questionTypeEl.value;
+            const questionLabels = { KIS_TEXT: 'Textual KIS', KIS_VIDEO: 'Video KIS', QA: 'Q&A', TRAKE: 'TRAKE' };
+            return `Type mismatch: the active competition question is ${questionLabels[questionType] || questionType}, but this submission query is ${query.type}. Select a ${expectedType} query to continue.`;
+        }
+
         document.getElementById('btnCreateQuery').onclick = () => {
-            const name = document.getElementById('newQueryName').value.trim();
+            const name = document.getElementById('newQueryName').value.trim() || `Question ${new Date().toLocaleTimeString()}`;
             const type = document.getElementById('newQueryType').value;
-            if (!name) return alert("Please enter a query filename.");
             const newQuery = { id: Math.random().toString(36).substr(2,9), name, type, items: [] };
             appState.queries.push(newQuery);
             appState.activeId = newQuery.id;
@@ -735,9 +1023,25 @@
             saveState();
         };
 
-        window.setActive = id => { appState.activeId = id; saveState(); };
+        window.setActive = id => {
+            appState.activeId = id;
+            saveState();
+            requestAnimationFrame(() => [...document.querySelectorAll('#queriesList .query-select-button')]
+                .find(button => button.dataset.queryId === id)?.focus());
+        };
         window.deleteQuery = id => { appState.queries = appState.queries.filter(q => q.id !== id); if(appState.activeId === id) appState.activeId = null; saveState(); };
-        window.updateQueryName = (id, newName) => { const q = appState.queries.find(x => x.id === id); if(q) { q.name = newName; saveState(); } };
+        window.updateQueryName = (id, newName) => {
+            const query = appState.queries.find(item => item.id === id);
+            if (!query) return;
+            const trimmedName = newName.trim();
+            if (!trimmedName) {
+                alert('Query name cannot be empty.');
+                renderSidebar();
+                return;
+            }
+            query.name = trimmedName;
+            saveState();
+        };
         window.deleteItem = (qId, idx) => { const q = appState.queries.find(x => x.id === qId); if (q) { q.items.splice(idx, 1); saveState(); } };
         window.moveItem = (qId, idx, dir) => {
             const q = appState.queries.find(x => x.id === qId);
@@ -747,15 +1051,79 @@
             if (dir === 1 && idx < arr.length - 1) { [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; }
             saveState();
         };
+
+        function validateDresVideoId(value) {
+            const videoId = String(value ?? '').trim();
+            if (!videoId) return 'Required: enter a video ID.';
+            if (/[\\/]/.test(videoId)) return 'Use a video ID, not a path.';
+            if (/\.(mp4|mkv|mov|avi|webm|mpeg|mpg)$/i.test(videoId)) return 'Remove the video file extension.';
+            return '';
+        }
+
+        function validateDresFrameIndex(value) {
+            const raw = String(value ?? '').trim();
+            if (!/^\d+$/.test(raw)) return 'Enter a whole, non-negative frame index.';
+            if (!Number.isSafeInteger(Number(raw))) return 'Frame index is too large to serialize safely.';
+            return '';
+        }
+
+        function validateDresItem(query, item) {
+            const errors = { video_id: validateDresVideoId(item.video_id) };
+            if (query.type === 'KIS' || query.type === 'QA') {
+                errors.frame_idx = validateDresFrameIndex(item.frame_idx);
+                if (query.type === 'QA' && !String(item.answer ?? '').trim()) errors.answer = 'Required: enter the Q&A answer.';
+            } else if (query.type === 'TRAKE') {
+                const raw = item.framesDraft !== undefined ? String(item.framesDraft) : (Array.isArray(item.frames) ? item.frames.join(', ') : '');
+                const tokens = raw.split(',').map(token => token.trim());
+                const parsed = [];
+                if (!raw.trim()) errors.frames = 'Add at least one frame ID.';
+                else if (tokens.some(token => !/^\d+$/.test(token) || !Number.isSafeInteger(Number(token)))) errors.frames = 'Use comma-separated, whole non-negative frame IDs.';
+                else {
+                    parsed.push(...tokens.map(Number));
+                    if (parsed.some((frame, index) => index > 0 && frame <= parsed[index - 1])) errors.frames = 'Frame IDs must be unique and strictly increasing.';
+                }
+            }
+            return Object.fromEntries(Object.entries(errors).filter(([, message]) => message));
+        }
+
+        function updateDresField(qId, idx, field, value, input) {
+            const query = appState.queries.find(candidate => candidate.id === qId);
+            const item = query?.items[idx];
+            if (!query || !item) return;
+            if (field === 'frames') {
+                item.framesDraft = value;
+                const tokens = value.split(',').map(token => token.trim());
+                if (tokens.every(token => /^\d+$/.test(token) && Number.isSafeInteger(Number(token)))) item.frames = tokens.map(Number);
+            } else if (field === 'frame_idx') {
+                item.frame_idx = /^\d+$/.test(value.trim()) && Number.isSafeInteger(Number(value.trim())) ? Number(value.trim()) : value;
+            } else if (field === 'answer') {
+                item.answer = value.substring(0, 100);
+            } else {
+                item[field] = value;
+            }
+            localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
+            const errors = validateDresItem(query, item);
+            const message = errors[field] || '';
+            const errorNode = input.parentElement.querySelector(`[data-error-for="${field}"]`);
+            if (errorNode) { errorNode.textContent = message; errorNode.classList.toggle('hidden', !message); }
+            input.classList.toggle('border-red-500', Boolean(message));
+            input.classList.toggle('border-gray-600', !message);
+            input.setAttribute('aria-invalid', message ? 'true' : 'false');
+        }
+
         window.updateItem = (qId, idx, field, val) => {
             const q = appState.queries.find(x => x.id === qId);
             if (!q || !q.items[idx]) return;
             if (field === 'frames') {
-                q.items[idx][field] = val.split(',').map(x => Math.round(Number(x.trim()))).filter(x => !isNaN(x));
+                const tokens = val.split(',').map(x => x.trim());
+                q.items[idx].framesDraft = val;
+                if (tokens.every(token => /^\d+$/.test(token) && Number.isSafeInteger(Number(token)))) q.items[idx][field] = tokens.map(Number);
             } else if (field === 'frame_idx') {
-                q.items[idx][field] = Math.round(Number(val)) || 0;
+                q.items[idx][field] = /^\d+$/.test(String(val).trim()) && Number.isSafeInteger(Number(val)) ? Number(val) : val;
             } else if (field === 'answer') {
                 q.items[idx][field] = val.substring(0, 100);
+                localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
+                return;
             } else {
                 q.items[idx][field] = val;
             }
@@ -768,14 +1136,16 @@
             
             const list = document.getElementById('queriesList');
             if (appState.queries.length === 0) {
-                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">No queries created yet.</p>`;
+                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">No queries yet.</p>`;
             } else {
                 list.innerHTML = appState.queries.map(q => `
-                    <div class="flex items-center gap-2 p-2 rounded cursor-pointer border border-transparent transition-colors ${q.id === appState.activeId ? 'bg-gray-700 border-blue-500' : 'bg-gray-800 hover:border-gray-500'}" onclick="setActive('${q.id}')">
-                        <input class="flex-1 bg-transparent outline-none text-white font-medium" value="${q.name}" onchange="updateQueryName('${q.id}', this.value)" onclick="event.stopPropagation()">
-                        <span class="text-xs bg-gray-900 px-2 py-0.5 rounded text-blue-300 font-bold border border-gray-600">${q.type}</span>
-                        <span class="text-xs text-gray-400 w-12 text-right">${q.items.length}/100</span>
-                        <button class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" onclick="event.stopPropagation(); deleteQuery('${q.id}')">&times;</button>
+                    <div class="flex items-center gap-2 p-2 rounded border border-transparent transition-all ${q.id === appState.activeId ? 'bg-gray-700 border-indigo-300 ring-2 ring-indigo-500/60 shadow-lg shadow-indigo-950/40' : 'bg-gray-800 hover:border-gray-500'}">
+                        <input type="text" class="query-rename-button w-[44%] max-w-[44%] min-w-0 flex-none bg-transparent p-0 text-left font-medium text-white outline-none focus:text-blue-200" aria-label="Rename ${escapeHtml(q.name)}" title="Click and type to rename query; press Enter or leave the field to save" value="${escapeHtml(q.name)}" onchange="updateQueryName('${q.id}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.value=this.defaultValue;this.blur()}">
+                        <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Select this query" onclick="setActive('${q.id}')">
+                            <span class="text-xs bg-gray-900 px-2 py-0.5 rounded text-blue-300 font-bold border border-gray-600">${escapeHtml(q.type)}</span>
+                            <span class="text-xs text-gray-400 w-12 text-right">${q.items.length}/100</span>
+                        </button>
+                        <button type="button" class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" aria-label="Delete ${escapeHtml(q.name)}" onclick="deleteQuery('${q.id}')">&times;</button>
                     </div>
                 `).join('');
             }
@@ -784,42 +1154,44 @@
             if (!activeQ) {
                 document.getElementById('activeQueryTitle').textContent = "No Active Query";
                 document.getElementById('btnClearQuery').style.display = "none";
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500'>Create or select a query above to start adding frames.</p>";
+                document.getElementById('btnForceNewRow').style.display = "none";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>No active query selected for submission.</p>";
                 return;
             }
 
             document.getElementById('activeQueryTitle').textContent = activeQ.name;
             document.getElementById('btnClearQuery').style.display = "block";
-            document.getElementById('btnForceNewRow').style.display = activeQ.type === 'TRAKE' ? "block" : "none";
+            document.getElementById('btnForceNewRow').style.display = ['KIS', 'QA', 'TRAKE'].includes(activeQ.type) ? "block" : "none";
             document.getElementById('btnClearQuery').onclick = () => { if(confirm("Clear all items in this query?")) { activeQ.items = []; saveState(); } };
 
             if (activeQ.items.length === 0) {
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 italic'>No frames added yet.</p>";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>No active answer in this query.</p>";
                 return;
             }
 
             itemsContainer.innerHTML = activeQ.items.map((item, idx) => {
                 let inputs = '';
+                const fieldErrors = validateDresItem(activeQ, item);
+                const fieldBox = (field, value, width, inputType = 'text', extraClass = '') => `<div class="${extraClass || ''} ${width} min-w-0"><input value="${escapeHtml(value ?? '')}" type="${inputType}" aria-label="${field === 'video_id' ? 'Video ID' : field === 'frame_idx' ? 'Frame index' : field === 'answer' ? 'Q&A answer' : 'TRAKE frame IDs'}" aria-invalid="${fieldErrors[field] ? 'true' : 'false'}" class="w-full bg-gray-900 text-white border ${fieldErrors[field] ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 outline-none focus:border-blue-500" oninput="updateDresField('${activeQ.id}', ${idx}, '${field}', this.value, this)"><span data-error-for="${field}" class="${fieldErrors[field] ? '' : 'hidden'} mt-1 block max-w-full whitespace-normal break-words text-[10px] leading-tight text-red-300">${escapeHtml(fieldErrors[field] || '')}</span></div>`;
                 if (activeQ.type === 'KIS') {
-                    inputs = `<input value="${item.video_id}" class="w-20 bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'video_id', this.value)">
-                              <input value="${item.frame_idx}" type="number" class="w-20 bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'frame_idx', this.value)">`;
+                    inputs = `${fieldBox('video_id', item.video_id, 'w-20')}${fieldBox('frame_idx', item.frame_idx, 'w-20', 'text')}`;
                 } else if (activeQ.type === 'QA') {
-                    inputs = `<input value="${item.video_id}" class="w-16 bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'video_id', this.value)">
-                              <input value="${item.frame_idx}" type="number" class="w-16 bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'frame_idx', this.value)">
-                              <input value="${item.answer || ''}" placeholder="Answer" class="flex-1 min-w-[50px] bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'answer', this.value)">`;
+                    inputs = `${fieldBox('video_id', item.video_id, 'w-16')}${fieldBox('frame_idx', item.frame_idx, 'w-16', 'text')}${fieldBox('answer', item.answer || '', 'w-full', 'text', 'flex-1')}`;
                 } else if (activeQ.type === 'TRAKE') {
-                    inputs = `<input value="${item.video_id}" class="w-20 bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500" onchange="updateItem('${activeQ.id}', ${idx}, 'video_id', this.value)">
-                              <input value="${item.frames.join(', ')}" class="flex-1 min-w-[50px] bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 outline-none focus:border-blue-500 font-mono" onchange="updateItem('${activeQ.id}', ${idx}, 'frames', this.value)">`;
+                    const frameText = item.framesDraft !== undefined ? item.framesDraft : (Array.isArray(item.frames) ? item.frames.join(', ') : '');
+                    inputs = `${fieldBox('video_id', item.video_id, 'w-20')}${fieldBox('frames', frameText, 'w-full', 'text', 'flex-1')}`;
                 }
                 return `
-                <div class="flex items-center gap-2 mb-2 bg-gray-800 p-2 rounded border border-gray-700 text-sm shadow-sm group">
-                    <span class="text-gray-500 text-xs w-4">${idx+1}.</span>
-                    ${inputs}
-                    <div class="flex flex-col gap-0 opacity-50 group-hover:opacity-100 transition-opacity">
-                        <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, -1)">▲</button>
-                        <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, 1)">▼</button>
+                <div class="mb-2 rounded border border-gray-700 bg-gray-800 p-2 text-sm shadow-sm group">
+                    <div class="flex items-start gap-2">
+                        <span class="mt-2 w-4 shrink-0 text-xs text-gray-500">${idx+1}.</span>
+                        ${inputs}
+                        <div class="mt-2 flex shrink-0 flex-col gap-0 opacity-50 group-hover:opacity-100 transition-opacity">
+                            <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, -1)">▲</button>
+                            <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, 1)">▼</button>
+                        </div>
+                        <button class="mt-1 shrink-0 text-red-400 hover:text-red-300 px-1 text-lg leading-none opacity-50 group-hover:opacity-100 transition-opacity" onclick="deleteItem('${activeQ.id}', ${idx})">&times;</button>
                     </div>
-                    <button class="text-red-400 hover:text-red-300 px-1 text-lg leading-none opacity-50 group-hover:opacity-100 transition-opacity" onclick="deleteItem('${activeQ.id}', ${idx})">&times;</button>
                 </div>`;
             }).join('');
         }
@@ -827,9 +1199,14 @@
         window.forceNewRow = function() {
             if (!appState.activeId) return;
             const q = appState.queries.find(x => x.id === appState.activeId);
-            if (q && q.type === 'TRAKE') {
+            if (q && ['KIS', 'QA', 'TRAKE'].includes(q.type)) {
                 if (q.items.length >= 100) return alert("Maximum 100 rows allowed per query.");
-                q.items.push({ video_id: "", frames: [] });
+                const newItem = q.type === 'TRAKE'
+                    ? { video_id: "", frames: [] }
+                    : q.type === 'QA'
+                        ? { video_id: "", frame_idx: "", answer: "" }
+                        : { video_id: "", frame_idx: "" };
+                q.items.push(newItem);
                 saveState();
             }
         };
@@ -843,6 +1220,8 @@
             }
             const q = appState.queries.find(x => x.id === appState.activeId);
             if (!q) return;
+            const typeMismatch = getSubmissionTypeMismatch(q);
+            if (typeMismatch) return alert(typeMismatch);
 
             const cleanVid = vid.replace(/\.[^/.]+$/, "");
             const intFrame = Math.round(Number(frame));
@@ -887,15 +1266,416 @@
             document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         };
 
+        let pendingDresReview = null;
+        const dresReviewModal = document.getElementById('dresReviewModal');
+        let dresReviewReturnFocus = null;
+        let dresSessionId = null;
+        let dresSessionFailed = false;
+        let dresActiveEvaluations = [];
+        let dresEvaluationState = 'idle';
+        let dresSubmitBusy = false;
+        let dresLoginBusy = false;
+        const closeDresReview = () => {
+            dresReviewModal.classList.add('hidden');
+            pendingDresReview = null;
+            dresReviewReturnFocus?.focus();
+        };
+        document.getElementById('btnCloseDresReview').onclick = closeDresReview;
+        document.getElementById('btnCancelDresReview').onclick = closeDresReview;
+        dresReviewModal.addEventListener('click', event => { if (event.target === dresReviewModal) closeDresReview(); });
+        dresReviewModal.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeDresReview();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = [...dresReviewModal.querySelectorAll('button:not(:disabled), textarea, input, select, a[href], [tabindex]:not([tabindex="-1"])')]
+                .filter(element => element.getClientRects().length > 0 && !element.closest('.hidden'));
+            if (!focusable.length) { event.preventDefault(); return; }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !dresReviewModal.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !dresReviewModal.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+
+        function showDresReviewError(message) {
+            document.getElementById('dresReviewError').textContent = message;
+            document.getElementById('dresReviewError').classList.remove('hidden');
+            document.getElementById('btnDownloadReviewedDres').disabled = true;
+        }
+
+        function dresLabel(label, value) {
+            return `<div class="rounded border border-gray-700 bg-gray-800 p-3"><div class="text-[10px] uppercase tracking-wide text-gray-400">${escapeHtml(label)}</div><div class="mt-1 break-words font-mono text-sm text-gray-100">${escapeHtml(value)}</div></div>`;
+        }
+
+        async function fetchDresEvidenceFrame(videoId, frameId) {
+            const url = `${API_BASE}/api/v1/video/${encodeURIComponent(videoId)}/frames?start_frame=${encodeURIComponent(frameId)}&end_frame=${encodeURIComponent(frameId)}&limit=1`;
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || `Frame lookup failed (${response.status})`);
+            const frame = (result.results || []).find(row => Number(row.frame_idx) === Number(frameId));
+            if (!frame) throw new Error(`Evidence frame ${frameId} is missing from the video index.`);
+            return frame;
+        }
+
+        function renderDresEvidenceFrames(frames) {
+            const host = document.getElementById('dresReviewFrames');
+            host.innerHTML = frames.map((frame, index) => {
+                const pts = Number(frame.pts_time);
+                const ptsLabel = Number.isFinite(pts) ? `${pts.toFixed(3)} s` : 'Timestamp unavailable';
+                const image = frameImageUrl(frame);
+                const evidence = [frame.ocr_text && `OCR: ${frame.ocr_text}`, frame.asr_text && `ASR: ${frame.asr_text}`, frame.objects && `Objects: ${frame.objects}`].filter(Boolean).join('\n');
+                return `<article class="overflow-hidden rounded border border-gray-700 bg-gray-800">
+                    ${image ? `<span class="relative block bg-black"><img src="${escapeHtml(image)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(frame).slice(1)))}" alt="Evidence frame ${Number(frame.frame_idx)}" class="aspect-video w-full object-contain" loading="lazy" onerror="handleFrameImageError(this)"><span data-image-fallback class="hidden absolute inset-0 flex aspect-video items-center justify-center bg-gray-950 px-2 text-center text-xs text-gray-400">Image unavailable. Video ID, frame, and timestamp remain below.</span></span>` : '<div class="flex aspect-video items-center justify-center bg-gray-950 text-xs text-gray-500">No image available</div>'}
+                    <div class="p-3"><div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Frame ${Number(frame.frame_idx)}</div>
+                    <div class="mt-1 text-xs text-gray-300">Source timestamp: ${escapeHtml(frame.timestamp || ptsLabel)} · ${escapeHtml(ptsLabel)}${Number.isFinite(pts) ? ` · ${Math.floor(pts * 1000 + 0.5)} ms` : ''}</div>
+                    ${evidence ? `<pre class="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] text-gray-400">${escapeHtml(evidence)}</pre>` : '<p class="mt-2 text-[11px] text-gray-500">No OCR/ASR/object text recorded for this frame.</p>'}</div>
+                </article>`;
+            }).join('');
+        }
+
+        function renderDresSubmissionHistory() {
+            if (!pendingDresReview) return;
+            const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
+            const current = history.find(record => record.id === pendingDresReview.historyRecordId);
+            if (!current) return;
+            const earlierSubmissions = history.filter(record => record.id !== current.id && record.queryId === current.queryId && record.fingerprint === current.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(record.status));
+            const warning = document.getElementById('dresDuplicateWarning');
+            if (earlierSubmissions.length) {
+                const latest = earlierSubmissions.slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt))[0];
+                const statusText = { submitted: 'sent', accepted: 'accepted', rejected: 'rejected', outcome_unknown: 'attempted, but its outcome is unknown' }[latest.status];
+                warning.textContent = `This exact answer for this query was already ${statusText} on ${new Date(latest.updatedAt || latest.createdAt).toLocaleString()}. Sending it again is blocked.`;
+                warning.classList.remove('hidden');
+            } else {
+                warning.textContent = '';
+                warning.classList.add('hidden');
+            }
+
+            const labels = { prepared: 'Prepared locally', submitted: 'Sent to DRES (acceptance not confirmed)', accepted: 'Accepted (operator recorded)', rejected: 'Rejected (operator recorded)', outcome_unknown: 'Submit outcome unknown — check DRES before any action' };
+            const statusColors = { prepared: 'text-amber-300', submitted: 'text-emerald-300', accepted: 'text-emerald-300', rejected: 'text-red-300', outcome_unknown: 'text-amber-300' };
+            const currentStatus = document.getElementById('dresCurrentAttemptStatus');
+            currentStatus.textContent = `History: ${labels[current.status] || current.status}`;
+            document.getElementById('btnRecordDresAccepted').classList.toggle('hidden', current.status !== 'submitted');
+            document.getElementById('btnRecordDresRejected').classList.toggle('hidden', current.status !== 'submitted');
+            updateDresConnectionUi();
+
+            const entries = history.filter(record => record.queryId === current.queryId && record.fingerprint === current.fingerprint).slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt));
+            document.getElementById('dresHistoryEntries').innerHTML = entries.length ? entries.map(record => `
+                <article class="rounded border border-gray-700 bg-gray-900 p-2">
+                    <div class="font-semibold ${record.id === current.id ? (statusColors[record.status] || 'text-gray-100') : 'text-gray-100'}">${escapeHtml(labels[record.status] || record.status)} · ${escapeHtml(new Date(record.updatedAt || record.createdAt).toLocaleString())}${record.id === current.id ? ' · Current attempt' : ''}</div>
+                    <div class="mt-0.5 text-gray-400">${escapeHtml(record.queryName || record.queryType || '')}</div>
+                    ${record.response ? `<div class="mt-1 whitespace-pre-wrap break-words text-gray-300">${escapeHtml(record.response)}</div>` : ''}
+                </article>`).join('') : '<p class="text-gray-500">No recorded attempts for this payload.</p>';
+        }
+
+        function recordDresSubmissionStatus(status) {
+            if (!pendingDresReview) return;
+            const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
+            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) {
+                showDresReviewError('The selected answer changed after review. Prepare a fresh review before recording a status.');
+                return;
+            }
+            const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
+            const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
+            if (!record) return;
+            if (status === 'submitted' && history.some(entry => entry.id !== record.id && entry.queryId === record.queryId && entry.fingerprint === record.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(entry.status))) {
+                return showDresReviewError('This exact answer was already sent or has an unknown outcome for this query. Check DRES and the history before taking action.');
+            }
+            if (status === 'submitted' && record.status !== 'prepared') return;
+            if ((status === 'accepted' || status === 'rejected') && record.status !== 'submitted') return;
+            record.status = status;
+            record.updatedAt = Date.now();
+            appState.dresSubmissionHistory = history;
+            saveState();
+            renderDresSubmissionHistory();
+            document.getElementById('dresCurrentAttemptStatus').focus();
+        }
+
+        document.getElementById('btnRecordDresAccepted').onclick = () => recordDresSubmissionStatus('accepted');
+        document.getElementById('btnRecordDresRejected').onclick = () => recordDresSubmissionStatus('rejected');
+
+        function updateDresConnectionUi() {
+            const select = document.getElementById('dresEvaluationSelect');
+            const selected = select.value;
+            const sessionIdDisplay = document.getElementById('dresSessionIdDisplay');
+            sessionIdDisplay.textContent = dresLoginBusy
+                ? 'Loading…'
+                : dresSessionFailed
+                ? 'Could not retrieve'
+                    : dresSessionId || 'Not connected';
+            sessionIdDisplay.classList.toggle('text-yellow-300', dresLoginBusy);
+            sessionIdDisplay.classList.toggle('text-red-400', !dresLoginBusy && dresSessionFailed);
+            sessionIdDisplay.classList.toggle('text-emerald-300', !dresLoginBusy && !dresSessionFailed && Boolean(dresSessionId));
+            sessionIdDisplay.classList.toggle('text-gray-500', !dresLoginBusy && !dresSessionFailed && !dresSessionId);
+            const hasSessionValue = !dresLoginBusy && !dresSessionFailed && Boolean(dresSessionId);
+            sessionIdDisplay.classList.toggle('font-mono', hasSessionValue);
+            sessionIdDisplay.classList.toggle('font-sans', !hasSessionValue);
+            document.getElementById('btnDresRefreshSession').disabled = dresLoginBusy;
+            select.disabled = !dresSessionId || !dresActiveEvaluations.length || dresEvaluationState === 'loading';
+            select.classList.toggle('text-yellow-300', dresEvaluationState === 'loading');
+            select.classList.toggle('text-red-400', dresEvaluationState === 'error');
+            select.classList.toggle('text-emerald-300', dresEvaluationState === 'loaded' && dresActiveEvaluations.length > 0);
+            select.classList.toggle('text-white', dresEvaluationState === 'idle');
+            document.getElementById('btnDresLoadEvaluations').disabled = !dresSessionId || dresEvaluationState === 'loading';
+            const duplicate = pendingDresReview && (appState.dresSubmissionHistory || []).some(entry => entry.queryId === pendingDresReview.queryId && entry.fingerprint === pendingDresReview.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(entry.status));
+            document.getElementById('btnDresSubmit').disabled = !dresSessionId || !select.value || !pendingDresReview || duplicate || dresSubmitBusy || dresLoginBusy || dresEvaluationState === 'loading';
+            if (selected && [...select.options].some(option => option.value === selected)) select.value = selected;
+        }
+
+        async function loadDresEvaluations() {
+            if (!dresSessionId) return;
+            const select = document.getElementById('dresEvaluationSelect');
+            dresEvaluationState = 'loading';
+            dresActiveEvaluations = [];
+            select.innerHTML = '<option value="">Loading…</option>';
+            updateDresConnectionUi();
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/dres/evaluations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: dresSessionId }) });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || `Evaluation request failed (${response.status})`);
+                dresActiveEvaluations = Array.isArray(data.evaluations) ? data.evaluations : [];
+                if (!dresActiveEvaluations.length) throw new Error('No ACTIVE evaluations were returned.');
+                dresEvaluationState = 'loaded';
+                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="">Select an ACTIVE evaluation</option>';
+                select.innerHTML = optionPlaceholder + dresActiveEvaluations.map(evaluation => {
+                    const id = String(evaluation.evaluationId ?? evaluation.id ?? '');
+                    const label = String(evaluation.name ?? evaluation.title ?? id);
+                    return id ? `<option value="${escapeHtml(id)}">${escapeHtml(label)} (${escapeHtml(id)})</option>` : '';
+                }).join('');
+                if (dresActiveEvaluations.length === 1) {
+                    const onlyEvaluationId = String(dresActiveEvaluations[0].evaluationId ?? dresActiveEvaluations[0].id ?? '');
+                    select.value = onlyEvaluationId;
+                } else {
+                    select.value = '';
+                }
+                updateDresConnectionUi();
+            } catch (error) {
+                dresActiveEvaluations = [];
+                dresEvaluationState = 'error';
+                select.innerHTML = `<option value="">${escapeHtml(error.message.includes('No ACTIVE evaluations') ? 'No ACTIVE evaluations found' : 'Could not retrieve')}</option>`;
+                updateDresConnectionUi();
+            }
+        }
+
+        async function loginToDres() {
+            if (dresLoginBusy) return;
+            const button = document.getElementById('btnDresRefreshSession');
+            const previousSessionId = dresSessionId;
+            const previousEvaluations = dresActiveEvaluations;
+            dresSessionFailed = false;
+            dresLoginBusy = true;
+            button.disabled = true;
+            button.classList.add('animate-pulse');
+            updateDresConnectionUi();
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/dres/login/configured`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || `Login failed (${response.status})`);
+                dresSessionId = data.session_id;
+                dresActiveEvaluations = [];
+                updateDresConnectionUi();
+                await loadDresEvaluations();
+            } catch (error) {
+                dresSessionId = previousSessionId;
+                dresActiveEvaluations = previousEvaluations;
+                dresSessionFailed = !previousSessionId;
+                updateDresConnectionUi();
+            } finally {
+                dresLoginBusy = false;
+                button.disabled = false;
+                button.classList.remove('animate-pulse');
+                updateDresConnectionUi();
+            }
+        }
+        document.getElementById('btnDresRefreshSession').onclick = loginToDres;
+        document.getElementById('btnDresLoadEvaluations').onclick = loadDresEvaluations;
+        document.getElementById('dresEvaluationSelect').onchange = () => updateDresConnectionUi();
+        document.getElementById('btnDresSubmit').onclick = async () => {
+            if (!pendingDresReview || !dresSessionId) return;
+            const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
+            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) return showDresReviewError('The selected answer changed after review. Prepare a fresh review before submitting.');
+            const typeMismatch = getSubmissionTypeMismatch(query);
+            if (typeMismatch) return showDresReviewError(typeMismatch);
+            const evaluationId = document.getElementById('dresEvaluationSelect').value;
+            if (!evaluationId) return;
+            if (!window.confirm(`Submit this reviewed ${pendingDresReview.queryType} answer to evaluation ${evaluationId}? A wrong submission may cost points and cannot be withdrawn.`)) return;
+            const button = document.getElementById('btnDresSubmit');
+            dresSubmitBusy = true; button.disabled = true; button.textContent = 'Submitting…';
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/dres/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: dresSessionId, evaluation_id: evaluationId, query_id: pendingDresReview.queryId, query_type: pendingDresReview.queryType, payload: pendingDresReview.payload }) });
+                const data = await response.json();
+                const history = appState.dresSubmissionHistory || [];
+                const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
+                if (response.ok) {
+                    if (record) { record.status = 'submitted'; record.response = `DRES HTTP ${data.http_status}; sent. Acceptance is not confirmed.`; record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
+                    updateDresConnectionUi();
+                } else if (response.status === 504 || response.status === 409) {
+                    if (record) { record.status = 'outcome_unknown'; record.response = data.detail || 'DRES submit outcome is unknown. Check the evaluation before any retry.'; record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
+                    updateDresConnectionUi();
+                } else if (response.status === 412) {
+                    if (record) { record.status = 'rejected'; record.response = data.detail || 'DRES rejected this answer. Correct the answer before submitting again.'; record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
+                    updateDresConnectionUi();
+                } else {
+                    showDresReviewError(data.detail || `DRES submit failed (${response.status})`);
+                    updateDresConnectionUi();
+                }
+            } catch (error) {
+                const record = (appState.dresSubmissionHistory || []).find(entry => entry.id === pendingDresReview.historyRecordId);
+                if (record) { record.status = 'outcome_unknown'; record.response = 'Browser could not confirm the response. Check DRES before taking further action.'; record.updatedAt = Date.now(); saveState(); renderDresSubmissionHistory(); }
+                showDresReviewError(`Could not confirm the submit result: ${error.message}. Check DRES before taking further action.`);
+                updateDresConnectionUi();
+            } finally { dresSubmitBusy = false; button.textContent = 'Submit reviewed answer'; updateDresConnectionUi(); }
+        };
+
+        document.getElementById('btnExportDres').onclick = async () => {
+            const modal = dresReviewModal;
+            const button = document.getElementById('btnExportDres');
+            const reviewError = document.getElementById('dresReviewError');
+            document.getElementById('dresReviewTitle').textContent = 'Review DRES answer';
+            document.getElementById('dresReviewSummary').innerHTML = '';
+            document.getElementById('dresReviewFrames').innerHTML = '';
+            document.getElementById('dresReviewJson').textContent = 'Preparing payload…';
+            reviewError.textContent = '';
+            reviewError.classList.add('hidden');
+            pendingDresReview = null;
+            document.getElementById('btnDownloadReviewedDres').disabled = true;
+            document.getElementById('dresHistorySection').classList.add('hidden');
+            document.getElementById('dresDuplicateWarning').classList.add('hidden');
+            document.getElementById('dresHistoryEntries').innerHTML = '';
+            dresReviewReturnFocus = document.activeElement;
+            modal.classList.remove('hidden');
+            document.getElementById('btnCloseDresReview').focus();
+
+            const query = appState.queries.find(item => item.id === appState.activeId);
+            if (!query) return showDresReviewError('Select a query first.');
+            const typeMismatch = getSubmissionTypeMismatch(query);
+            if (typeMismatch) return showDresReviewError(typeMismatch);
+            if (query.items.length !== 1) return showDresReviewError('DRES review needs exactly one selected answer in the active query.');
+            const item = query.items[0];
+            const fieldErrors = validateDresItem(query, item);
+            if (Object.keys(fieldErrors).length) {
+                const labels = { video_id: 'Video ID', frame_idx: 'Frame index', answer: 'Q&A answer', frames: 'TRAKE frame IDs' };
+                return showDresReviewError(`Fix these fields before review: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`);
+            }
+            const videoId = String(item.video_id || '').trim();
+            if (!videoId) return showDresReviewError('Video ID is missing. Edit the selected answer in Submission Builder.');
+            if (!dresSessionId) void loginToDres();
+            const requestBody = { query_type: query.type, video_id: videoId };
+            let frameIds = [];
+            if (query.type === 'KIS' || query.type === 'QA') {
+                const frameId = Number(item.frame_idx);
+                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Frame index must be a non-negative integer. Edit the selected answer in Submission Builder.');
+                requestBody.frame_idx = frameId;
+                frameIds = [frameId];
+                if (query.type === 'QA') requestBody.answer = item.answer || '';
+            } else if (query.type === 'TRAKE') {
+                frameIds = item.framesDraft !== undefined ? item.framesDraft.split(',').map(value => Number(value.trim())) : (Array.isArray(item.frames) ? item.frames.map(Number) : []);
+                requestBody.frame_ids = frameIds;
+            } else {
+                return showDresReviewError(`Unsupported DRES query type: ${query.type}`);
+            }
+
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = 'Preparing review…';
+            try {
+                const [payloadResponse, evidenceFrames] = await Promise.all([
+                    fetch(`${API_BASE}/api/v1/submission/dres/export`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
+                    }),
+                    Promise.all(frameIds.map(frameId => fetchDresEvidenceFrame(videoId, frameId)))
+                ]);
+                const payload = await payloadResponse.json();
+                if (!payloadResponse.ok) throw new Error(payload.detail || `Export validation failed (${payloadResponse.status})`);
+
+                const summary = [dresLabel('Query', query.name || query.id), dresLabel('Task type', query.type), dresLabel('Video ID', videoId)];
+                if (query.type === 'KIS' || query.type === 'QA') {
+                    const serializedAnswer = payload.answerSets?.[0]?.answers?.[0] || {};
+                    const serializedMillis = query.type === 'KIS'
+                        ? serializedAnswer.start
+                        : (typeof serializedAnswer.text === 'string' ? serializedAnswer.text.match(/-(\d+)$/)?.[1] : null);
+                    summary.push(dresLabel('Selected frame', String(frameIds[0])));
+                    summary.push(dresLabel('Timestamp sent (ms)', serializedMillis ?? 'Unavailable'));
+                    if (query.type === 'QA') summary.push(dresLabel('Answer', item.answer || '(empty — validation should reject this)'));
+                } else {
+                    summary.push(dresLabel('Ordered TRAKE frame IDs', frameIds.join(' → ')));
+                    summary.push(dresLabel('Frame count', String(frameIds.length)));
+                }
+                document.getElementById('dresReviewSummary').innerHTML = summary.join('');
+                renderDresEvidenceFrames(evidenceFrames);
+                document.getElementById('dresReviewJson').textContent = JSON.stringify(payload, null, 2);
+                const fingerprint = JSON.stringify(payload);
+                const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
+                const historyRecord = { id: (window.crypto?.randomUUID?.() || `dres-${Date.now()}-${Math.random().toString(36).slice(2)}`), queryId: query.id, queryName: query.name || query.id, queryType: query.type, fingerprint, payload, status: 'prepared', createdAt: Date.now(), updatedAt: Date.now(), response: '' };
+                history.push(historyRecord);
+                appState.dresSubmissionHistory = history;
+                pendingDresReview = { queryId: query.id, queryName: query.name || query.id, queryType: query.type, itemSnapshot: JSON.stringify(item), payload, fingerprint, historyRecordId: historyRecord.id };
+                document.getElementById('dresHistorySection').classList.remove('hidden');
+                saveState();
+                renderDresSubmissionHistory();
+                document.getElementById('btnDownloadReviewedDres').disabled = false;
+            } catch (error) {
+                document.getElementById('dresReviewJson').textContent = 'No payload available.';
+                showDresReviewError(`Could not prepare DRES review: ${error.message}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        };
+
+        document.getElementById('btnDownloadReviewedDres').onclick = () => {
+            if (!pendingDresReview) return;
+            const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
+            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) {
+                showDresReviewError('The selected answer changed after review. Close this dialog and prepare a fresh review.');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(pendingDresReview.payload, null, 2)], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const safeName = String(pendingDresReview.queryName).replace(/[^a-zA-Z0-9._-]+/g, '-');
+            link.href = url;
+            link.download = `dres-${safeName}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
         function renderResults(items, searchStartTime, targetGrid = resultsGrid) {
-            lastResults = items;
-            if (!items || !items.length) {
+            const searchItems = Array.isArray(items) ? items : [];
+            const questionState = appState.activeQuestion || {};
+            const searchItemsByKey = new Map(searchItems.map(item => [candidateKey(item.video_id, item.frame_idx), item]));
+            const pinnedItems = (questionState.pinnedFrames || [])
+                .map(item => searchItemsByKey.get(candidateKey(item.video_id, item.frame_idx)) || item);
+            const pinnedKeys = new Set(pinnedItems.map(item => candidateKey(item.video_id, item.frame_idx)));
+            const visibleItems = [
+                ...pinnedItems,
+                ...searchItems.filter(item => {
+                    const key = candidateKey(item.video_id, item.frame_idx);
+                    return !pinnedKeys.has(key);
+                })
+            ];
+            lastResults = visibleItems;
+            if (!visibleItems.length) {
                 targetGrid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500 font-medium">No results found for this query.</div>';
                 return;
             }
             const activeQ = appState.queries.find(x => x.id === appState.activeId);
             
-                targetGrid.innerHTML = items.map((item, index) => {
+                targetGrid.innerHTML = visibleItems.map((item, index) => {
                     const fileId = item.gdrive_file_id;
                     const path = item.image_path || "";
                     const fallbackUrl = item.r2_url || (fileId ? `${API_BASE}/api/v1/drive/proxy/${fileId}` : (path.startsWith('http') ? path : ''));
@@ -912,17 +1692,23 @@
                             isAdded = !!activeQ.items.find(x => x.video_id === cleanVid && x.frames.includes(intFrame));
                         }
                     }
-
+                    const candidateId = candidateKey(item.video_id, item.frame_idx);
+                    const questionState = appState.activeQuestion || {};
+                    const isPinned = (questionState.pinnedFrames || []).some(entry => candidateKey(entry.video_id, entry.frame_idx) === candidateId);
                     const displayScore = item.score !== undefined ? `${parseFloat(item.score).toFixed(1)}%` : '';
 
                     return `
-                    <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-lg hover:border-blue-500 hover:shadow-blue-500/20 transition-all flex flex-col group">
+                    <div class="border-gray-700 bg-gray-800 border rounded-lg overflow-hidden shadow-lg hover:border-blue-500 hover:shadow-blue-500/20 transition-all flex flex-col group">
                         <div class="relative w-full pt-[56.25%] bg-gray-900 cursor-pointer" onclick="openPreview('${highResUrl}', '${item.video_id}', 'Frame: ${item.frame_idx} | Timestamp: ${item.timestamp} | Similarity: ${displayScore}', ${item.pts_time}, ${index}, '${item.object_file_id || ""}', '${item.ocr_json_id || ""}')">
-                            <img src="${thumbUrl}" class="absolute top-0 left-0 w-full h-full object-contain" loading="${index < 6 ? 'eager' : 'lazy'}" ${index < 6 ? 'fetchpriority="high"' : ''} onerror="this.onerror=null; if('${fallbackUrl}') this.src='${fallbackUrl}';">
+                            <img src="${thumbUrl}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" class="absolute top-0 left-0 w-full h-full object-contain" loading="${index < 6 ? 'eager' : 'lazy'}" ${index < 6 ? 'fetchpriority="high"' : ''} onerror="handleFrameImageError(this)">
+                            <div data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-4 text-center text-xs text-gray-400">Frame image unavailable. Candidate video/frame metadata remains available below.</div>
                             ${displayScore ? `<div class="absolute top-2 left-2 bg-black/80 text-white text-[11px] font-bold px-2 py-0.5 rounded backdrop-blur-sm border border-gray-700">${displayScore}</div>` : ''}
-                            <button class="absolute top-2 right-2 w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="Add to Active Query">
+                            <div class="absolute top-2 right-2 flex gap-1">
+                            <button class="w-7 h-8 rounded flex items-center justify-center font-bold text-lg shadow-lg border ${isPinned ? 'bg-amber-500 text-black border-amber-300' : 'bg-black/60 text-white border-gray-500 hover:bg-amber-600'}" onclick="event.stopPropagation(); togglePinnedFrame(${index})" title="${isPinned ? 'Unpin frame from search priority' : 'Pin frame to top of search results'}" aria-label="${isPinned ? 'Unpin frame from search priority' : 'Pin frame to top of search results'}">${isPinned ? '★' : '☆'}</button>
+                            <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="Add to Active Query" aria-label="${isAdded ? 'Added to active query' : 'Select as answer'}">
                                 ${isAdded ? '✓' : '+'}
                             </button>
+                            </div>
                         </div>
 
                         <div class="p-3 flex flex-col gap-2">
@@ -951,7 +1737,7 @@
 
                 // Benchmark Telemetry: Track Image Loading Times from Search Initiation
                 if (searchStartTime) {
-                    const totalImgs = items.length;
+                    const totalImgs = visibleItems.length;
                     let loadedCount = 0;
                     let firstImageReported = false;
                     const badgeFirst = document.getElementById('badgeFirstImg');
@@ -1025,7 +1811,31 @@
 
             searchForm.onsubmit = async (e) => {
                 e.preventDefault();
-                const query = queryInput.value.trim();
+                const questionText = document.getElementById('questionInitialText').value.trim();
+                const clueInput = document.getElementById('questionHintInput');
+                const newHintText = clueInput.value.trim();
+                const previousQuestion = appState.activeQuestion || {};
+                const hints = [...(previousQuestion.hints || [])];
+                if (newHintText) hints.push({ text: newHintText, at: Date.now() });
+                const hasQuestionContext = Boolean(questionText || newHintText || hints.some(hint => String(hint.text || '').trim()));
+                let query = queryInput.value.trim();
+                if (hasQuestionContext) {
+                    query = [questionText, ...hints.map(hint => String(hint.text || '').trim())].filter(Boolean).join('\n');
+                    queryInput.value = query;
+                    resizeAutoGrowTextarea(queryInput);
+                    appState.activeQuestion = {
+                        ...previousQuestion,
+                        type: questionTypeEl.value,
+                        startedAt: previousQuestion.startedAt || null,
+                        initialText: document.getElementById('questionInitialText').value,
+                        hints
+                    };
+                    if (newHintText) {
+                        clueInput.value = '';
+                        saveState();
+                    }
+                    persistSearchDraft();
+                }
                 if (!query) return;
                 const searchStartTime = performance.now();
                 const telemetryDiv = document.getElementById('benchmarkTelemetry');

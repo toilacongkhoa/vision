@@ -38,6 +38,14 @@ class ChatRequest(BaseModel):
 from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, BASE_DIR, HOST, PORT, CORS_ORIGINS
 from .sqlite_engine import SQLiteSearchEngine as VectorSearchEngine
 from .supabase_service import SupabaseService
+from .dres_submission import (
+    SubmissionError,
+    build_kis_payload,
+    build_qa_payload,
+    build_trake_payload,
+    validate_payload,
+)
+from .dres_api import create_dres_router
 
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
@@ -83,6 +91,15 @@ class SearchAllRequest(BaseModel):
     query: str = Field(..., description="Natural language query")
     top_k: int = Field(20, ge=1, le=200)
     video_id: Optional[str] = None
+
+
+class DRESExportRequest(BaseModel):
+    query_type: Literal["KIS", "QA", "TRAKE"]
+    video_id: str = Field(..., min_length=1)
+    frame_idx: Optional[int] = Field(None, ge=0)
+    answer: Optional[str] = None
+    frame_ids: Optional[List[int]] = None
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -270,6 +287,36 @@ def convert_time_to_frame(video_id: str, time_sec: float, fps: float = 25.0):
 
     frame_idx = round(time_sec * actual_fps)
     return {"status": "success", "video_id": video_id, "time_sec": time_sec, "frame_idx": frame_idx, "fps": actual_fps}
+
+
+@app.post("/api/v1/submission/dres/export")
+def export_dres_submission(request: DRESExportRequest):
+    """Serialize one selected answer as a DRES body; this endpoint does not submit it."""
+    try:
+        if request.query_type == "TRAKE":
+            if request.frame_idx is not None or request.frame_ids is None:
+                raise SubmissionError("TRAKE export requires frame_ids only")
+            payload = build_trake_payload(request.video_id, request.frame_ids)
+        else:
+            if request.frame_idx is None or request.frame_ids is not None:
+                raise SubmissionError("KIS/Q&A export requires one frame_idx only")
+            candidates = search_engine.search_frame_range(
+                request.video_id, request.frame_idx, request.frame_idx, limit=1
+            )
+            if not candidates or int(candidates[0].get("frame_idx", -1)) != request.frame_idx:
+                raise HTTPException(status_code=404, detail="Selected video/frame was not found")
+            pts_time = candidates[0].get("pts_time")
+            if request.query_type == "KIS":
+                payload = build_kis_payload(request.video_id, pts_time)
+            else:
+                payload = build_qa_payload(request.video_id, pts_time, request.answer or "")
+        validate_payload(payload, request.query_type)
+        return payload
+    except SubmissionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+app.include_router(create_dres_router())
 
 @app.post("/api/v1/search/similar")
 def search_similar(req: SearchSimilarRequest):
