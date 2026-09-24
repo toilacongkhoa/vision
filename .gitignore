@@ -25,12 +25,21 @@ startup_time.json
 top22_summary.json
 
 # Local development notes, benchmarks and one-off tooling
+plan.md
+PROJECT_CONTEXT.md
+CHANGELOG.md
+AI_Challenge_2026_Chung_Ket.md
+answerAndQuestion.jsonl
+tools/
+docs/
+chatbot/
 scripts/
 agy-web-integration-research.md
 benchmark_report.md
 project_upgrade_plan.md
 HungryForSuccess_TechnicalReport.docx
 HungryForSuccess_TechnicalReport.md
+video_fps_map.json
 
 # Legacy data-building utilities (not required by the runtime application)
 src/db.py
