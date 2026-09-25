@@ -79,17 +79,17 @@ if frontend_dir.exists():
 
 class SearchSimilarRequest(BaseModel):
     vector_id: int = Field(..., description="Vector ID of the frame to find similar images")
-    top_k: int = Field(20, ge=1, le=200, description="Number of top matching results to retrieve")
+    top_k: int = Field(50, ge=1, le=200, description="Number of top matching results to retrieve")
 
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Natural language search query in English")
-    top_k: int = Field(20, ge=1, le=200, description="Number of top matching results to retrieve")
+    top_k: int = Field(50, ge=1, le=200, description="Number of top matching results to retrieve")
     video_id: Optional[str] = Field(None, description="Optional Video ID filter constraint")
-    mode: Literal["semantic", "smart", "ocr", "asr"] = Field("semantic", description="Search mode: semantic, smart, ocr, or asr")
+    mode: Literal["semantic", "smart", "ocr", "asr"] = Field("smart", description="Search mode: smart, semantic, ocr, or asr")
 
 class SearchAllRequest(BaseModel):
     query: str = Field(..., description="Natural language query")
-    top_k: int = Field(20, ge=1, le=200)
+    top_k: int = Field(50, ge=1, le=200)
     video_id: Optional[str] = None
 
 
@@ -246,7 +246,7 @@ async def proxy_google_drive_file(file_id: str):
 # ====================================================================
 
 @app.get("/api/v1/search/context")
-def search_context(video_id: str, frame_idx: int, limit: int = 20, surrounding: bool = False):
+def search_context(video_id: str, frame_idx: int, limit: int = 50, surrounding: bool = False):
     results = search_engine.search_context(video_id, frame_idx, limit, surrounding=surrounding)
     return {"status": "success", "results": results}
 

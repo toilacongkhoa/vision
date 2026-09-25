@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Retrieval System v2.0</title>
+    <title>Hệ thống tìm kiếm video</title>
     <!-- Preconnect CDN resource hints for sub-second image loading -->
     <link rel="preconnect" href="https://pub-63867f61a3cb4f34a8b442399021fbbd.r2.dev" crossorigin>
     <link rel="dns-prefetch" href="https://pub-63867f61a3cb4f34a8b442399021fbbd.r2.dev">
@@ -38,13 +38,13 @@
 <body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 p-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 z-10 shrink-0">
-        <h1 class="min-w-0 truncate text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Video Retrieval System 2.0</h1>
+    <header class="bg-gray-800 border-b border-gray-700 p-2 sm:p-4 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 z-10 shrink-0">
+        <h1 class="min-w-0 truncate text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Hệ thống tìm kiếm video</h1>
         <span id="questionClock" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
-        <div class="justify-self-end flex items-center gap-4">
-            <div id="statsBadge" class="text-sm px-3 py-1 bg-gray-700 rounded-full border border-gray-600">Status: <span class="text-yellow-400">Checking...</span></div>
-            <button id="sidebarToggle" class="relative px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-semibold">
-                Submission Build
+        <div class="col-span-2 sm:col-span-1 justify-self-stretch sm:justify-self-end flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+            <div id="statsBadge" class="max-w-full text-sm px-3 py-1 bg-gray-700 rounded-full border border-gray-600">Trạng thái: <span class="text-yellow-400">Đang kiểm tra...</span></div>
+            <button id="sidebarToggle" aria-label="Mở Trình tạo đáp án" title="Mở Trình tạo đáp án" class="relative whitespace-nowrap px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-semibold">
+                Đáp án
                 <span id="toggleBadgeCount" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
             </button>
         </div>
@@ -56,26 +56,26 @@
         <div id="mainContentArea" class="flex-1 min-h-0 flex flex-col overflow-x-hidden overflow-y-auto p-4 relative z-0 transition-all duration-300">
             <section id="activeQuestionWorkspace" class="shrink-0 mb-3 rounded-lg border border-indigo-700/70 bg-gray-800 p-3 shadow-lg">
                 <div class="flex flex-wrap items-center gap-2 mb-2">
-                    <strong class="text-indigo-300">Active competition question</strong>
-                    <select id="questionType" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white" aria-label="Question type">
+                    <strong class="text-indigo-300">Loại câu hỏi</strong>
+                    <select id="questionType" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white" aria-label="Dạng câu thi">
                         <option value="KIS_TEXT">Textual KIS</option>
                         <option value="KIS_VIDEO">Video KIS</option>
                         <option value="QA">Q&amp;A</option>
                         <option value="TRAKE">TRAKE</option>
                     </select>
-                    <button id="startQuestionTimer" type="button" class="rounded bg-indigo-600 hover:bg-indigo-700 px-3 py-1 text-sm font-semibold">Start / restart timer</button>
-                    <button id="resetQuestion" type="button" class="ml-auto rounded border border-red-700 px-3 py-1 text-sm text-red-300 hover:bg-red-950">Reset question…</button>
+                    <button id="startQuestionTimer" type="button" class="rounded bg-indigo-600 hover:bg-indigo-700 px-3 py-1 text-sm font-semibold">Bắt đầu</button>
+                    <button id="resetQuestion" type="button" class="ml-auto rounded border border-red-700 px-3 py-1 text-sm text-red-300 hover:bg-red-950">Đặt lại</button>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-2">
                     <div>
-                        <label for="questionInitialText" class="block text-xs text-gray-400 mb-1">Question / initial description (kept fixed for Q&amp;A)</label>
-                        <textarea id="questionInitialText" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500" placeholder="Record the question or initial event description…"></textarea>
+                        <label for="questionInitialText" class="block text-xs text-gray-400 mb-1">Mô tả ban đầu</label>
+                        <textarea id="questionInitialText" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500"></textarea>
                     </div>
                     <div>
-                        <label for="questionHintInput" class="mb-1 block text-xs text-gray-400">Additional clue / event description</label>
+                        <label for="questionHintInput" class="mb-1 block text-xs text-gray-400">Gợi ý bổ sung</label>
                         <div class="flex items-center gap-2">
-                            <textarea id="questionHintInput" rows="1" class="min-h-[42px] max-h-[35vh] min-w-0 flex-1 resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500" placeholder="Add a clue without replacing earlier ones…"></textarea>
-                            <button id="addQuestionHint" type="button" aria-label="Add clue without searching" title="Add clue without searching" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-600 bg-gray-700 text-sm font-bold text-white hover:bg-gray-600">+</button>
+                            <textarea id="questionHintInput" rows="1" class="min-h-[42px] max-h-[35vh] min-w-0 flex-1 resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500"></textarea>
+                            <button id="addQuestionHint" type="button" aria-label="Thêm gợi ý, chưa chạy tìm kiếm" title="Thêm gợi ý, chưa chạy tìm kiếm" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-600 bg-gray-700 text-sm font-bold text-white hover:bg-gray-600">+</button>
                         </div>
                         <div id="questionHintHistory" class="mt-1 max-h-16 overflow-y-auto text-xs text-gray-300" aria-live="polite"></div>
                     </div>
@@ -83,10 +83,10 @@
             </section>
             <!-- Tabs Navigation -->
             <div class="flex gap-2 mb-0">
-                <button id="tabTextSearch" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-t-lg border-t border-l border-r border-blue-600 shadow-md transition-colors">Text Search</button>
-                <button id="tabImageSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Image Search</button>
+                <button id="tabTextSearch" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-t-lg border-t border-l border-r border-blue-600 shadow-md transition-colors">Tìm bằng văn bản</button>
+                <button id="tabImageSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Tìm bằng ảnh</button>
                 <button id="tabTimeConvert" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Time ➔ Frame</button>
-                <button id="tabContextSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Frame Context</button>
+                <button id="tabContextSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Khung hình lân cận</button>
             </div>
 
             <!-- Search Panel -->
@@ -94,24 +94,24 @@
                 <!-- Text Search Form -->
                 <form id="searchForm" class="flex flex-wrap gap-4 items-end">
                     <div class="flex-1 min-w-[200px]">
-                        <label class="block text-sm text-gray-400 mb-1">Search Query</label>
-                        <textarea id="queryInput" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors" placeholder="Enter text to search frames..." aria-label="Search query"></textarea>
+                        <label class="block text-sm text-gray-400 mb-1">Nội dung tìm kiếm</label>
+                        <textarea id="queryInput" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors" aria-label="Nội dung tìm kiếm"></textarea>
                     </div>
                     <div class="w-40">
-                        <label class="block text-sm text-gray-400 mb-1">Mode</label>
+                        <label class="block text-sm text-gray-400 mb-1">Chế độ tìm</label>
                         <select id="searchMode" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors">
-                            <option value="semantic" selected>Semantic AI (CLIP only)</option>
-                            <option value="smart">Smart Hybrid (Semantic + ASR)</option>
+                            <option value="smart" selected>Smart Hybrid (Semantic + ASR)</option>
+                            <option value="semantic">Semantic AI (CLIP only)</option>
                             <option value="ocr">OCR (Exact Text)</option>
                             <option value="asr" title="Search words recognized from speech in video transcripts">ASR Transcript Search</option>
                         </select>
                     </div>
                     <div class="w-32">
-                        <label class="block text-sm text-gray-400 mb-1">Video ID Filter</label>
+                        <label class="block text-sm text-gray-400 mb-1">Lọc theo Video ID</label>
                         <input id="videoIdInput" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="L27_V001">
                     </div>
                     <div class="w-24">
-                        <label class="block text-sm text-gray-400 mb-1">Top K</label>
+                        <label class="block text-sm text-gray-400 mb-1">Số kết quả</label>
                         <select id="topKSelect" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500">
                             <option value="20">20</option>
                             <option value="50" selected>50</option>
@@ -121,7 +121,7 @@
                     </div>
                     <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg flex items-center gap-2">
                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        Search
+                        Tìm kiếm
                     </button>
                 </form>
 
@@ -131,19 +131,15 @@
                         <input type="file" id="imageInput" class="hidden" accept="image/*">
                         <div id="imagePreviewContainer" class="hidden flex flex-col items-center">
                             <img id="imagePreview" src="" class="max-h-32 rounded mb-2">
-                            <span class="text-xs text-gray-400">Click or Drag to change</span>
+                            <span class="text-xs text-gray-400">Nhấn hoặc kéo thả để đổi ảnh</span>
                         </div>
                         <div id="uploadPrompt" class="text-gray-400">
                             <svg class="mx-auto h-8 w-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Click to Browse, Drag & Drop, or Ctrl+V to Paste
+                            Nhấn để chọn ảnh, kéo thả hoặc dán bằng Ctrl+V
                         </div>
                     </div>
-                    <div class="w-32">
-                        <label class="block text-sm text-gray-400 mb-1">Video ID Filter</label>
-                        <input id="imageVideoIdInput" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="L27_V001">
-                    </div>
                     <div class="w-24">
-                        <label class="block text-sm text-gray-400 mb-1">Top K</label>
+                        <label class="block text-sm text-gray-400 mb-1">Số kết quả</label>
                         <select id="imageTopKSelect" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500">
                             <option value="20">20</option>
                             <option value="50" selected>50</option>
@@ -153,7 +149,7 @@
                     </div>
                     <button type="submit" id="imageSearchBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg flex items-center gap-2">
                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        Search Image
+                        Tìm bằng ảnh
                     </button>
                 </form>
 
@@ -164,72 +160,68 @@
                         <input id="vsVideoId" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="L27_V001" required>
                     </div>
                     <div class="w-32">
-                        <label class="block text-sm text-gray-400 mb-1">Start Time</label>
+                        <label class="block text-sm text-gray-400 mb-1">Thời gian bắt đầu</label>
                         <input id="vsStartTime" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="00:00" required>
                     </div>
                     <div class="w-32">
-                        <label class="block text-sm text-gray-400 mb-1">End Time</label>
+                        <label class="block text-sm text-gray-400 mb-1">Thời gian kết thúc</label>
                         <input id="vsEndTime" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="01:30" required>
                     </div>
                     <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg flex items-center gap-2">
-                        Search Interval
+                        Tìm trong khoảng thời gian
                     </button>
                 </form>
 
                 <!-- Time Converter Form -->
                 <form id="timeConvertForm" class="hidden flex flex-wrap gap-4 items-end">
-                    <div class="w-48">
-                        <label class="block text-sm text-gray-400 mb-1">Video ID (Optional)</label>
-                        <input id="tcVideoId" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="L21_V001">
-                    </div>
                     <div class="w-32">
-                        <label class="block text-sm text-gray-400 mb-1">Time (MM:SS)</label>
+                        <label class="block text-sm text-gray-400 mb-1">Thời gian (MM:SS)</label>
                         <input id="tcSeconds" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" placeholder="01:30" required>
                     </div>
                     <div class="w-24">
                         <label class="block text-sm text-gray-400 mb-1">FPS</label>
                         <input id="tcFps" type="number" step="0.1" value="25" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500" required>
                     </div>
-                    <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg">
-                        Convert
-                    </button>
-                    <div class="flex-1 min-w-[200px] h-[42px] flex items-center">
-                        <span id="tcResult" class="text-xl font-bold text-yellow-400 ml-4"></span>
+                    <div class="flex-1 min-w-[200px] h-[42px] flex items-center justify-center">
+                        <span id="tcResult" class="text-xl font-bold text-yellow-400 text-center" aria-live="polite"></span>
                     </div>
+                    <button type="submit" class="ml-auto shrink-0 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg">
+                        Chuyển qua frame
+                    </button>
                 </form>
                 
                 <!-- Context Search Form -->
                 <form id="contextSearchForm" class="hidden flex flex-wrap gap-4 items-end">
                     <div class="flex-1 min-w-[200px]">
-                        <label class="block text-sm text-gray-400 mb-1">Target Frame (VideoID, FrameIdx)</label>
+                        <label class="block text-sm text-gray-400 mb-1">videoID, frameID</label>
                         <input id="contextInput" type="text" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500 transition-colors" placeholder="L21_V022, 38228" required>
                     </div>
                     <div class="w-24">
-                        <label class="block text-sm text-gray-400 mb-1">Limit</label>
+                        <label class="block text-sm text-gray-400 mb-1">Số lượng</label>
                         <select id="contextLimit" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-blue-500">
                             <option value="10">10</option>
-                            <option value="20" selected>20</option>
-                            <option value="50">50</option>
+                            <option value="20">20</option>
+                            <option value="50" selected>50</option>
                             <option value="100">100</option>
                         </select>
                     </div>
                     <button type="submit" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded font-bold h-[42px] transition-colors shadow-lg flex items-center gap-2">
                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
-                        Track Frame
+                        Tìm khung hình lân cận
                     </button>
                 </form>
             </div>
 
             <!-- Results Meta -->
-            <div class="mb-2 shrink-0 flex flex-wrap justify-between items-center gap-2">
-                <div id="resultsCount" class="text-gray-400 text-sm font-medium">Ready to search.</div>
-                <div id="benchmarkTelemetry" class="hidden text-xs font-mono flex items-center gap-2 bg-gray-900/90 border border-gray-700/80 px-3 py-1 rounded-full shadow-inner">
-                    <span id="badgeApiTime" class="text-blue-400 font-semibold flex items-center gap-1" title="Thời gian Backend xử lý (Search + DB)">
+            <div class="mb-2 shrink-0 flex flex-col sm:flex-row sm:flex-nowrap sm:justify-between sm:items-start gap-2">
+                <div id="resultsCount" class="min-w-0 sm:flex-1 text-gray-400 text-sm font-medium [overflow-wrap:anywhere]">Sẵn sàng tìm kiếm.</div>
+                <div id="benchmarkTelemetry" class="hidden max-w-full shrink-0 whitespace-nowrap overflow-x-auto sm:overflow-visible text-xs font-mono flex items-center gap-2 bg-gray-900/90 border border-gray-700/80 px-3 py-1 rounded-full shadow-inner">
+                    <span id="badgeApiTime" class="text-blue-400 font-semibold flex items-center gap-1" title="Thời gian máy chủ xử lý yêu cầu tìm kiếm và truy vấn cơ sở dữ liệu">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         API: --ms
                     </span>
                     <span class="text-gray-600">|</span>
-                    <span id="badgeFirstImg" class="text-amber-400 font-semibold flex items-center gap-1" title="Thời gian từ lúc search đến khi ảnh đầu tiên hiện lên">
+                    <span id="badgeFirstImg" class="text-amber-400 font-semibold flex items-center gap-1" title="Thời gian từ lúc tìm kiếm đến khi ảnh đầu tiên xuất hiện">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         Ảnh 1: --ms
                     </span>
@@ -257,11 +249,11 @@
             <div class="flex border-b border-gray-700 bg-gray-900 shrink-0">
                 <button id="tabChatBtn" class="flex-1 py-4 font-bold text-indigo-400 border-b-2 border-indigo-500 bg-gray-800 transition-colors flex items-center justify-center gap-2">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                    AI Assistant
+                    Trợ lý AI
                 </button>
                 <button id="tabSubmitBtn" class="flex-1 py-4 font-bold text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Submission
+                    Đáp án
                 </button>
                 <button id="btnClearChat" title="Xóa lịch sử chat" onclick="clearChatHistory()" class="px-3 text-gray-400 hover:text-red-400 text-xs flex items-center gap-1 transition-colors border-l border-gray-700">
                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -277,7 +269,7 @@
                     <div class="flex gap-3">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg font-bold text-xs text-white">AI</div>
                         <div class="bg-gray-800 text-gray-100 rounded-2xl rounded-tl-sm p-3.5 border border-gray-700 leading-relaxed shadow-sm">
-                            Chào bạn! Mình là AI Assistant. Mình có thể tìm video cho bạn theo ngữ nghĩa hình ảnh, chữ viết (OCR) hoặc lời thoại (ASR). Bạn cần tìm gì nào?
+                            Chào bạn! Mình là trợ lý AI. Mình có thể giúp tìm video theo nội dung hình ảnh, chữ trong hình (OCR) hoặc lời thoại (ASR). Bạn muốn tìm cảnh nào?
                         </div>
                     </div>
                 </div>
@@ -294,7 +286,7 @@
 
                     <form id="aiChatForm" class="flex gap-2 items-end">
                         <div class="flex-1 bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all">
-                            <textarea id="aiChatInput" rows="1" class="w-full bg-transparent p-3 text-white outline-none text-sm resize-none" placeholder="Nhắn tin cho AI (VD: tìm xe máy đỏ, nấu ăn)..."></textarea>
+                        <textarea id="aiChatInput" rows="1" class="w-full bg-transparent p-3 text-white outline-none text-sm resize-none" placeholder="Nhắn tin cho trợ lý AI (ví dụ: tìm xe máy đỏ, cảnh nấu ăn)…" aria-label="Tin nhắn cho trợ lý AI"></textarea>
                         </div>
                         <button id="aiChatSubmitBtn" type="submit" title="Gửi tin nhắn" class="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-2xl p-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] shrink-0 h-[46px] w-[46px] flex items-center justify-center">
                             <span id="aiChatBtnIcon">
@@ -310,29 +302,29 @@
                 <div class="p-4 flex-1 overflow-y-auto">
                     <!-- Create Query -->
                     <div class="bg-gray-900 p-3 rounded-lg border border-gray-700 mb-6 shadow-inner">
-                        <h3 class="text-sm font-bold text-blue-400 mb-2 uppercase tracking-wide">New Query File</h3>
+                        <h3 class="text-sm font-bold text-blue-400 mb-2 uppercase tracking-wide">Tạo bộ đáp án mới</h3>
                         <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                            <input id="newQueryName" type="text" placeholder="Filename" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
+                            <input id="newQueryName" type="text" placeholder="Tên bộ đáp án" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
                             <select id="newQueryType" class="w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white font-mono">
-                                <option value="KIS">KIS (Textual / Video)</option>
+                                <option value="KIS">KIS (Text / Video)</option>
                                 <option value="QA">Q&amp;A</option>
                                 <option value="TRAKE">TRAKE</option>
                             </select>
-                            <button id="btnCreateQuery" type="button" aria-label="Create query" title="Create query" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Create</span></button>
+                            <button id="btnCreateQuery" type="button" aria-label="Tạo bộ đáp án" title="Tạo bộ đáp án" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Tạo</span></button>
                         </div>
                     </div>
 
                     <!-- Queries List -->
-                    <h3 class="text-sm font-bold text-gray-300 mb-2 uppercase tracking-wide">Saved Queries</h3>
+                    <h3 class="text-sm font-bold text-gray-300 mb-2 uppercase tracking-wide">Các bộ đáp án đã lưu</h3>
                     <div id="queriesList" class="flex flex-col gap-2 mb-6 min-h-[50px]"></div>
 
                     <!-- Active Query Details -->
                     <div class="border-t border-gray-700 pt-4 mt-2">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 id="activeQueryTitle" class="text-md font-bold text-blue-400">No Active Query</h3>
+                            <h3 id="activeQueryTitle" class="text-md font-bold text-blue-400">Chưa chọn bộ đáp án</h3>
                             <div class="flex gap-2">
                                 <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Thêm dòng mới</button>
-                                <button id="btnClearQuery" class="text-xs text-red-400 hover:text-red-300 hidden bg-red-400/10 px-2 py-1 rounded">Clear All</button>
+                                <button id="btnClearQuery" class="text-xs text-red-400 hover:text-red-300 hidden bg-red-400/10 px-2 py-1 rounded">Xóa tất cả</button>
                             </div>
                         </div>
                         <div id="activeQueryItems" class="min-h-20 flex flex-col gap-2"></div>
@@ -340,11 +332,11 @@
 
                     <div class="-mx-4 -mb-4 mt-6 border-t border-gray-700 bg-gray-900 p-4">
                         <button id="btnExportDres" class="w-full py-2.5 mb-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold shadow flex items-center justify-center gap-2 transition-transform active:scale-95">
-                            Review active DRES JSON
+                            Kiểm tra đáp án DRES
                         </button>
                         <button id="btnExportZip" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
                             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Download submission.zip
+                            Tải submission.zip
                         </button>
                     </div>
             </div>
@@ -354,22 +346,22 @@
 
     <!-- Preview Modal -->
     <div id="previewModal" class="hidden fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm">
-        <button id="modalClose" class="absolute top-4 right-4 text-white text-5xl hover:text-gray-300 transition-colors z-[60]">&times;</button>
+        <button id="modalClose" class="absolute top-4 right-4 text-white text-5xl hover:text-gray-300 transition-colors z-[60]" aria-label="Đóng phần xem trước" title="Đóng">&times;</button>
         
-        <button id="modalPrev" class="hidden absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-6xl px-4 py-8 transition-colors z-[60]" onclick="navigatePreview(-1)">&lsaquo;</button>
-        <button id="modalNext" class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-6xl px-4 py-8 transition-colors z-[60]" onclick="navigatePreview(1)">&rsaquo;</button>
+        <button id="modalPrev" class="hidden absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-6xl px-4 py-8 transition-colors z-[60]" onclick="navigatePreview(-1)" aria-label="Khung hình trước" title="Khung hình trước">&lsaquo;</button>
+        <button id="modalNext" class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-6xl px-4 py-8 transition-colors z-[60]" onclick="navigatePreview(1)" aria-label="Khung hình tiếp theo" title="Khung hình tiếp theo">&rsaquo;</button>
 
         <div class="max-w-[95vw] w-full h-[92vh] flex flex-col items-center relative z-50">
             <div id="previewImageContainer" class="relative inline-block mb-2 min-h-0 flex-1">
-                <img id="modalImg" class="h-full max-h-[calc(92vh-190px)] w-auto max-w-full object-contain rounded shadow-2xl cursor-grab select-none transition-transform duration-200" src="" alt="Preview" draggable="false">
-                <div id="modalImageFallback" class="hidden absolute inset-0 flex items-center justify-center rounded bg-gray-950 px-6 text-center text-sm text-gray-300">Frame image could not be loaded. Check the video ID, frame number, and timestamp below.</div>
+                <img id="modalImg" class="h-full max-h-[calc(92vh-190px)] w-auto max-w-full object-contain rounded shadow-2xl cursor-grab select-none transition-transform duration-200" src="" alt="Ảnh xem trước khung hình" draggable="false">
+                <div id="modalImageFallback" class="hidden absolute inset-0 flex items-center justify-center rounded bg-gray-950 px-6 text-center text-sm text-gray-300">Không tải được ảnh khung hình. Hãy kiểm tra Video ID, số khung hình và mốc thời gian bên dưới.</div>
                 <div id="bboxesOverlay" class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded"></div>
             </div>
             <div id="filmstrip" class="w-full max-w-5xl h-[104px] mb-2 hidden shrink-0">
                 <div class="flex items-center gap-2">
-                    <button id="filmstripPrev" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button">‹</button>
+                    <button id="filmstripPrev" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button" aria-label="Cuộn về các khung hình trước" title="Các khung hình trước">‹</button>
                     <div id="filmstripTrack" class="flex-1 flex items-center gap-2 overflow-x-auto overflow-y-hidden py-2 px-1 scroll-smooth" style="scroll-snap-type:x proximity;overscroll-behavior-x:contain"></div>
-                    <button id="filmstripNext" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button">›</button>
+                    <button id="filmstripNext" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button" aria-label="Cuộn tới các khung hình tiếp theo" title="Các khung hình tiếp theo">›</button>
                 </div>
             </div>
             <div class="text-center bg-gray-900/80 px-6 py-2 rounded-xl border border-gray-700 shrink-0">
@@ -378,15 +370,15 @@
                 <div class="mt-3 flex flex-wrap gap-4 justify-center items-center">
                     <button id="btnPlayVideo" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition-colors flex items-center gap-2">
                         <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        Play Video (Iframe)
+                        Phát video
                     </button>
                     <label class="flex items-center gap-2 text-sm font-bold text-red-400 cursor-pointer">
                         <input type="checkbox" id="toggleObjBbox" class="w-4 h-4 cursor-pointer" checked onchange="drawBboxes()">
-                        Show Objects
+                        Hiện objects
                     </label>
                     <label class="flex items-center gap-2 text-sm font-bold text-blue-400 cursor-pointer">
                         <input type="checkbox" id="toggleOcrBbox" class="w-4 h-4 cursor-pointer" checked onchange="drawBboxes()">
-                        Show OCR
+                        Hiện chữ (OCR)
                     </label>
                 </div>
             </div>
@@ -400,53 +392,53 @@
     <div id="dresReviewModal" class="hidden fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dresReviewTitle">
         <div class="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-xl border border-gray-600 bg-gray-900 shadow-2xl">
             <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-gray-700 bg-gray-900 px-5 py-4">
-                <h2 id="dresReviewTitle" class="min-w-0 text-lg font-bold text-indigo-300">Review DRES answer</h2>
+                <h2 id="dresReviewTitle" class="min-w-0 text-lg font-bold text-indigo-300">Kiểm tra đáp án DRES</h2>
                 <span id="questionClockDresReview" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
-                <button id="btnCloseDresReview" type="button" class="justify-self-end text-gray-300 hover:text-white text-3xl leading-none" aria-label="Close review">&times;</button>
+                <button id="btnCloseDresReview" type="button" class="justify-self-end text-gray-300 hover:text-white text-3xl leading-none" aria-label="Đóng phần kiểm tra">&times;</button>
             </div>
             <div class="space-y-4 p-5">
                 <div id="dresReviewError" class="hidden rounded border border-red-500/50 bg-red-950/40 p-3 text-sm text-red-200"></div>
                 <section>
-                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">Selected answer and evidence</h3>
+                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">Đáp án đã chọn và bằng chứng</h3>
                     <div id="dresReviewSummary" class="grid gap-3 sm:grid-cols-2"></div>
                     <div id="dresReviewFrames" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
                 </section>
                 <section>
-                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">DRES JSON payload</h3>
+                    <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">Dữ liệu gửi DRES dạng JSON</h3>
                     <pre id="dresReviewJson" class="rounded border border-gray-700 bg-gray-950 p-4 text-xs text-green-200 whitespace-pre-wrap break-words"><code></code></pre>
                 </section>
                 <fieldset class="rounded border border-gray-700 bg-gray-900/70 p-3">
-                        <legend class="px-1 text-xs font-bold uppercase tracking-wide text-gray-300">DRES connection</legend>
+                        <legend class="px-1 text-xs font-bold uppercase tracking-wide text-gray-300">Kết nối DRES</legend>
                         <div class="flex flex-wrap items-end gap-2">
                             <div class="min-w-56 flex-1 text-xs text-gray-300">
                                 <label for="dresSessionIdDisplay">Session ID</label>
-                                <code id="dresSessionIdDisplay" class="mt-1 block min-h-9 w-full break-all rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm font-sans text-gray-500">Not connected</code>
+                                <code id="dresSessionIdDisplay" class="mt-1 block min-h-9 w-full break-all rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm font-sans text-gray-500">Chưa kết nối</code>
                             </div>
-                            <button id="btnDresRefreshSession" type="button" aria-label="Refresh" title="Refresh" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 disabled:cursor-wait disabled:opacity-50">
-                                Refresh
+                            <button id="btnDresRefreshSession" type="button" aria-label="Đăng nhập lại và làm mới session" title="Đăng nhập lại và làm mới session" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 disabled:cursor-wait disabled:opacity-50">
+                                Lấy session
                             </button>
                         </div>
                         <div class="mt-2 flex flex-wrap items-end gap-2">
-                            <label class="min-w-56 flex-1 text-xs text-gray-300">Active evaluation<select id="dresEvaluationSelect" class="mt-1 w-full rounded border border-gray-600 bg-gray-950 p-2 text-sm text-white" disabled><option value="">Log in to load active evaluations</option></select></label>
-                            <button id="btnDresLoadEvaluations" type="button" aria-label="Refresh" title="Refresh" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800" disabled>Refresh</button>
+                            <label class="min-w-56 flex-1 text-xs text-gray-300">Evaluation đang hoạt động<select id="dresEvaluationSelect" class="mt-1 w-full rounded border border-gray-600 bg-gray-950 p-2 text-sm text-white" disabled><option value="">Đăng nhập để tải evaluation đang hoạt động</option></select></label>
+                            <button id="btnDresLoadEvaluations" type="button" aria-label="Tải lại danh sách evaluation" title="Tải lại danh sách evaluation" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800" disabled>Tải lại</button>
                         </div>
                         <div class="mt-8 flex justify-end">
-                            <button id="btnDresSubmit" type="button" class="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50" disabled>Submit reviewed answer</button>
+                            <button id="btnDresSubmit" type="button" class="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50" disabled>Gửi đáp án đã kiểm tra</button>
                         </div>
                 </fieldset>
                 <section id="dresHistorySection" class="hidden rounded border border-gray-700 bg-gray-800/60 p-4">
                     <div id="dresDuplicateWarning" class="hidden mb-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200" role="status"></div>
                     <div id="dresCurrentAttemptStatus" class="mb-3 text-sm font-semibold text-gray-200" aria-live="polite" tabindex="-1"></div>
                     <div class="mb-4 flex flex-wrap gap-2">
-                        <button id="btnRecordDresAccepted" type="button" class="hidden rounded bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600">Record accepted</button>
-                        <button id="btnRecordDresRejected" type="button" class="hidden rounded bg-red-800 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">Record rejected</button>
+                        <button id="btnRecordDresAccepted" type="button" class="hidden rounded bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600">Ghi nhận đã chấp nhận</button>
+                        <button id="btnRecordDresRejected" type="button" class="hidden rounded bg-red-800 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">Ghi nhận bị từ chối</button>
                     </div>
                     <div id="dresHistoryEntries" class="max-h-72 space-y-2 overflow-y-auto text-xs text-gray-300"></div>
                 </section>
             </div>
             <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-gray-700 bg-gray-900 px-5 py-4">
-                <button id="btnCancelDresReview" type="button" class="rounded border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800">Close</button>
-                <button id="btnDownloadReviewedDres" type="button" class="rounded bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled>Download reviewed JSON</button>
+                <button id="btnCancelDresReview" type="button" class="rounded border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800">Đóng</button>
+                <button id="btnDownloadReviewedDres" type="button" class="rounded bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled>Tải JSON đã kiểm tra</button>
             </div>
         </div>
     </div>
@@ -523,11 +515,58 @@
             resizeAutoGrowTextarea(initialTextInput);
             const history = document.getElementById('questionHintHistory');
             history.innerHTML = (question.hints || []).length
-                ? question.hints.map((hint, index) => `<div class="flex min-w-0 items-start gap-2 py-0.5"><span class="shrink-0 text-gray-500">${index + 1}. ${new Date(hint.at).toLocaleTimeString()}</span><span class="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">${escapeHtml(hint.text)}</span><button type="button" class="relative z-10 shrink-0 rounded px-1 text-gray-400 hover:bg-red-900/60 hover:text-red-300" onclick="removeQuestionHint(${index})" aria-label="Delete clue ${index + 1}" title="Delete this clue">×</button></div>`).join('')
-                : '<span class="text-gray-500 italic">No additional clues yet.</span>';
+                ? question.hints.map((hint, index) => `<div class="flex min-w-0 items-start gap-2 py-0.5"><span class="shrink-0 text-gray-500">${index + 1}. ${new Date(hint.at).toLocaleTimeString('vi-VN')}</span><span class="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">${escapeHtml(hint.text)}</span><button type="button" class="relative z-10 shrink-0 rounded px-1 text-gray-400 hover:bg-red-900/60 hover:text-red-300" onclick="removeQuestionHint(${index})" aria-label="Xóa gợi ý ${index + 1}" title="Xóa gợi ý này">×</button></div>`).join('')
+                : '';
             updateQuestionClock();
         }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+        function friendlyApiError(detail, status = '') {
+            const raw = String(detail || '').trim();
+            const known = {
+                'Query string cannot be empty': 'Hãy nhập nội dung cần tìm.',
+                'Selected video/frame was not found': 'Không tìm thấy video hoặc khung hình đã chọn.',
+                'Video metadata not found': 'Không tìm thấy thông tin video.',
+                'This exact answer was already sent or has an unknown submit outcome for this query.': 'Đáp án giống hệt đã được gửi hoặc chưa rõ kết quả cho câu này. Hãy kiểm tra DRES trước khi thao tác tiếp.',
+                'Configured DRES login is only available to the local same-origin app.': 'Đăng nhập bằng thông tin trong cấu hình chỉ dùng được trên ứng dụng localhost.',
+                'DRES_USERNAME and DRES_PASSWORD are not configured on the server.': 'Máy chủ chưa cấu hình thông tin đăng nhập DRES.',
+                'No ACTIVE evaluations were returned.': 'Không tìm thấy evaluation đang hoạt động.',
+                'Export validation failed': 'Không thể kiểm tra dữ liệu xuất.',
+                'DRES mediaItemName must not include a video extension': 'Video ID không được kèm phần mở rộng của tệp video.',
+                'video_id must be a non-empty item name, not a path': 'Video ID không được để trống hoặc chứa đường dẫn.',
+                'Q&A answer must be a non-empty string': 'Câu trả lời Q&A không được để trống.',
+                'TRAKE frame IDs must be strictly increasing': 'Các frame ID TRAKE phải tăng dần và không trùng nhau.',
+                'This exact answer was already submitted for the query': 'Đáp án giống hệt đã được ghi nhận cho câu này.'
+            };
+            if (known[raw]) return known[raw];
+            if (/^Export validation failed/i.test(raw)) return `Không thể kiểm tra dữ liệu xuất${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^Frame lookup failed/i.test(raw)) return `Không thể tìm khung hình${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^Video ID '.*' not found in Supabase$/i.test(raw)) return `Không tìm thấy video ${raw.match(/'([^']+)'/)?.[1] || ''} trong dữ liệu.`;
+            if (/^Frame ID '.*' not found in Supabase$/i.test(raw)) return `Không tìm thấy khung hình ${raw.match(/'([^']+)'/)?.[1] || ''} trong dữ liệu.`;
+            if (/^Failed fetching Google Drive File/i.test(raw)) return 'Không thể tải tệp ảnh từ Google Drive.';
+            if (/^direction must be/i.test(raw)) return 'Hướng tìm khung hình không hợp lệ.';
+            if (/^Could not reach DRES during login/i.test(raw)) return 'Không kết nối được tới DRES khi đăng nhập.';
+            if (/^Could not reach DRES while loading evaluations/i.test(raw)) return 'Không kết nối được tới DRES khi tải danh sách evaluation.';
+            if (/^DRES login response did not include a sessionId/i.test(raw)) return 'DRES không trả về session ID sau khi đăng nhập.';
+            if (/^DRES returned an invalid evaluation list/i.test(raw)) return 'DRES trả về danh sách evaluation không hợp lệ.';
+            if (/^DRES could not load evaluations/i.test(raw)) return `DRES không thể tải danh sách evaluation${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^DRES submit outcome is unknown/i.test(raw)) return 'Chưa rõ kết quả gửi tới DRES. Hãy kiểm tra evaluation trước khi thử lại.';
+            if (/^DRES rejected the submission/i.test(raw)) return `DRES đã từ chối đáp án${status ? ` (HTTP ${status})` : ''}.`;
+            if (/failed to fetch|fetch failed|networkerror|network request failed/i.test(raw)) return 'Không kết nối được tới máy chủ. Hãy kiểm tra mạng rồi xem lại trạng thái thao tác trước khi thử lại.';
+            if (/^DRES .*evaluation/i.test(raw)) return `Không thể tải evaluation từ DRES${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^DRES login failed/i.test(raw)) return `Đăng nhập DRES thất bại${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^DRES submit/i.test(raw)) return `DRES không thể hoàn tất thao tác gửi${status ? ` (HTTP ${status})` : ''}. Hãy kiểm tra trạng thái trước khi thử lại.`;
+            if (/^video_id must be/i.test(raw)) return 'Video ID không hợp lệ. Hãy nhập đúng mã video, không kèm đường dẫn hoặc đuôi tệp.';
+            if (/^frame_id must be|^frame_idx must be|^start must be|^end must be/i.test(raw)) return 'Chỉ số khung hình hoặc mốc thời gian không hợp lệ. Hãy dùng số nguyên không âm.';
+            if (/^TRAKE requires/i.test(raw)) return 'TRAKE cần ít nhất một frame ID.';
+            if (/^TRAKE frame IDs must/i.test(raw)) return 'Các frame ID TRAKE phải tăng dần và không trùng nhau.';
+            if (/^Q&A answer requires/i.test(raw)) return 'Payload Q&A chưa có câu trả lời hợp lệ.';
+            if (/^KIS answer requires/i.test(raw)) return 'Đáp án KIS cần có Video ID và mốc thời gian bắt đầu, kết thúc.';
+            if (/^KIS start and end must/i.test(raw)) return 'Mốc thời gian KIS phải được biểu diễn bằng mili giây.';
+            if (/^end must be greater than or equal to start/i.test(raw)) return 'Mốc kết thúc phải lớn hơn hoặc bằng mốc bắt đầu.';
+            if (/^TRAKE answer requires|^TRAKE text must|^TRAKE text contains/i.test(raw)) return 'Đáp án TRAKE cần có Video ID và danh sách frame ID hợp lệ.';
+            if (/^payload must contain|^answerSet must contain|^query_type must|^query_id must/i.test(raw)) return 'Dữ liệu gửi chưa đúng cấu trúc. Hãy kiểm tra lại đáp án trong Trình tạo đáp án.';
+            return raw ? `Lỗi từ máy chủ: ${raw}` : `Đã xảy ra lỗi${status ? ` (HTTP ${status})` : ''}. Hãy thử lại.`;
+        }
         function updateQuestionClock() {
             const question = appState.activeQuestion;
             if (!question || !question.startedAt) {
@@ -540,7 +579,7 @@
             setQuestionClockDisplay(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, `justify-self-center whitespace-nowrap font-mono text-xl font-bold ${remaining ? (remaining <= 60000 ? 'text-red-300' : 'text-emerald-300') : 'text-red-400'}`);
         }
         function persistSearchDraft() {
-            appState.searchDraft = { text: queryInput.value, mode: document.getElementById('searchMode').value, videoId: videoIdInput.value, topK: topKSelect.value };
+            appState.searchDraft = { text: queryInput.value, mode: document.getElementById('searchMode').value, videoId: videoIdInput.value };
             localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
         }
         function candidateKey(videoId, frameIdx) { return `${String(videoId || '').replace(/\.[^/.]+$/, '')}|${Math.round(Number(frameIdx))}`; }
@@ -562,7 +601,6 @@
         resizeAutoGrowTextarea(queryInput);
         if (savedSearchDraft.mode) document.getElementById('searchMode').value = savedSearchDraft.mode;
         if (savedSearchDraft.videoId) videoIdInput.value = savedSearchDraft.videoId;
-        if (savedSearchDraft.topK) topKSelect.value = savedSearchDraft.topK;
         queryInput.addEventListener('input', () => { resizeAutoGrowTextarea(queryInput); persistSearchDraft(); });
         window.addEventListener('resize', () => [queryInput, document.getElementById('questionInitialText'), document.getElementById('questionHintInput')].forEach(resizeAutoGrowTextarea));
         queryInput.addEventListener('keydown', event => {
@@ -584,7 +622,7 @@
             const timerRemaining = current.startedAt
                 ? questionDurationMs(current.type || 'KIS_TEXT') - (Date.now() - current.startedAt)
                 : 0;
-            if (nextType !== current.type && timerRemaining > 0 && !window.confirm('The current question timer is still running. Changing the question type will reset the timer. Continue?')) {
+            if (nextType !== current.type && timerRemaining > 0 && !window.confirm('Đồng hồ câu thi vẫn đang chạy. Đổi loại câu hỏi sẽ đặt lại đồng hồ. Bạn có muốn tiếp tục không?')) {
                 questionTypeEl.value = current.type;
                 return;
             }
@@ -630,7 +668,7 @@
             }
         });
         document.getElementById('resetQuestion').onclick = () => {
-            if (!confirm('Reset the active question, timer, and clue history? Saved candidate lists in Submission Builder will be kept.')) return;
+            if (!confirm('Đặt lại câu thi đang làm, đồng hồ và lịch sử gợi ý? Danh sách ứng viên đã lưu trong Trình tạo đáp án sẽ được giữ lại.')) return;
             appState.activeQuestion = null; saveState(); clearInterval(questionClockInterval);
         };
         if (appState.activeQuestion?.startedAt) questionClockInterval = setInterval(updateQuestionClock, 250);
@@ -697,8 +735,8 @@
             strip.classList.remove('hidden');
             track.innerHTML = filmstripFrames.map((item) => {
                 const active = Number(item.frame_idx) === Number(filmstripCenterFrame);
-                return `<button type="button" data-frame="${item.frame_idx}" class="film-frame shrink-0 w-24 ${active ? 'ring-2 ring-blue-400 scale-105 opacity-100' : 'opacity-70 hover:opacity-100'} rounded overflow-hidden bg-gray-800 transition" title="Frame ${item.frame_idx}">
-                    <span class="relative block h-14 w-24"><img src="${frameImageUrl(item)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" onerror="handleFrameImageError(this)" class="h-14 w-24 object-contain" loading="lazy" alt="Frame ${item.frame_idx}"><span data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-1 text-center text-[9px] text-gray-400">Image unavailable</span></span>
+                return `<button type="button" data-frame="${item.frame_idx}" class="film-frame shrink-0 w-24 ${active ? 'ring-2 ring-blue-400 scale-105 opacity-100' : 'opacity-70 hover:opacity-100'} rounded overflow-hidden bg-gray-800 transition" title="Khung hình ${item.frame_idx}">
+                    <span class="relative block h-14 w-24"><img src="${frameImageUrl(item)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" onerror="handleFrameImageError(this)" class="h-14 w-24 object-contain" loading="lazy" alt="Khung hình ${item.frame_idx}"><span data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-1 text-center text-[9px] text-gray-400">Không tải được ảnh</span></span>
                     <span class="block text-[10px] text-gray-300 font-mono py-0.5">${item.timestamp || item.frame_idx}</span>
                 </button>`;
             }).join('');
@@ -717,7 +755,7 @@
             currentOcrId = item.ocr_json_id || '';
             const img = document.getElementById('modalImg');
             img.src = frameImageUrl(item);
-            document.getElementById('modalDetails').textContent = `Frame: ${item.frame_idx} | Timestamp: ${item.timestamp || 'N/A'} | Similarity: ${item.score != null ? Number(item.score).toFixed(1) + '%' : 'N/A'}`;
+            document.getElementById('modalDetails').textContent = `Frame: ${item.frame_idx} | Mốc thời gian: ${item.timestamp || 'Không có'} | Độ tương đồng: ${item.score != null ? Number(item.score).toFixed(1) + '%' : 'Không có'}`;
             document.getElementById('bboxesOverlay').innerHTML = '';
             renderFilmstrip();
         }
@@ -882,11 +920,11 @@
             filmstripFrames = [];
             filmstripRangeStart = 0;
             filmstripRangeEnd = 0;
-            loadFilmstrip(videoId, Number((details.match(/Frame:\s*([\d.]+)/) || [])[1]) || 0, 'around');
+            loadFilmstrip(videoId, Number((details.match(/(?:Frame|Khung hình):\s*([\d.]+)/) || [])[1]) || 0, 'around');
             
             const btn = document.getElementById('btnPlayVideo');
             if (btn) {
-                btn.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play Video (Iframe)`;
+                btn.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Phát video`;
                 btn.classList.replace('bg-purple-600', 'bg-blue-600');
                 btn.classList.replace('hover:bg-purple-700', 'hover:bg-blue-700');
             }
@@ -909,7 +947,7 @@
                 const highResUrl = fallbackUrl;
                 const displayScore = item.score !== undefined ? `${parseFloat(item.score).toFixed(1)}%` : '';
                 
-                openPreview(highResUrl, item.video_id, `Frame: ${item.frame_idx} | Timestamp: ${item.timestamp} | Similarity: ${displayScore}`, item.pts_time, newIndex, item.object_file_id || "", item.ocr_json_id || "");
+                openPreview(highResUrl, item.video_id, `Frame: ${item.frame_idx} | Mốc thời gian: ${item.timestamp} | Độ tương đồng: ${displayScore}`, item.pts_time, newIndex, item.object_file_id || "", item.ocr_json_id || "");
             }
         };
 
@@ -949,7 +987,7 @@
                 // Switch to Video
                 imgContainer.style.display = 'none';
                 videoContainer.classList.remove('hidden');
-                btn.innerHTML = `<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> View Image`;
+                btn.innerHTML = `<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg> Xem ảnh`;
                 btn.classList.replace('bg-blue-600', 'bg-purple-600');
                 btn.classList.replace('hover:bg-blue-700', 'hover:bg-purple-700');
                 
@@ -975,7 +1013,7 @@
                 videoContainer.classList.add('hidden');
                 imgContainer.style.display = 'inline-block';
                 document.getElementById('modalImg').style.display = 'block';
-                btn.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play Video (Iframe)`;
+                btn.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Phát video`;
                 btn.classList.replace('bg-purple-600', 'bg-blue-600');
                 btn.classList.replace('hover:bg-purple-700', 'hover:bg-blue-700');
             }
@@ -994,7 +1032,7 @@
 
             const query = {
                 id: Math.random().toString(36).slice(2, 11),
-                name: `Question ${new Date().toLocaleTimeString()}`,
+                name: `Câu ${new Date().toLocaleTimeString('vi-VN')}`,
                 type: expectedType,
                 items: []
             };
@@ -1009,12 +1047,12 @@
             const expectedType = expectedSubmissionTypeForActiveQuestion();
             if (query.type === expectedType) return '';
             const questionType = appState.activeQuestion?.type || questionTypeEl.value;
-            const questionLabels = { KIS_TEXT: 'Textual KIS', KIS_VIDEO: 'Video KIS', QA: 'Q&A', TRAKE: 'TRAKE' };
-            return `Type mismatch: the active competition question is ${questionLabels[questionType] || questionType}, but this submission query is ${query.type}. Select a ${expectedType} query to continue.`;
+            const questionLabels = { KIS_TEXT: 'KIS văn bản', KIS_VIDEO: 'KIS video', QA: 'Q&A', TRAKE: 'TRAKE' };
+            return `Dạng câu thi đang chọn là ${questionLabels[questionType] || questionType}, nhưng bộ đáp án này thuộc dạng ${query.type}. Hãy chọn bộ đáp án dạng ${expectedType} để tiếp tục.`;
         }
 
         document.getElementById('btnCreateQuery').onclick = () => {
-            const name = document.getElementById('newQueryName').value.trim() || `Question ${new Date().toLocaleTimeString()}`;
+            const name = document.getElementById('newQueryName').value.trim() || `Câu ${new Date().toLocaleTimeString('vi-VN')}`;
             const type = document.getElementById('newQueryType').value;
             const newQuery = { id: Math.random().toString(36).substr(2,9), name, type, items: [] };
             appState.queries.push(newQuery);
@@ -1035,7 +1073,7 @@
             if (!query) return;
             const trimmedName = newName.trim();
             if (!trimmedName) {
-                alert('Query name cannot be empty.');
+                alert('Tên bộ đáp án không được để trống.');
                 renderSidebar();
                 return;
             }
@@ -1054,16 +1092,16 @@
 
         function validateDresVideoId(value) {
             const videoId = String(value ?? '').trim();
-            if (!videoId) return 'Required: enter a video ID.';
-            if (/[\\/]/.test(videoId)) return 'Use a video ID, not a path.';
-            if (/\.(mp4|mkv|mov|avi|webm|mpeg|mpg)$/i.test(videoId)) return 'Remove the video file extension.';
+            if (!videoId) return 'Hãy nhập Video ID.';
+            if (/[\\/]/.test(videoId)) return 'Chỉ nhập Video ID, không nhập đường dẫn tệp.';
+            if (/\.(mp4|mkv|mov|avi|webm|mpeg|mpg)$/i.test(videoId)) return 'Hãy bỏ phần mở rộng của tệp video.';
             return '';
         }
 
         function validateDresFrameIndex(value) {
             const raw = String(value ?? '').trim();
-            if (!/^\d+$/.test(raw)) return 'Enter a whole, non-negative frame index.';
-            if (!Number.isSafeInteger(Number(raw))) return 'Frame index is too large to serialize safely.';
+            if (!/^\d+$/.test(raw)) return 'Chỉ số khung hình phải là số nguyên không âm.';
+            if (!Number.isSafeInteger(Number(raw))) return 'Chỉ số khung hình quá lớn để ghi vào dữ liệu an toàn.';
             return '';
         }
 
@@ -1071,16 +1109,16 @@
             const errors = { video_id: validateDresVideoId(item.video_id) };
             if (query.type === 'KIS' || query.type === 'QA') {
                 errors.frame_idx = validateDresFrameIndex(item.frame_idx);
-                if (query.type === 'QA' && !String(item.answer ?? '').trim()) errors.answer = 'Required: enter the Q&A answer.';
+                if (query.type === 'QA' && !String(item.answer ?? '').trim()) errors.answer = 'Hãy nhập câu trả lời Q&A.';
             } else if (query.type === 'TRAKE') {
                 const raw = item.framesDraft !== undefined ? String(item.framesDraft) : (Array.isArray(item.frames) ? item.frames.join(', ') : '');
                 const tokens = raw.split(',').map(token => token.trim());
                 const parsed = [];
-                if (!raw.trim()) errors.frames = 'Add at least one frame ID.';
-                else if (tokens.some(token => !/^\d+$/.test(token) || !Number.isSafeInteger(Number(token)))) errors.frames = 'Use comma-separated, whole non-negative frame IDs.';
+                if (!raw.trim()) errors.frames = 'Hãy nhập ít nhất một frame ID.';
+                else if (tokens.some(token => !/^\d+$/.test(token) || !Number.isSafeInteger(Number(token)))) errors.frames = 'Nhập các frame ID là số nguyên không âm, cách nhau bằng dấu phẩy.';
                 else {
                     parsed.push(...tokens.map(Number));
-                    if (parsed.some((frame, index) => index > 0 && frame <= parsed[index - 1])) errors.frames = 'Frame IDs must be unique and strictly increasing.';
+                    if (parsed.some((frame, index) => index > 0 && frame <= parsed[index - 1])) errors.frames = 'Các frame ID phải khác nhau và tăng dần.';
                 }
             }
             return Object.fromEntries(Object.entries(errors).filter(([, message]) => message));
@@ -1136,43 +1174,43 @@
             
             const list = document.getElementById('queriesList');
             if (appState.queries.length === 0) {
-                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">No queries yet.</p>`;
+                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">Chưa có bộ đáp án nào.</p>`;
             } else {
                 list.innerHTML = appState.queries.map(q => `
                     <div class="flex items-center gap-2 p-2 rounded border border-transparent transition-all ${q.id === appState.activeId ? 'bg-gray-700 border-indigo-300 ring-2 ring-indigo-500/60 shadow-lg shadow-indigo-950/40' : 'bg-gray-800 hover:border-gray-500'}">
-                        <input type="text" class="query-rename-button w-[44%] max-w-[44%] min-w-0 flex-none bg-transparent p-0 text-left font-medium text-white outline-none focus:text-blue-200" aria-label="Rename ${escapeHtml(q.name)}" title="Click and type to rename query; press Enter or leave the field to save" value="${escapeHtml(q.name)}" onchange="updateQueryName('${q.id}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.value=this.defaultValue;this.blur()}">
-                        <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Select this query" onclick="setActive('${q.id}')">
+                        <input type="text" class="query-rename-button w-[44%] max-w-[44%] min-w-0 flex-none bg-transparent p-0 text-left font-medium text-white outline-none focus:text-blue-200" aria-label="Đổi tên ${escapeHtml(q.name)}" title="Nhập tên mới rồi nhấn Enter hoặc rời khỏi ô để lưu" value="${escapeHtml(q.name)}" onchange="updateQueryName('${q.id}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.value=this.defaultValue;this.blur()}">
+                        <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Chọn bộ đáp án này" onclick="setActive('${q.id}')">
                             <span class="text-xs bg-gray-900 px-2 py-0.5 rounded text-blue-300 font-bold border border-gray-600">${escapeHtml(q.type)}</span>
                             <span class="text-xs text-gray-400 w-12 text-right">${q.items.length}/100</span>
                         </button>
-                        <button type="button" class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" aria-label="Delete ${escapeHtml(q.name)}" onclick="deleteQuery('${q.id}')">&times;</button>
+                        <button type="button" class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" aria-label="Xóa ${escapeHtml(q.name)}" title="Xóa bộ đáp án" onclick="deleteQuery('${q.id}')">&times;</button>
                     </div>
                 `).join('');
             }
 
             const itemsContainer = document.getElementById('activeQueryItems');
             if (!activeQ) {
-                document.getElementById('activeQueryTitle').textContent = "No Active Query";
+                document.getElementById('activeQueryTitle').textContent = "Chưa chọn bộ đáp án";
                 document.getElementById('btnClearQuery').style.display = "none";
                 document.getElementById('btnForceNewRow').style.display = "none";
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>No active query selected for submission.</p>";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Hãy chọn bộ đáp án để tiếp tục.</p>";
                 return;
             }
 
             document.getElementById('activeQueryTitle').textContent = activeQ.name;
             document.getElementById('btnClearQuery').style.display = "block";
             document.getElementById('btnForceNewRow').style.display = ['KIS', 'QA', 'TRAKE'].includes(activeQ.type) ? "block" : "none";
-            document.getElementById('btnClearQuery').onclick = () => { if(confirm("Clear all items in this query?")) { activeQ.items = []; saveState(); } };
+            document.getElementById('btnClearQuery').onclick = () => { if(confirm("Xóa tất cả đáp án trong bộ này?")) { activeQ.items = []; saveState(); } };
 
             if (activeQ.items.length === 0) {
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>No active answer in this query.</p>";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Bộ đáp án này chưa có đáp án nào.</p>";
                 return;
             }
 
             itemsContainer.innerHTML = activeQ.items.map((item, idx) => {
                 let inputs = '';
                 const fieldErrors = validateDresItem(activeQ, item);
-                const fieldBox = (field, value, width, inputType = 'text', extraClass = '') => `<div class="${extraClass || ''} ${width} min-w-0"><input value="${escapeHtml(value ?? '')}" type="${inputType}" aria-label="${field === 'video_id' ? 'Video ID' : field === 'frame_idx' ? 'Frame index' : field === 'answer' ? 'Q&A answer' : 'TRAKE frame IDs'}" aria-invalid="${fieldErrors[field] ? 'true' : 'false'}" class="w-full bg-gray-900 text-white border ${fieldErrors[field] ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 outline-none focus:border-blue-500" oninput="updateDresField('${activeQ.id}', ${idx}, '${field}', this.value, this)"><span data-error-for="${field}" class="${fieldErrors[field] ? '' : 'hidden'} mt-1 block max-w-full whitespace-normal break-words text-[10px] leading-tight text-red-300">${escapeHtml(fieldErrors[field] || '')}</span></div>`;
+                const fieldBox = (field, value, width, inputType = 'text', extraClass = '') => `<div class="${extraClass || ''} ${width} min-w-0"><input value="${escapeHtml(value ?? '')}" type="${inputType}" aria-label="${field === 'video_id' ? 'Video ID' : field === 'frame_idx' ? 'Chỉ số khung hình' : field === 'answer' ? 'Câu trả lời Q&A' : 'Danh sách frame ID TRAKE'}" aria-invalid="${fieldErrors[field] ? 'true' : 'false'}" class="w-full bg-gray-900 text-white border ${fieldErrors[field] ? 'border-red-500' : 'border-gray-600'} rounded px-2 py-1 outline-none focus:border-blue-500" oninput="updateDresField('${activeQ.id}', ${idx}, '${field}', this.value, this)"><span data-error-for="${field}" class="${fieldErrors[field] ? '' : 'hidden'} mt-1 block max-w-full whitespace-normal break-words text-[10px] leading-tight text-red-300">${escapeHtml(fieldErrors[field] || '')}</span></div>`;
                 if (activeQ.type === 'KIS') {
                     inputs = `${fieldBox('video_id', item.video_id, 'w-20')}${fieldBox('frame_idx', item.frame_idx, 'w-20', 'text')}`;
                 } else if (activeQ.type === 'QA') {
@@ -1213,7 +1251,7 @@
 
         window.addToActive = function(vid, frame) {
             if (!appState.activeId) {
-                alert("Please select or create an active query on the right side first.");
+                alert("Hãy chọn hoặc tạo một bộ đáp án ở thanh bên trước.");
                 document.getElementById('submissionSidebar').classList.add('open');
             if(window.innerWidth >= 640) document.getElementById('mainContentArea').style.marginRight = '420px';
                 return;
@@ -1247,7 +1285,7 @@
         };
 
         document.getElementById('btnExportZip').onclick = async () => {
-            if (appState.queries.length === 0) return alert("No queries to export.");
+            if (appState.queries.length === 0) return alert("Chưa có bộ đáp án nào để xuất.");
             const zip = new JSZip();
             const folder = zip.folder("submission");
             appState.queries.forEach(q => {
@@ -1318,9 +1356,9 @@
             const url = `${API_BASE}/api/v1/video/${encodeURIComponent(videoId)}/frames?start_frame=${encodeURIComponent(frameId)}&end_frame=${encodeURIComponent(frameId)}&limit=1`;
             const response = await fetch(url);
             const result = await response.json();
-            if (!response.ok) throw new Error(result.detail || `Frame lookup failed (${response.status})`);
+            if (!response.ok) throw new Error(result.detail || `Không tìm thấy khung hình (HTTP ${response.status}).`);
             const frame = (result.results || []).find(row => Number(row.frame_idx) === Number(frameId));
-            if (!frame) throw new Error(`Evidence frame ${frameId} is missing from the video index.`);
+            if (!frame) throw new Error(`Không tìm thấy khung hình ${frameId} trong dữ liệu video.`);
             return frame;
         }
 
@@ -1328,14 +1366,14 @@
             const host = document.getElementById('dresReviewFrames');
             host.innerHTML = frames.map((frame, index) => {
                 const pts = Number(frame.pts_time);
-                const ptsLabel = Number.isFinite(pts) ? `${pts.toFixed(3)} s` : 'Timestamp unavailable';
+                const ptsLabel = Number.isFinite(pts) ? `${pts.toFixed(3)} giây` : 'Không có mốc thời gian';
                 const image = frameImageUrl(frame);
-                const evidence = [frame.ocr_text && `OCR: ${frame.ocr_text}`, frame.asr_text && `ASR: ${frame.asr_text}`, frame.objects && `Objects: ${frame.objects}`].filter(Boolean).join('\n');
+                const evidence = [frame.ocr_text && `OCR: ${frame.ocr_text}`, frame.asr_text && `ASR: ${frame.asr_text}`, frame.objects && `Đối tượng: ${frame.objects}`].filter(Boolean).join('\n');
                 return `<article class="overflow-hidden rounded border border-gray-700 bg-gray-800">
-                    ${image ? `<span class="relative block bg-black"><img src="${escapeHtml(image)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(frame).slice(1)))}" alt="Evidence frame ${Number(frame.frame_idx)}" class="aspect-video w-full object-contain" loading="lazy" onerror="handleFrameImageError(this)"><span data-image-fallback class="hidden absolute inset-0 flex aspect-video items-center justify-center bg-gray-950 px-2 text-center text-xs text-gray-400">Image unavailable. Video ID, frame, and timestamp remain below.</span></span>` : '<div class="flex aspect-video items-center justify-center bg-gray-950 text-xs text-gray-500">No image available</div>'}
-                    <div class="p-3"><div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Frame ${Number(frame.frame_idx)}</div>
-                    <div class="mt-1 text-xs text-gray-300">Source timestamp: ${escapeHtml(frame.timestamp || ptsLabel)} · ${escapeHtml(ptsLabel)}${Number.isFinite(pts) ? ` · ${Math.floor(pts * 1000 + 0.5)} ms` : ''}</div>
-                    ${evidence ? `<pre class="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] text-gray-400">${escapeHtml(evidence)}</pre>` : '<p class="mt-2 text-[11px] text-gray-500">No OCR/ASR/object text recorded for this frame.</p>'}</div>
+                    ${image ? `<span class="relative block bg-black"><img src="${escapeHtml(image)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(frame).slice(1)))}" alt="Ảnh bằng chứng, khung hình ${Number(frame.frame_idx)}" class="aspect-video w-full object-contain" loading="lazy" onerror="handleFrameImageError(this)"><span data-image-fallback class="hidden absolute inset-0 flex aspect-video items-center justify-center bg-gray-950 px-2 text-center text-xs text-gray-400">Ảnh không tải được. Video ID, số khung hình và mốc thời gian vẫn hiển thị bên dưới.</span></span>` : '<div class="flex aspect-video items-center justify-center bg-gray-950 text-xs text-gray-500">Không có ảnh</div>'}
+                    <div class="p-3"><div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Khung hình ${Number(frame.frame_idx)}</div>
+                    <div class="mt-1 text-xs text-gray-300">Mốc thời gian nguồn: ${escapeHtml(frame.timestamp || ptsLabel)} · ${escapeHtml(ptsLabel)}${Number.isFinite(pts) ? ` · ${Math.floor(pts * 1000 + 0.5)} ms` : ''}</div>
+                    ${evidence ? `<pre class="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] text-gray-400">${escapeHtml(evidence)}</pre>` : '<p class="mt-2 text-[11px] text-gray-500">Khung hình này không có văn bản OCR/ASR hoặc thông tin đối tượng.</p>'}</div>
                 </article>`;
             }).join('');
         }
@@ -1349,18 +1387,18 @@
             const warning = document.getElementById('dresDuplicateWarning');
             if (earlierSubmissions.length) {
                 const latest = earlierSubmissions.slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt))[0];
-                const statusText = { submitted: 'sent', accepted: 'accepted', rejected: 'rejected', outcome_unknown: 'attempted, but its outcome is unknown' }[latest.status];
-                warning.textContent = `This exact answer for this query was already ${statusText} on ${new Date(latest.updatedAt || latest.createdAt).toLocaleString()}. Sending it again is blocked.`;
+                const statusText = { submitted: 'đã gửi', accepted: 'được ghi nhận là đã chấp nhận', rejected: 'được ghi nhận là bị từ chối', outcome_unknown: 'đã thử gửi nhưng chưa rõ kết quả' }[latest.status];
+                warning.textContent = `Đáp án giống hệt cho câu này ${statusText} lúc ${new Date(latest.updatedAt || latest.createdAt).toLocaleString('vi-VN')}. Hệ thống đã chặn gửi lại.`;
                 warning.classList.remove('hidden');
             } else {
                 warning.textContent = '';
                 warning.classList.add('hidden');
             }
 
-            const labels = { prepared: 'Prepared locally', submitted: 'Sent to DRES (acceptance not confirmed)', accepted: 'Accepted (operator recorded)', rejected: 'Rejected (operator recorded)', outcome_unknown: 'Submit outcome unknown — check DRES before any action' };
+            const labels = { prepared: 'Đã chuẩn bị trên máy', submitted: 'Đã gửi tới DRES (chưa xác nhận được chấp nhận)', accepted: 'Được chấp nhận (operator đã ghi nhận)', rejected: 'Bị từ chối (operator đã ghi nhận)', outcome_unknown: 'Chưa rõ kết quả gửi — hãy kiểm tra DRES trước khi thao tác tiếp' };
             const statusColors = { prepared: 'text-amber-300', submitted: 'text-emerald-300', accepted: 'text-emerald-300', rejected: 'text-red-300', outcome_unknown: 'text-amber-300' };
             const currentStatus = document.getElementById('dresCurrentAttemptStatus');
-            currentStatus.textContent = `History: ${labels[current.status] || current.status}`;
+            currentStatus.textContent = `Lịch sử lần gửi: ${labels[current.status] || current.status}`;
             document.getElementById('btnRecordDresAccepted').classList.toggle('hidden', current.status !== 'submitted');
             document.getElementById('btnRecordDresRejected').classList.toggle('hidden', current.status !== 'submitted');
             updateDresConnectionUi();
@@ -1368,24 +1406,24 @@
             const entries = history.filter(record => record.queryId === current.queryId && record.fingerprint === current.fingerprint).slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt));
             document.getElementById('dresHistoryEntries').innerHTML = entries.length ? entries.map(record => `
                 <article class="rounded border border-gray-700 bg-gray-900 p-2">
-                    <div class="font-semibold ${record.id === current.id ? (statusColors[record.status] || 'text-gray-100') : 'text-gray-100'}">${escapeHtml(labels[record.status] || record.status)} · ${escapeHtml(new Date(record.updatedAt || record.createdAt).toLocaleString())}${record.id === current.id ? ' · Current attempt' : ''}</div>
+                    <div class="font-semibold ${record.id === current.id ? (statusColors[record.status] || 'text-gray-100') : 'text-gray-100'}">${escapeHtml(labels[record.status] || record.status)} · ${escapeHtml(new Date(record.updatedAt || record.createdAt).toLocaleString('vi-VN'))}${record.id === current.id ? ' · Lần gửi hiện tại' : ''}</div>
                     <div class="mt-0.5 text-gray-400">${escapeHtml(record.queryName || record.queryType || '')}</div>
                     ${record.response ? `<div class="mt-1 whitespace-pre-wrap break-words text-gray-300">${escapeHtml(record.response)}</div>` : ''}
-                </article>`).join('') : '<p class="text-gray-500">No recorded attempts for this payload.</p>';
+                </article>`).join('') : '<p class="text-gray-500">Chưa có lần gửi nào được ghi nhận cho dữ liệu này.</p>';
         }
 
         function recordDresSubmissionStatus(status) {
             if (!pendingDresReview) return;
             const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
             if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) {
-                showDresReviewError('The selected answer changed after review. Prepare a fresh review before recording a status.');
+                showDresReviewError('Đáp án đã thay đổi sau khi kiểm tra. Hãy kiểm tra lại trước khi ghi nhận trạng thái.');
                 return;
             }
             const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
             const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
             if (!record) return;
             if (status === 'submitted' && history.some(entry => entry.id !== record.id && entry.queryId === record.queryId && entry.fingerprint === record.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(entry.status))) {
-                return showDresReviewError('This exact answer was already sent or has an unknown outcome for this query. Check DRES and the history before taking action.');
+                return showDresReviewError('Đáp án giống hệt đã được gửi hoặc chưa rõ kết quả cho câu này. Hãy kiểm tra DRES và lịch sử trước khi thao tác tiếp.');
             }
             if (status === 'submitted' && record.status !== 'prepared') return;
             if ((status === 'accepted' || status === 'rejected') && record.status !== 'submitted') return;
@@ -1405,10 +1443,10 @@
             const selected = select.value;
             const sessionIdDisplay = document.getElementById('dresSessionIdDisplay');
             sessionIdDisplay.textContent = dresLoginBusy
-                ? 'Loading…'
+                ? 'Đang tải…'
                 : dresSessionFailed
-                ? 'Could not retrieve'
-                    : dresSessionId || 'Not connected';
+                ? 'Không lấy được session'
+                    : dresSessionId || 'Chưa kết nối';
             sessionIdDisplay.classList.toggle('text-yellow-300', dresLoginBusy);
             sessionIdDisplay.classList.toggle('text-red-400', !dresLoginBusy && dresSessionFailed);
             sessionIdDisplay.classList.toggle('text-emerald-300', !dresLoginBusy && !dresSessionFailed && Boolean(dresSessionId));
@@ -1433,16 +1471,16 @@
             const select = document.getElementById('dresEvaluationSelect');
             dresEvaluationState = 'loading';
             dresActiveEvaluations = [];
-            select.innerHTML = '<option value="">Loading…</option>';
+            select.innerHTML = '<option value="">Đang tải…</option>';
             updateDresConnectionUi();
             try {
                 const response = await fetch(`${API_BASE}/api/v1/dres/evaluations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: dresSessionId }) });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.detail || `Evaluation request failed (${response.status})`);
+                if (!response.ok) throw new Error(data.detail || `Không tải được evaluation (HTTP ${response.status}).`);
                 dresActiveEvaluations = Array.isArray(data.evaluations) ? data.evaluations : [];
                 if (!dresActiveEvaluations.length) throw new Error('No ACTIVE evaluations were returned.');
                 dresEvaluationState = 'loaded';
-                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="">Select an ACTIVE evaluation</option>';
+                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="">Chọn evaluation đang hoạt động</option>';
                 select.innerHTML = optionPlaceholder + dresActiveEvaluations.map(evaluation => {
                     const id = String(evaluation.evaluationId ?? evaluation.id ?? '');
                     const label = String(evaluation.name ?? evaluation.title ?? id);
@@ -1458,7 +1496,7 @@
             } catch (error) {
                 dresActiveEvaluations = [];
                 dresEvaluationState = 'error';
-                select.innerHTML = `<option value="">${escapeHtml(error.message.includes('No ACTIVE evaluations') ? 'No ACTIVE evaluations found' : 'Could not retrieve')}</option>`;
+                select.innerHTML = `<option value="">${escapeHtml(error.message.includes('No ACTIVE evaluations') ? 'Không tìm thấy evaluation đang hoạt động' : 'Không tải được danh sách evaluation')}</option>`;
                 updateDresConnectionUi();
             }
         }
@@ -1479,7 +1517,7 @@
                     headers: { 'Content-Type': 'application/json' }
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.detail || `Login failed (${response.status})`);
+                if (!response.ok) throw new Error(data.detail || `Đăng nhập DRES thất bại (HTTP ${response.status}).`);
                 dresSessionId = data.session_id;
                 dresActiveEvaluations = [];
                 updateDresConnectionUi();
@@ -1502,51 +1540,51 @@
         document.getElementById('btnDresSubmit').onclick = async () => {
             if (!pendingDresReview || !dresSessionId) return;
             const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
-            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) return showDresReviewError('The selected answer changed after review. Prepare a fresh review before submitting.');
+            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) return showDresReviewError('Đáp án đã thay đổi sau khi kiểm tra. Hãy kiểm tra lại trước khi gửi.');
             const typeMismatch = getSubmissionTypeMismatch(query);
             if (typeMismatch) return showDresReviewError(typeMismatch);
             const evaluationId = document.getElementById('dresEvaluationSelect').value;
             if (!evaluationId) return;
-            if (!window.confirm(`Submit this reviewed ${pendingDresReview.queryType} answer to evaluation ${evaluationId}? A wrong submission may cost points and cannot be withdrawn.`)) return;
+            if (!window.confirm(`Gửi đáp án ${pendingDresReview.queryType} đã kiểm tra tới evaluation ${evaluationId}? Nếu đáp án sai, bạn có thể bị trừ điểm và không thể thu hồi lần gửi này.`)) return;
             const button = document.getElementById('btnDresSubmit');
-            dresSubmitBusy = true; button.disabled = true; button.textContent = 'Submitting…';
+            dresSubmitBusy = true; button.disabled = true; button.textContent = 'Đang gửi…';
             try {
                 const response = await fetch(`${API_BASE}/api/v1/dres/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: dresSessionId, evaluation_id: evaluationId, query_id: pendingDresReview.queryId, query_type: pendingDresReview.queryType, payload: pendingDresReview.payload }) });
                 const data = await response.json();
                 const history = appState.dresSubmissionHistory || [];
                 const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
                 if (response.ok) {
-                    if (record) { record.status = 'submitted'; record.response = `DRES HTTP ${data.http_status}; sent. Acceptance is not confirmed.`; record.updatedAt = Date.now(); }
+                    if (record) { record.status = 'submitted'; record.response = `DRES HTTP ${data.http_status}; đã gửi, chưa xác nhận được chấp nhận.`; record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
                 } else if (response.status === 504 || response.status === 409) {
-                    if (record) { record.status = 'outcome_unknown'; record.response = data.detail || 'DRES submit outcome is unknown. Check the evaluation before any retry.'; record.updatedAt = Date.now(); }
+                    if (record) { record.status = 'outcome_unknown'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
                 } else if (response.status === 412) {
-                    if (record) { record.status = 'rejected'; record.response = data.detail || 'DRES rejected this answer. Correct the answer before submitting again.'; record.updatedAt = Date.now(); }
+                    if (record) { record.status = 'rejected'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
                 } else {
-                    showDresReviewError(data.detail || `DRES submit failed (${response.status})`);
+                    showDresReviewError(friendlyApiError(data.detail, response.status));
                     updateDresConnectionUi();
                 }
             } catch (error) {
                 const record = (appState.dresSubmissionHistory || []).find(entry => entry.id === pendingDresReview.historyRecordId);
-                if (record) { record.status = 'outcome_unknown'; record.response = 'Browser could not confirm the response. Check DRES before taking further action.'; record.updatedAt = Date.now(); saveState(); renderDresSubmissionHistory(); }
-                showDresReviewError(`Could not confirm the submit result: ${error.message}. Check DRES before taking further action.`);
+                if (record) { record.status = 'outcome_unknown'; record.response = 'Trình duyệt không xác nhận được phản hồi. Hãy kiểm tra DRES trước khi thao tác tiếp.'; record.updatedAt = Date.now(); saveState(); renderDresSubmissionHistory(); }
+                showDresReviewError(`Không xác nhận được kết quả gửi: ${friendlyApiError(error.message)}. Hãy kiểm tra DRES trước khi thao tác tiếp.`);
                 updateDresConnectionUi();
-            } finally { dresSubmitBusy = false; button.textContent = 'Submit reviewed answer'; updateDresConnectionUi(); }
+            } finally { dresSubmitBusy = false; button.textContent = 'Gửi đáp án đã kiểm tra'; updateDresConnectionUi(); }
         };
 
         document.getElementById('btnExportDres').onclick = async () => {
             const modal = dresReviewModal;
             const button = document.getElementById('btnExportDres');
             const reviewError = document.getElementById('dresReviewError');
-            document.getElementById('dresReviewTitle').textContent = 'Review DRES answer';
+            document.getElementById('dresReviewTitle').textContent = 'Kiểm tra đáp án DRES';
             document.getElementById('dresReviewSummary').innerHTML = '';
             document.getElementById('dresReviewFrames').innerHTML = '';
-            document.getElementById('dresReviewJson').textContent = 'Preparing payload…';
+            document.getElementById('dresReviewJson').textContent = 'Đang chuẩn bị dữ liệu…';
             reviewError.textContent = '';
             reviewError.classList.add('hidden');
             pendingDresReview = null;
@@ -1559,24 +1597,24 @@
             document.getElementById('btnCloseDresReview').focus();
 
             const query = appState.queries.find(item => item.id === appState.activeId);
-            if (!query) return showDresReviewError('Select a query first.');
+            if (!query) return showDresReviewError('Hãy chọn bộ đáp án trước.');
             const typeMismatch = getSubmissionTypeMismatch(query);
             if (typeMismatch) return showDresReviewError(typeMismatch);
-            if (query.items.length !== 1) return showDresReviewError('DRES review needs exactly one selected answer in the active query.');
+            if (query.items.length !== 1) return showDresReviewError('Để kiểm tra DRES, bộ đáp án đang chọn phải có đúng một đáp án.');
             const item = query.items[0];
             const fieldErrors = validateDresItem(query, item);
             if (Object.keys(fieldErrors).length) {
-                const labels = { video_id: 'Video ID', frame_idx: 'Frame index', answer: 'Q&A answer', frames: 'TRAKE frame IDs' };
-                return showDresReviewError(`Fix these fields before review: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`);
+                const labels = { video_id: 'Video ID', frame_idx: 'Chỉ số khung hình', answer: 'Câu trả lời Q&A', frames: 'Frame ID TRAKE' };
+                return showDresReviewError(`Hãy sửa các trường sau trước khi kiểm tra: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`);
             }
             const videoId = String(item.video_id || '').trim();
-            if (!videoId) return showDresReviewError('Video ID is missing. Edit the selected answer in Submission Builder.');
+            if (!videoId) return showDresReviewError('Thiếu Video ID. Hãy sửa đáp án đã chọn trong Trình tạo đáp án.');
             if (!dresSessionId) void loginToDres();
             const requestBody = { query_type: query.type, video_id: videoId };
             let frameIds = [];
             if (query.type === 'KIS' || query.type === 'QA') {
                 const frameId = Number(item.frame_idx);
-                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Frame index must be a non-negative integer. Edit the selected answer in Submission Builder.');
+                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Chỉ số khung hình phải là số nguyên không âm. Hãy sửa đáp án trong Trình tạo đáp án.');
                 requestBody.frame_idx = frameId;
                 frameIds = [frameId];
                 if (query.type === 'QA') requestBody.answer = item.answer || '';
@@ -1584,12 +1622,12 @@
                 frameIds = item.framesDraft !== undefined ? item.framesDraft.split(',').map(value => Number(value.trim())) : (Array.isArray(item.frames) ? item.frames.map(Number) : []);
                 requestBody.frame_ids = frameIds;
             } else {
-                return showDresReviewError(`Unsupported DRES query type: ${query.type}`);
+                return showDresReviewError(`Dạng câu hỏi DRES chưa được hỗ trợ: ${query.type}`);
             }
 
             button.disabled = true;
             const originalText = button.textContent;
-            button.textContent = 'Preparing review…';
+            button.textContent = 'Đang kiểm tra…';
             try {
                 const [payloadResponse, evidenceFrames] = await Promise.all([
                     fetch(`${API_BASE}/api/v1/submission/dres/export`, {
@@ -1600,18 +1638,18 @@
                 const payload = await payloadResponse.json();
                 if (!payloadResponse.ok) throw new Error(payload.detail || `Export validation failed (${payloadResponse.status})`);
 
-                const summary = [dresLabel('Query', query.name || query.id), dresLabel('Task type', query.type), dresLabel('Video ID', videoId)];
+                    const summary = [dresLabel('Bộ đáp án', query.name || query.id), dresLabel('Dạng câu', query.type), dresLabel('Video ID', videoId)];
                 if (query.type === 'KIS' || query.type === 'QA') {
                     const serializedAnswer = payload.answerSets?.[0]?.answers?.[0] || {};
                     const serializedMillis = query.type === 'KIS'
                         ? serializedAnswer.start
                         : (typeof serializedAnswer.text === 'string' ? serializedAnswer.text.match(/-(\d+)$/)?.[1] : null);
-                    summary.push(dresLabel('Selected frame', String(frameIds[0])));
-                    summary.push(dresLabel('Timestamp sent (ms)', serializedMillis ?? 'Unavailable'));
-                    if (query.type === 'QA') summary.push(dresLabel('Answer', item.answer || '(empty — validation should reject this)'));
+                    summary.push(dresLabel('Khung hình đã chọn', String(frameIds[0])));
+                    summary.push(dresLabel('Mốc thời gian gửi (ms)', serializedMillis ?? 'Không có'));
+                    if (query.type === 'QA') summary.push(dresLabel('Câu trả lời', item.answer || '(để trống — dữ liệu kiểm tra phải từ chối)'));
                 } else {
-                    summary.push(dresLabel('Ordered TRAKE frame IDs', frameIds.join(' → ')));
-                    summary.push(dresLabel('Frame count', String(frameIds.length)));
+                    summary.push(dresLabel('Frame ID TRAKE theo thứ tự', frameIds.join(' → ')));
+                    summary.push(dresLabel('Số khung hình', String(frameIds.length)));
                 }
                 document.getElementById('dresReviewSummary').innerHTML = summary.join('');
                 renderDresEvidenceFrames(evidenceFrames);
@@ -1627,8 +1665,8 @@
                 renderDresSubmissionHistory();
                 document.getElementById('btnDownloadReviewedDres').disabled = false;
             } catch (error) {
-                document.getElementById('dresReviewJson').textContent = 'No payload available.';
-                showDresReviewError(`Could not prepare DRES review: ${error.message}`);
+                document.getElementById('dresReviewJson').textContent = 'Chưa có dữ liệu gửi.';
+                showDresReviewError(`Không thể chuẩn bị phần kiểm tra DRES: ${friendlyApiError(error.message)}`);
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
@@ -1639,7 +1677,7 @@
             if (!pendingDresReview) return;
             const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
             if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) {
-                showDresReviewError('The selected answer changed after review. Close this dialog and prepare a fresh review.');
+                showDresReviewError('Đáp án đã thay đổi sau khi kiểm tra. Hãy đóng hộp thoại và kiểm tra lại.');
                 return;
             }
             const blob = new Blob([JSON.stringify(pendingDresReview.payload, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -1654,14 +1692,14 @@
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
 
-        function renderResults(items, searchStartTime, targetGrid = resultsGrid) {
+        function renderResults(items, searchStartTime, targetGrid = resultsGrid, preserveResultOrder = false) {
             const searchItems = Array.isArray(items) ? items : [];
             const questionState = appState.activeQuestion || {};
             const searchItemsByKey = new Map(searchItems.map(item => [candidateKey(item.video_id, item.frame_idx), item]));
             const pinnedItems = (questionState.pinnedFrames || [])
                 .map(item => searchItemsByKey.get(candidateKey(item.video_id, item.frame_idx)) || item);
             const pinnedKeys = new Set(pinnedItems.map(item => candidateKey(item.video_id, item.frame_idx)));
-            const visibleItems = [
+            const visibleItems = preserveResultOrder ? searchItems : [
                 ...pinnedItems,
                 ...searchItems.filter(item => {
                     const key = candidateKey(item.video_id, item.frame_idx);
@@ -1670,7 +1708,7 @@
             ];
             lastResults = visibleItems;
             if (!visibleItems.length) {
-                targetGrid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500 font-medium">No results found for this query.</div>';
+                targetGrid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500 font-medium">Không tìm thấy kết quả phù hợp.</div>';
                 return;
             }
             const activeQ = appState.queries.find(x => x.id === appState.activeId);
@@ -1699,13 +1737,13 @@
 
                     return `
                     <div class="border-gray-700 bg-gray-800 border rounded-lg overflow-hidden shadow-lg hover:border-blue-500 hover:shadow-blue-500/20 transition-all flex flex-col group">
-                        <div class="relative w-full pt-[56.25%] bg-gray-900 cursor-pointer" onclick="openPreview('${highResUrl}', '${item.video_id}', 'Frame: ${item.frame_idx} | Timestamp: ${item.timestamp} | Similarity: ${displayScore}', ${item.pts_time}, ${index}, '${item.object_file_id || ""}', '${item.ocr_json_id || ""}')">
-                            <img src="${thumbUrl}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" class="absolute top-0 left-0 w-full h-full object-contain" loading="${index < 6 ? 'eager' : 'lazy'}" ${index < 6 ? 'fetchpriority="high"' : ''} onerror="handleFrameImageError(this)">
-                            <div data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-4 text-center text-xs text-gray-400">Frame image unavailable. Candidate video/frame metadata remains available below.</div>
+                        <div class="relative w-full pt-[56.25%] bg-gray-900 cursor-pointer" onclick="openPreview('${highResUrl}', '${item.video_id}', 'Frame: ${item.frame_idx} | Mốc thời gian: ${item.timestamp} | Độ tương đồng: ${displayScore}', ${item.pts_time}, ${index}, '${item.object_file_id || ""}', '${item.ocr_json_id || ""}')">
+                            <img src="${thumbUrl}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(item).slice(1)))}" alt="Khung hình ${Number(item.frame_idx)} của ${escapeHtml(item.video_id)}" class="absolute top-0 left-0 w-full h-full object-contain" loading="${index < 6 ? 'eager' : 'lazy'}" ${index < 6 ? 'fetchpriority="high"' : ''} onerror="handleFrameImageError(this)">
+                            <div data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-4 text-center text-xs text-gray-400">Không tải được ảnh. Thông tin Video ID và khung hình vẫn hiển thị bên dưới.</div>
                             ${displayScore ? `<div class="absolute top-2 left-2 bg-black/80 text-white text-[11px] font-bold px-2 py-0.5 rounded backdrop-blur-sm border border-gray-700">${displayScore}</div>` : ''}
                             <div class="absolute top-2 right-2 flex gap-1">
-                            <button class="w-7 h-8 rounded flex items-center justify-center font-bold text-lg shadow-lg border ${isPinned ? 'bg-amber-500 text-black border-amber-300' : 'bg-black/60 text-white border-gray-500 hover:bg-amber-600'}" onclick="event.stopPropagation(); togglePinnedFrame(${index})" title="${isPinned ? 'Unpin frame from search priority' : 'Pin frame to top of search results'}" aria-label="${isPinned ? 'Unpin frame from search priority' : 'Pin frame to top of search results'}">${isPinned ? '★' : '☆'}</button>
-                            <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="Add to Active Query" aria-label="${isAdded ? 'Added to active query' : 'Select as answer'}">
+                            <button class="w-7 h-8 rounded flex items-center justify-center font-bold text-lg shadow-lg border ${isPinned ? 'bg-amber-500 text-black border-amber-300' : 'bg-black/60 text-white border-gray-500 hover:bg-amber-600'}" onclick="event.stopPropagation(); togglePinnedFrame(${index})" title="${isPinned ? 'Bỏ ghim khỏi danh sách ưu tiên' : 'Ghim lên đầu kết quả tìm kiếm'}" aria-label="${isPinned ? 'Bỏ ghim khung hình' : 'Ghim khung hình'}">${isPinned ? '★' : '☆'}</button>
+                            <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="${isAdded ? 'Đã thêm vào bộ đáp án đang chọn' : 'Chọn làm đáp án'}" aria-label="${isAdded ? 'Đã thêm vào bộ đáp án đang chọn' : 'Chọn khung hình này làm đáp án'}">
                                 ${isAdded ? '✓' : '+'}
                             </button>
                             </div>
@@ -1714,7 +1752,7 @@
                         <div class="p-3 flex flex-col gap-2">
                             <div class="flex justify-between items-center text-sm">
                                 <span class="font-bold text-blue-300 truncate" title="${item.video_id}">${item.video_id}</span>
-                                <span class="text-gray-300 bg-gray-900 px-2 py-0.5 rounded text-xs border border-gray-700 font-mono">Fr:${item.frame_idx}</span>
+                                <span class="text-gray-300 bg-gray-900 px-2 py-0.5 rounded text-xs border border-gray-700 font-mono">Frame ${item.frame_idx}</span>
                             </div>
                             <div class="text-[11px] text-gray-400 font-mono flex items-center gap-1">
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -1722,13 +1760,13 @@
                             </div>
                             
                             <div class="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-gray-700">
-                                <button class="bg-gray-700 hover:bg-blue-600 text-white text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 font-medium" onclick="event.stopPropagation(); findSimilar(${item.vector_id})" title="Search for visually similar frames">
+                                <button class="bg-gray-700 hover:bg-blue-600 text-white text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 font-medium" onclick="event.stopPropagation(); findSimilar(${item.vector_id})" title="Tìm khung hình có hình ảnh tương tự" aria-label="Tìm khung hình tương tự">
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                    Similar
+                                    Tương tự
                                 </button>
-                                <button class="bg-gray-700 hover:bg-purple-600 text-white text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 font-medium" onclick="event.stopPropagation(); trackContext('${item.video_id}', ${item.frame_idx})" title="Load the next 30 frames of this video">
+                                <button class="bg-gray-700 hover:bg-purple-600 text-white text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 font-medium" onclick="event.stopPropagation(); trackContext('${item.video_id}', ${item.frame_idx})" title="Tải 30 khung hình tiếp theo của video này" aria-label="Tải khung hình lân cận">
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
-                                    Track
+                                    Lân cận
                                 </button>
                             </div>
                         </div>
@@ -1774,11 +1812,11 @@
             }
 
             window.findSimilar = async function(vectorId) {
-                if (vectorId == null) return alert("Vector ID not found for this frame.");
+                if (vectorId == null) return alert("Không tìm thấy Vector ID của khung hình này.");
                 const searchStartTime = performance.now();
                 const telemetryDiv = document.getElementById('benchmarkTelemetry');
                 if (telemetryDiv) telemetryDiv.classList.remove('hidden');
-                spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.innerHTML = 'Searching for <span class="text-blue-400">visually similar</span> images...';
+                spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.innerHTML = 'Đang tìm các khung hình có hình ảnh tương tự...';
                 try {
                     const res = await fetch(`${API_BASE}/api/v1/search/similar`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1789,15 +1827,16 @@
                     if (badgeApi) badgeApi.innerHTML = `<svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> API: ${apiDuration}ms`;
                     const data = await res.json();
                     spinner.style.display = 'none';
-                    if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.innerHTML = `Found <span class="text-white font-bold">${data.results.length}</span> visually similar frames.`; }
-                } catch(e) { spinner.style.display = 'none'; resultsCount.textContent = 'Server Connection Error.'; }
+                    if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.textContent = `Tìm thấy ${data.results.length} khung hình tương tự.`; }
+                    else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
+                } catch(e) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới máy chủ.'; }
             };
 
             window.trackContext = async function(videoId, frameIdx) {
                 const searchStartTime = performance.now();
                 const telemetryDiv = document.getElementById('benchmarkTelemetry');
                 if (telemetryDiv) telemetryDiv.classList.remove('hidden');
-                spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.innerHTML = `Tracking next frames in <span class="text-purple-400 font-bold">${videoId}</span>...`;
+                spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.textContent = `Đang tải các khung hình tiếp theo trong ${videoId}…`;
                 try {
                     const res = await fetch(`${API_BASE}/api/v1/search/context?video_id=${videoId}&frame_idx=${frameIdx}&limit=30`);
                     const apiDuration = Math.round(performance.now() - searchStartTime);
@@ -1805,8 +1844,9 @@
                     if (badgeApi) badgeApi.innerHTML = `<svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> API: ${apiDuration}ms`;
                     const data = await res.json();
                     spinner.style.display = 'none';
-                    if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.innerHTML = `Loaded <span class="text-white font-bold">${data.results.length}</span> subsequent frames for ${videoId}.`; }
-                } catch(e) { spinner.style.display = 'none'; resultsCount.textContent = 'Server Connection Error.'; }
+                    if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.textContent = `Đã tải ${data.results.length} khung hình tiếp theo của ${videoId}.`; }
+                    else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
+                } catch(e) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới máy chủ.'; }
             };
 
             searchForm.onsubmit = async (e) => {
@@ -1844,7 +1884,7 @@
                 if (badgeApi) badgeApi.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> API: đang tìm...`;
                 spinner.style.display = 'block';
                 resultsGrid.innerHTML = '';
-                resultsCount.textContent = 'Searching...';
+                resultsCount.textContent = 'Đang tìm kiếm…';
                 try {
                     const res = await fetch(`${API_BASE}/api/v1/search`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1859,10 +1899,10 @@
                     spinner.style.display = 'none';
                     if (res.ok) {
                         renderResults(data.results, searchStartTime, resultsGrid);
-                        resultsCount.innerHTML = `Found <span class="text-white font-bold">${data.total_results || data.results.length}</span> results for "<span class="text-blue-400">${query}</span>"`;
+                        resultsCount.textContent = `Tìm thấy ${data.total_results || data.results.length} kết quả cho “${query}”.`;
                     }
-                    else { resultsCount.textContent = `Error: ${data.detail}`; }
-                } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'API Connection Error'; }
+                    else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
+                } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới API. Hãy kiểm tra kết nối máy chủ.'; }
             };
 
         // Tabs Logic
@@ -1934,15 +1974,12 @@
             const formData = new FormData();
             formData.append('file', selectedImageFile);
             formData.append('top_k', document.getElementById('imageTopKSelect').value);
-            const vidFilter = document.getElementById('imageVideoIdInput').value.trim();
-            if (vidFilter) formData.append('video_id', vidFilter);
-            
             const searchStartTime = performance.now();
             const telemetryDiv = document.getElementById('benchmarkTelemetry');
             const badgeApi = document.getElementById('badgeApiTime');
             if (telemetryDiv) telemetryDiv.classList.remove('hidden');
             if (badgeApi) badgeApi.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> API: đang tìm...`;
-            spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.textContent = 'Searching by Image...';
+            spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.textContent = 'Đang tìm bằng ảnh…';
             try {
                 const res = await fetch(`${API_BASE}/api/v1/search/image`, {
                     method: 'POST',
@@ -1952,9 +1989,9 @@
                 if (badgeApi) badgeApi.innerHTML = `<svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> API: ${apiDuration}ms`;
                 const data = await res.json();
                 spinner.style.display = 'none';
-                if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.innerHTML = `Found <span class="text-white font-bold">${data.total_results || data.results.length}</span> similar images`; }
-                else { resultsCount.textContent = `Error: ${data.detail}`; }
-            } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'API Connection Error'; }
+                if (res.ok) { renderResults(data.results, searchStartTime); resultsCount.textContent = `Tìm thấy ${data.total_results || data.results.length} khung hình tương tự.`; }
+                else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
+            } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới API. Hãy kiểm tra kết nối máy chủ.'; }
         };
 
         // Video Interval Search
@@ -1989,20 +2026,19 @@
             document.getElementById('vsStartTime').value = formatTime(start);
             document.getElementById('vsEndTime').value = formatTime(end);
             
-            spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.innerHTML = `Searching interval ${formatTime(start)} - ${formatTime(end)} in <span class="text-purple-400 font-bold">${vid}</span>...`;
+            spinner.style.display = 'block'; resultsGrid.innerHTML = ''; resultsCount.textContent = `Đang tìm trong khoảng ${formatTime(start)}–${formatTime(end)} của video ${vid}…`;
             try {
                 const res = await fetch(`${API_BASE}/api/v1/search/interval?video_id=${vid}&start_time=${start}&end_time=${end}&limit=200`);
                 const data = await res.json();
                 spinner.style.display = 'none';
-                if (res.ok) { renderResults(data.results); resultsCount.innerHTML = `Found <span class="text-white font-bold">${data.results.length}</span> frames in interval.`; }
-                else { resultsCount.textContent = `Error: ${data.detail}`; }
-            } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'API Connection Error'; }
+                if (res.ok) { renderResults(data.results); resultsCount.textContent = `Tìm thấy ${data.results.length} khung hình trong khoảng thời gian.`; }
+                else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
+            } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới API. Hãy kiểm tra kết nối máy chủ.'; }
         };
 
         // Time to Frame Converter
         document.getElementById('timeConvertForm').onsubmit = async (e) => {
             e.preventDefault();
-            const vid = document.getElementById('tcVideoId').value.trim() || "video";
             const rawTime = document.getElementById('tcSeconds').value.trim();
             const fps = parseFloat(document.getElementById('tcFps').value) || 25;
             
@@ -2030,16 +2066,8 @@
             // Auto-format the input to show the user we understood it
             document.getElementById('tcSeconds').value = formatTime(seconds);
             
-            try {
-                const res = await fetch(`${API_BASE}/api/v1/video/${vid}/convert_time?time_sec=${seconds}&fps=${fps}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    document.getElementById('tcResult').innerHTML = `Frame Index: <span class="text-white">${data.frame_idx}</span> <span class="text-sm text-gray-400">(@ ${data.fps} FPS)</span>`;
-                }
-            } catch (err) {
-                const frame_idx = Math.round(seconds * fps);
-                document.getElementById('tcResult').innerHTML = `Frame Index: <span class="text-white">${frame_idx}</span> <span class="text-sm text-gray-400">(@ ${fps} FPS)</span>`;
-            }
+            const frame_idx = Math.round(seconds * fps);
+            document.getElementById('tcResult').innerHTML = `frame: <span class="text-white">${frame_idx}</span> <span class="text-sm text-gray-400">| FPS: ${fps}</span>`;
         };
 
         // Context Search Form
@@ -2061,36 +2089,37 @@
                 vid = parts[0].trim();
                 frameIdx = parseInt(parts[1].trim());
             } else {
-                alert("Please enter both Video ID and Frame Index, separated by a comma (e.g. L21_V022, 38228)");
+                alert("Hãy nhập Video ID và chỉ số khung hình, cách nhau bằng dấu phẩy (ví dụ: L21_V022, 38228). ");
                 return;
             }
             
             if (!vid || isNaN(frameIdx)) {
-                alert("Invalid format. Example: L21_V022, 38228");
+                alert("Định dạng chưa đúng. Ví dụ: L21_V022, 38228.");
                 return;
             }
             
-            const limit = parseInt(document.getElementById('contextLimit').value) || 20;
+            const limit = parseInt(document.getElementById('contextLimit').value) || 50;
             
             spinner.style.display = 'block'; 
             resultsGrid.innerHTML = ''; 
-            resultsCount.innerHTML = `Tracking frames around <span class="text-purple-400 font-bold">${vid}</span> frame ${frameIdx}...`;
+            resultsCount.textContent = `Đang tìm khung hình lân cận quanh ${vid}, khung hình ${frameIdx}…`;
             
             try {
-                // Fetch context frames around the target frame
-                // Since our API currently does next 30 frames in `trackContext`, let's just use the same API endpoint.
-                // The search_context API from search_engine actually gets context around the frame (both before and after)
-                // limit is total limit.
+                // The API selects the closest stored frames to the target and returns them in distance order.
                 const res = await fetch(`${API_BASE}/api/v1/search/context?video_id=${vid}&frame_idx=${frameIdx}&limit=${limit}&surrounding=true`);
                 const data = await res.json();
                 spinner.style.display = 'none';
                 if (res.ok) { 
-                    renderResults(data.results); 
-                    resultsCount.innerHTML = `Found <span class="text-white font-bold">${data.results.length}</span> context frames around frame ${frameIdx}.`; 
-                }
+                    const nearestFirst = (data.results || []).slice().sort((a, b) => {
+                        const distanceDifference = Math.abs(Number(a.frame_idx) - frameIdx) - Math.abs(Number(b.frame_idx) - frameIdx);
+                        return distanceDifference || Number(a.frame_idx) - Number(b.frame_idx);
+                    });
+                    renderResults(nearestFirst, undefined, resultsGrid, true);
+                    resultsCount.textContent = `Tìm thấy ${nearestFirst.length} khung hình lân cận quanh khung hình ${frameIdx}.`;
+                } else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
             } catch(e) { 
                 spinner.style.display = 'none'; 
-                resultsCount.textContent = 'Server Connection Error.'; 
+                resultsCount.textContent = 'Không thể kết nối tới máy chủ.';
             }
         };
 
@@ -2099,9 +2128,9 @@
                 const res = await fetch(`${API_BASE}/api/v1/health`);
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById('statsBadge').innerHTML = `Status: <span class="text-green-400 font-bold">Online</span> | DB: <span class="font-mono">${data.total_keyframes.toLocaleString()}</span>`;
+                    document.getElementById('statsBadge').innerHTML = `Trạng thái: <span class="text-green-400 font-bold">Đang hoạt động</span> | DB: <span class="font-mono">${data.total_keyframes.toLocaleString('vi-VN')}</span>`;
                 }
-            } catch(e) { document.getElementById('statsBadge').innerHTML = `Status: <span class="text-red-400 font-bold">Offline</span>`; }
+            } catch(e) { document.getElementById('statsBadge').innerHTML = `Trạng thái: <span class="text-red-400 font-bold">Ngoại tuyến</span>`; }
         }
         loadStats();
     </script>
@@ -2171,7 +2200,7 @@
             if (generating) {
                 submitBtn.classList.remove('from-indigo-500', 'to-purple-600', 'hover:from-indigo-400', 'hover:to-purple-500');
                 submitBtn.classList.add('bg-red-600', 'hover:bg-red-500');
-                submitBtn.title = 'Dừng tạo (Stop)';
+                submitBtn.title = 'Dừng tạo câu trả lời';
                 btnIcon.innerHTML = `<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
             } else {
                 submitBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
@@ -2203,7 +2232,7 @@
                     <div class="flex gap-3">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg font-bold text-xs text-white">AI</div>
                         <div class="bg-gray-800 text-gray-100 rounded-2xl rounded-tl-sm p-3.5 border border-gray-700 leading-relaxed shadow-sm">
-                            Chào bạn! Mình là AI Assistant. Mình có thể tìm video cho bạn theo ngữ nghĩa hình ảnh, chữ viết (OCR) hoặc lời thoại (ASR). Bạn cần tìm gì nào?
+                            Chào bạn! Mình là trợ lý AI. Mình có thể tìm video theo ngữ nghĩa hình ảnh, chữ viết (OCR) hoặc lời thoại (ASR). Bạn cần tìm gì?
                         </div>
                     </div>
                 `;
@@ -2224,11 +2253,11 @@
                     const fileId = item.gdrive_file_id;
                     const path = item.image_path || "";
                     const highResUrl = item.r2_url || (fileId ? `${API_BASE}/api/v1/drive/proxy/${fileId}` : (path.startsWith('http') ? path : ''));
-                    const displayScore = item.score !== undefined ? (item.score * 100).toFixed(1) + '%' : 'AI Match';
-                    const details = `Frame: ${item.frame_idx} | Timestamp: ${item.timestamp || 'N/A'} | Similarity: ${displayScore}`;
+                    const displayScore = item.score !== undefined ? (item.score * 100).toFixed(1) + '%' : 'Không có';
+                    const details = `Frame: ${item.frame_idx} | Mốc thời gian: ${item.timestamp || 'Không có'} | Độ tương đồng: ${displayScore}`;
                     window.openPreview(highResUrl, item.video_id, details, item.pts_time || 0, -1, item.object_file_id || "", item.ocr_json_id || "");
                 } else {
-                    alert(`Không tìm thấy dữ liệu cho ${vid}, frame ${frameIdx}`);
+                    alert(`Không tìm thấy dữ liệu cho video ${vid}, khung hình ${frameIdx}.`);
                 }
             } catch(e) {
                 console.error("Lỗi xem video:", e);
@@ -2274,15 +2303,15 @@
                         <div class="w-7 h-7 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-mono font-bold text-[11px] shrink-0">🎬</div>
                         <div class="truncate">
                             <div class="font-bold text-xs text-white">${c.vid}</div>
-                            <div class="text-[10px] text-gray-400">Frame ${c.frame}</div>
+                    <div class="text-[10px] text-gray-400">Khung hình ${c.frame}</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button onclick="playCandidateVideo('${c.vid}', ${c.frame})" title="Xem khung hình & Phát video" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-1 px-2.5 rounded-lg text-xs transition-colors flex items-center gap-1 shadow">
                             <svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Phát
                         </button>
-                        <button onclick="openContextForCandidate('${c.vid}', ${c.frame})" title="Mở bảng Context xem khung hình xung quanh" class="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 font-medium py-1 px-2 rounded-lg text-xs transition-colors flex items-center gap-1">
-                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Context
+                        <button onclick="openContextForCandidate('${c.vid}', ${c.frame})" title="Mở khung hình lân cận" aria-label="Xem các khung hình lân cận" class="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 font-medium py-1 px-2 rounded-lg text-xs transition-colors flex items-center gap-1">
+                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Lân cận
                         </button>
                     </div>
                 </div>
@@ -2440,7 +2469,7 @@
                                     if (statusDiv) {
                                         statusDiv.innerHTML = `<div class="w-2 h-2 bg-red-500 rounded-full"></div><span class="font-bold text-red-400">Thất bại sau ${seconds.toFixed(1)}s</span>`;
                                     }
-                                    if (responseDiv) responseDiv.innerHTML += `<br><span class="text-red-400 font-medium">${data}</span>`;
+                                    if (responseDiv) responseDiv.insertAdjacentHTML('beforeend', `<br><span class="text-red-400 font-medium">${escapeHtml(friendlyApiError(data.replace(/^\[ERROR\]\s*/, '')))}</span>`);
                                 } else if (data.startsWith('[TOOL] ')) {
                                     const tName = data.substring(7);
                                     if (toolDiv) {
@@ -2497,7 +2526,7 @@
                             statusDiv.innerHTML = `<div class="w-2 h-2 bg-red-500 rounded-full"></div><span class="font-bold text-red-400">Mất kết nối</span>`;
                         }
                         if (responseDiv) {
-                            responseDiv.innerHTML = `<span class="text-red-400">Lỗi kết nối tới AI Assistant. Hãy thử lại.</span>`;
+                            responseDiv.innerHTML = `<span class="text-red-400">Lỗi kết nối tới trợ lý AI. Hãy thử lại.</span>`;
                         }
                     }
                 } finally {

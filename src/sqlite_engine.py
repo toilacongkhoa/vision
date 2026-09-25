@@ -287,7 +287,7 @@ class SQLiteSearchEngine:
         image_features /= image_features.norm(dim=-1, keepdim=True)
         return image_features.cpu().numpy()[0].astype(np.float32)
 
-    def search_by_image(self, image_bytes: bytes, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search_by_image(self, image_bytes: bytes, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if self.vectors is None or len(self.vectors) == 0:
             return []
         top_candidates = min(top_k * 10 if video_id_filter else top_k, len(self.vectors))
@@ -442,7 +442,7 @@ class SQLiteSearchEngine:
             "ocr_detections": ocr_data.get("detections", [])
         }
 
-    def search(self, query_text: str = "", top_k: int = 20, video_id_filter: Optional[str] = None, query_vector_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def search(self, query_text: str = "", top_k: int = 50, video_id_filter: Optional[str] = None, query_vector_id: Optional[int] = None) -> List[Dict[str, Any]]:
         if self.vectors is None or len(self.vectors) == 0:
             return []
 
@@ -636,18 +636,16 @@ class SQLiteSearchEngine:
                 break
         return results
 
-    def search_context(self, video_id: str, frame_idx: int, limit: int = 20, surrounding: bool = False):
+    def search_context(self, video_id: str, frame_idx: int, limit: int = 50, surrounding: bool = False):
         results = []
         with self._get_db() as conn:
             cur = conn.cursor()
             if surrounding:
-                # Query frames ordered by absolute difference
                 cur.execute("""
-                    SELECT raw_json FROM (
-                        SELECT raw_json, frame_idx FROM keyframes 
-                        WHERE video_id = ? 
-                        ORDER BY ABS(frame_idx - ?) ASC LIMIT ?
-                    ) ORDER BY frame_idx ASC
+                    SELECT raw_json FROM keyframes
+                    WHERE video_id = ?
+                    ORDER BY ABS(frame_idx - ?) ASC, frame_idx ASC
+                    LIMIT ?
                 """, (video_id, frame_idx, limit))
             else:
                 cur.execute("SELECT raw_json FROM keyframes WHERE video_id = ? AND frame_idx >= ? ORDER BY frame_idx ASC LIMIT ?", (video_id, frame_idx, limit))
@@ -692,7 +690,7 @@ class SQLiteSearchEngine:
                 results.append(self._format_result(row['raw_json'], 1.0))
         return results
 
-    def _fuzzy_text_search(self, query_text: str, field_name: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def _fuzzy_text_search(self, query_text: str, field_name: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         raw_terms = [t for t in re.findall(r'\b\w+\b', query_text.lower()) if len(t) >= 2]
         if not raw_terms:
             raw_terms = [query_text.lower()]
@@ -811,7 +809,7 @@ class SQLiteSearchEngine:
             self._fts_table_cache[table_name] = exists
         return exists
 
-    def _fts_text_search(self, query_text: str, table_name: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def _fts_text_search(self, query_text: str, table_name: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         clean_q = query_text.strip().replace('"', '""')
         if not clean_q:
             return []
@@ -853,16 +851,16 @@ class SQLiteSearchEngine:
                 field_name = "ocr_text" if "ocr" in table_name else "asr_text"
                 return self._fuzzy_text_search(query_text, field_name, top_k, video_id_filter)
 
-    def exact_asr_search(self, query_text: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def exact_asr_search(self, query_text: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         return self._fts_text_search(query_text, "asr_fts", top_k, video_id_filter)
 
-    def exact_ocr_search(self, query_text: str, top_k: int = 20, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def exact_ocr_search(self, query_text: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         return self._fts_text_search(query_text, "ocr_fts", top_k, video_id_filter)
         
     def smart_search(
         self,
         query_text: str,
-        top_k: int = 20,
+        top_k: int = 50,
         video_id_filter: Optional[str] = None,
         enable_rerank: bool = False,
         max_lexical_terms: int = 6,
