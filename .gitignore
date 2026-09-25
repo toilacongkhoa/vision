@@ -25,8 +25,6 @@ startup_time.json
 top22_summary.json
 
 # Local development notes, benchmarks and one-off tooling
-plan.md
-PROJECT_CONTEXT.md
 CHANGELOG.md
 AI_Challenge_2026_Chung_Ket.md
 answerAndQuestion.jsonl
