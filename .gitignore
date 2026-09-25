@@ -10,6 +10,9 @@ env/
 # Large Data Files (DO NOT COMMIT TO GITHUB - OVER 100MB LIMIT)
 *.npy
 *.db
+*.db-shm
+*.db-wal
+camera/logs/
 *.json
 *.pkl
 models/
@@ -52,4 +55,7 @@ add_video_player.py
 fix_*.py
 patch_*.py
 test_*.py
+!tools/test_r2_paths.py
+!tools/test_asr_preview.py
+!tools/test_traffic_search.py
 debug_search.py

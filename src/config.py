@@ -24,6 +24,7 @@ MAPPING_DIR_NAME = os.getenv("MAPPING_DIR_NAME", "map_keyframes")
 # Database & Vector storage paths
 DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "video_index_v2.db"))).resolve()
 CONSOLIDATED_VECTORS_PATH = Path(os.getenv("CONSOLIDATED_VECTORS_PATH", str(BASE_DIR / "all_vectors.npy"))).resolve()
+TRAFFIC_DB_PATH = Path(os.getenv("TRAFFIC_DB_PATH", str(BASE_DIR / "camera" / "traffic_search.db"))).resolve()
 
 # Allowed file extensions
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}

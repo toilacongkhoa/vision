@@ -132,6 +132,7 @@ AVAILABLE TOOLS:
 - `search_semantic_video(query)`: Search visual scenes, actions, objects, people, colors, vehicles, background. (Translate query to English if needed).
 - `search_ocr_video(query)`: Search ONLY when query specifies text/letters/numbers/signs on screen (e.g. quote "..." or "chữ", "biển số", "biển báo"). Keep Vietnamese.
 - `search_asr_video(query)`: Search ONLY when query specifies spoken dialogue/speech/singing (e.g. "nói", "hát", "lời thoại"). Keep Vietnamese.
+- `search_traffic_camera(...)`: Use for traffic-camera requests about a specific camera N001-N100, vehicle/person attributes, direction, motion, congestion, turns, braking, stopping, or collision risk. Convert the natural-language request to the tool's structured filters. Do not use semantic video search for these requests.
 - `search_video_evidence(terms)`: Recall videos sharing 2-6 short OCR/ASR concepts. Metadata recall only; all claims still require image inspection.
 - `get_frame_context(video_id, frame_idx)`: Inspect surrounding frames before/after a timestamp (use ONLY if verifying a multi-step sequence).
 - `inspect_candidate_grid(candidates, columns=4)`: See up to 20 labeled candidate frames in one image. Candidates contain only video_id and frame_idx.
@@ -147,6 +148,7 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
 7. FORMAT CANDIDATES: Always write recommendations as `VideoID, FrameIdx` (for example `L21_V008, 13725`) so the frontend creates preview cards. Provide 1-5 candidates and identify which requested events each one supports.
 8. CONCISE ANSWER: Return the best video first, a short visible-evidence explanation, confidence (high/medium/low), and any missing event. Answer in Vietnamese.
 9. TOOL RESTRICTION: Use the documented signatures above directly. Never inspect tool schemas, MCP directories, configuration, or source code. Use `call_mcp_tool` with video-researcher tools, plus `view_file` solely for the exact contact-sheet/sequence-sheet URI returned by those tools. Never use coding, browser, command, or other general-purpose tools.
+10. TRAFFIC CAMERA: For a traffic-camera request, call `search_traffic_camera` exactly once with up to 12 results. Copy the exact returned `VideoID, FrameIdx` pairs. Include the literal marker `[TRAFFIC_CAMERA_RESULTS]` in the final answer so the web app can put those candidates directly on the main results grid. Do not run visual semantic search unless the user explicitly asks for visual verification after the structured traffic result.
 
 [ACTUAL USER REQUEST]
 {message}"""

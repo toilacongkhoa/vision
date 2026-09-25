@@ -42,6 +42,16 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.requests[1].url.path, "/api/v2/client/evaluation/list")
         self.assertEqual(self.requests[1].url.params["session"], session)
 
+    def test_trust_env_can_be_disabled_by_configuration(self):
+        with patch.dict("os.environ", {"DRES_TRUST_ENV": "false"}):
+            client = DresClient("https://dres.test", client_factory=self.factory)
+        self.assertFalse(client.trust_env)
+
+    def test_trust_env_defaults_to_enabled(self):
+        with patch.dict("os.environ", {}, clear=True):
+            client = DresClient("https://dres.test", client_factory=self.factory)
+        self.assertTrue(client.trust_env)
+
     async def test_login_cookie_session_fallback(self):
         self.responses.extend([
             httpx.Response(200, json={"userId": "demo-user"}, headers={"set-cookie": "DRESSESSION=cookie-session; Path=/; Secure; HttpOnly"}),

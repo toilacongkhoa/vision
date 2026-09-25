@@ -300,6 +300,64 @@ async def search_asr_video(query: str, top_k: int = 5, video_id: Optional[str] =
 
 
 @mcp.tool()
+async def search_traffic_camera(
+    camera_id: Optional[str] = None,
+    video_id: Optional[str] = None,
+    object_class: Optional[str] = None,
+    color: Optional[str] = None,
+    direction: Optional[str] = None,
+    motion_state: Optional[str] = None,
+    event_type: Optional[str] = None,
+    start_time: Optional[float] = None,
+    end_time: Optional[float] = None,
+    min_confidence: float = 0.0,
+    min_severity: float = 0.0,
+    top_k: int = 12,
+) -> str:
+    """Search the structured traffic-camera dataset and return previewable frames.
+
+    Translate the user's natural-language request into these canonical values:
+    object_class: person, motorcycle, car, van, bus, truck, bicycle;
+    color: gray, black, blue, cyan, red, silver, yellow, pink, orange,
+    green, purple, white; direction: stationary, right, left, up_right, up,
+    up_left, down_left, down_right, down; motion_state: mostly_moving, mixed,
+    mostly_stationary, stop_and_go. event_type examples include
+    near_collision_candidate, hard_braking_candidate,
+    sudden_acceleration_candidate, left_turn_candidate,
+    right_turn_candidate, u_turn_candidate, wrong_direction_candidate,
+    pedestrian_near_vehicle, congestion_candidate, queueing_candidate,
+    stopped_vehicle, starts_moving, comes_to_stop, enter_scene, exit_scene.
+    Camera IDs use N001..N100. Times are seconds.
+    """
+    payload = {
+        "camera_id": camera_id, "video_id": video_id,
+        "object_class": object_class, "color": color,
+        "direction": direction, "motion_state": motion_state,
+        "event_type": event_type, "start_time": start_time,
+        "end_time": end_time, "min_confidence": min_confidence,
+        "min_severity": min_severity, "limit": max(1, min(int(top_k), 30)),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{API_BASE}/api/v1/traffic/search", json=payload)
+            response.raise_for_status()
+            rows = response.json().get("results", [])
+    except Exception as exc:
+        return f"Traffic camera search failed: {exc}"
+    if not rows:
+        return "[TRAFFIC_CAMERA_RESULTS]\nNo matching traffic-camera events or tracks were found."
+    lines = ["[TRAFFIC_CAMERA_RESULTS]", f"Found {len(rows)} traffic-camera candidates:"]
+    for index, row in enumerate(rows, 1):
+        labels = [row.get("event_type"), row.get("object_class"), row.get("color"), row.get("direction")]
+        detail = ", ".join(str(value) for value in labels if value and value != "unknown")
+        lines.append(
+            f"[{index}] {row['video_id']}, {row['frame_idx']} | "
+            f"PTS {float(row.get('pts_time') or 0):.3f}s | {detail or 'traffic track'}"
+        )
+    return "\n".join(lines)
+
+
+@mcp.tool()
 async def search_video_evidence(
     terms: List[str], top_videos: int = 5, frames_per_video: int = 4
 ) -> str:

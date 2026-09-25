@@ -50,8 +50,9 @@ class ChatRequest(BaseModel):
 class FrameValidationRequest(BaseModel):
     candidates: List[CandidateFrame] = Field(default_factory=list, max_length=20)
 
-from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, BASE_DIR, HOST, PORT, CORS_ORIGINS
+from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, TRAFFIC_DB_PATH, BASE_DIR, HOST, PORT, CORS_ORIGINS
 from .sqlite_engine import SQLiteSearchEngine as VectorSearchEngine
+from .traffic_search import TrafficSearchEngine
 from .supabase_service import SupabaseService
 from .dres_submission import (
     SubmissionError,
@@ -88,6 +89,7 @@ app.add_middleware(
 
 data_root_path = Path(DATA_ROOT).resolve()
 search_engine = VectorSearchEngine(data_root=data_root_path)
+traffic_search_engine = TrafficSearchEngine(TRAFFIC_DB_PATH)
 supabase_svc = SupabaseService(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY)
 
 frontend_dir = BASE_DIR / "frontend"
@@ -109,6 +111,21 @@ class SearchAllRequest(BaseModel):
     query: str = Field(..., description="Natural language query")
     top_k: int = Field(50, ge=1, le=200)
     video_id: Optional[str] = None
+
+
+class TrafficSearchRequest(BaseModel):
+    camera_id: Optional[str] = Field(None, max_length=32)
+    video_id: Optional[str] = Field(None, max_length=64)
+    object_class: Optional[str] = Field(None, max_length=64)
+    color: Optional[str] = Field(None, max_length=64)
+    direction: Optional[str] = Field(None, max_length=64)
+    motion_state: Optional[str] = Field(None, max_length=64)
+    event_type: Optional[str] = Field(None, max_length=128)
+    start_time: Optional[float] = Field(None, ge=0)
+    end_time: Optional[float] = Field(None, ge=0)
+    min_confidence: float = Field(0.0, ge=0, le=1)
+    min_severity: float = Field(0.0, ge=0, le=1)
+    limit: int = Field(50, ge=1, le=200)
 
 
 class DRESExportRequest(BaseModel):
@@ -211,6 +228,26 @@ try:
         data = json.load(f)
         if "videos" in data:
             video_metadata_cache = data["videos"]
+
+    # M/N/S Drive mappings are kept in a small, tracked overlay because the
+    # full metadata JSON is a local dataset artifact and is intentionally
+    # ignored by git. Existing L mappings and richer video metadata win unless
+    # the overlay explicitly supplies the two Drive fields.
+    drive_index_path = BASE_DIR / "docs" / "drive_video_index.jsonl"
+    if drive_index_path.exists():
+        with open(drive_index_path, "r", encoding="utf-8-sig") as f:
+            for line_number, line in enumerate(f, 1):
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                mapping = json.loads(line)
+                video_id = mapping.get("video_id")
+                if video_id not in video_metadata_cache:
+                    raise ValueError(
+                        f"Unknown video_id in Drive index at line {line_number}: {video_id}"
+                    )
+                video_metadata_cache[video_id]["drive_file_id"] = mapping["drive_file_id"]
+                video_metadata_cache[video_id]["drive_url"] = mapping["drive_url"]
 except Exception as e:
     print(f"Warning: Could not load video_drive_metadata.json: {e}")
 
@@ -297,6 +334,43 @@ async def proxy_google_drive_file(file_id: str):
 # VECTOR SEARCH ENDPOINTS
 # ====================================================================
 
+@app.get("/api/v1/traffic/filters")
+def traffic_filters():
+    if not traffic_search_engine.available():
+        raise HTTPException(status_code=503, detail="Traffic camera database is not available")
+    return {"status": "success", **traffic_search_engine.filters()}
+
+
+@app.post("/api/v1/traffic/search")
+def traffic_search(request: TrafficSearchRequest):
+    if not traffic_search_engine.available():
+        raise HTTPException(status_code=503, detail="Traffic camera database is not available")
+    params = request.model_dump()
+    if params.get("start_time") is not None and params.get("end_time") is not None and params["end_time"] < params["start_time"]:
+        raise HTTPException(status_code=422, detail="end_time must be greater than or equal to start_time")
+    rows = traffic_search_engine.search(**params)
+    results = []
+    for row in rows:
+        approximate_frame = round(row["preview_time"] * float(row.get("source_fps") or 25.0))
+        frame = search_engine.nearest_frame_by_time(row["video_id"], row["preview_time"]) or {}
+        confidence = float(row.get("confidence") or 0.0)
+        result = {
+            **row,
+            "frame_idx": frame.get("frame_idx", approximate_frame),
+            "pts_time": frame.get("pts_time", row["preview_time"]),
+            "timestamp": frame.get("timestamp"),
+            "image_path": frame.get("image_path"),
+            "r2_url": frame.get("r2_url"),
+            "gdrive_file_id": frame.get("gdrive_file_id"),
+            "object_file_id": frame.get("object_file_id"),
+            "ocr_json_id": frame.get("ocr_json_id"),
+            "vector_id": frame.get("vector_id"),
+            "score": round(confidence * 100.0, 2),
+        }
+        results.append(result)
+    applied_filters = {key: value for key, value in params.items() if value not in (None, "", 0.0) and key != "limit"}
+    return {"status": "success", "total": len(results), "interpreted_filters": applied_filters, "results": results}
+
 @app.get("/api/v1/search/context")
 def search_context(video_id: str, frame_idx: int, limit: int = 50, surrounding: bool = False):
     results = search_engine.search_context(video_id, frame_idx, limit, surrounding=surrounding)
@@ -317,6 +391,23 @@ def video_filmstrip(video_id: str, anchor_frame: int, direction: str = "around",
         raise HTTPException(status_code=400, detail="direction must be around, before, or after")
     results = search_engine.search_frame_page(video_id, anchor_frame, direction, limit)
     return {"status": "success", "video_id": video_id, "anchor_frame": anchor_frame, "direction": direction, "results": results}
+
+@app.get("/api/v1/video/{video_id}/asr")
+def video_asr(video_id: str, center_time: float, window: float = 30.0, limit: int = 100):
+    """Return ASR transcript around the preview timestamp without loading the video."""
+    window = max(1.0, min(float(window), 300.0))
+    center_time = max(0.0, float(center_time))
+    start_time = max(0.0, center_time - window)
+    end_time = center_time + window
+    segments = search_engine.get_asr_segments(video_id, start_time, end_time, limit)
+    return {
+        "status": "success",
+        "video_id": video_id,
+        "center_time": center_time,
+        "start_time": start_time,
+        "end_time": end_time,
+        "segments": segments,
+    }
 
 @app.get("/api/v1/search/interval")
 def search_interval(video_id: str, start_time: float, end_time: float, limit: int = 200):

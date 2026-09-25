@@ -19,17 +19,26 @@ class DresApiError(RuntimeError):
 class DresClient:
     """DRES client; secrets are only carried in request bodies/query parameters."""
 
-    def __init__(self, base_url: Optional[str] = None, *, client_factory: Callable[..., Any] = httpx.AsyncClient):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        *,
+        client_factory: Callable[..., Any] = httpx.AsyncClient,
+        trust_env: Optional[bool] = None,
+    ):
         url = (base_url or os.getenv("DRES_API_BASE_URL", "https://eventretrieval.one")).rstrip("/")
         parsed = urlparse(url)
         if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
             raise ValueError("DRES_API_BASE_URL must be an HTTPS origin without embedded credentials")
         self.base_url = url
         self.client_factory = client_factory
+        if trust_env is None:
+            trust_env = os.getenv("DRES_TRUST_ENV", "true").strip().lower() not in {"0", "false", "no", "off"}
+        self.trust_env = trust_env
 
     async def login(self, username: str, password: str) -> str:
         try:
-            async with self.client_factory(timeout=10.0, follow_redirects=False) as client:
+            async with self.client_factory(timeout=10.0, follow_redirects=False, trust_env=self.trust_env) as client:
                 response = await client.post(f"{self.base_url}/api/v2/login", json={"username": username, "password": password})
                 if not response.is_success:
                     raise DresApiError("DRES login failed", status_code=response.status_code)
@@ -51,7 +60,7 @@ class DresClient:
 
     async def evaluations(self, session_id: str) -> List[Dict[str, Any]]:
         try:
-            async with self.client_factory(timeout=10.0, follow_redirects=False) as client:
+            async with self.client_factory(timeout=10.0, follow_redirects=False, trust_env=self.trust_env) as client:
                 response = await client.get(f"{self.base_url}/api/v2/client/evaluation/list", params={"session": session_id})
         except httpx.HTTPError as exc:
             raise DresApiError("Could not reach DRES while loading evaluations") from exc
@@ -79,7 +88,7 @@ class DresClient:
     async def submit_with_verdict(self, session_id: str, evaluation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.base_url}/api/v2/submit/{evaluation_id}"
         try:
-            async with self.client_factory(timeout=12.0, follow_redirects=False) as client:
+            async with self.client_factory(timeout=12.0, follow_redirects=False, trust_env=self.trust_env) as client:
                 response = await client.post(url, params={"session": session_id}, json=payload)
         except httpx.HTTPError as exc:
             raise DresApiError("DRES submit outcome is unknown; check the DRES evaluation before retrying", outcome_unknown=True) from exc

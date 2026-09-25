@@ -14,6 +14,7 @@ import threading
 from collections import OrderedDict, defaultdict
 
 _CLAUSE_SPLIT_RE = re.compile(r',|;|\n| and ')
+_R2_PUBLIC_BASE_URL = "https://pub-63867f61a3cb4f34a8b442399021fbbd.r2.dev"
 _VI_SMART_STOPWORDS = frozenset(
     {
         "các", "cảnh", "cho", "chính", "chiếc", "chúng", "cùng", "cuối",
@@ -45,6 +46,62 @@ def reduce_lexical_query(query: str, max_terms: int = 6) -> str:
         if len(selected) >= max_terms:
             break
     return " ".join(selected)
+
+
+def _normalize_r2_object_path(path: str) -> str:
+    """Normalize a local/Drive keyframe path into its public R2 object key."""
+    normalized = str(path).strip().replace("\\", "/")
+    marker_index = normalized.find("Keyframes_")
+    if marker_index >= 0:
+        normalized = normalized[marker_index:]
+    else:
+        normalized = normalized.lstrip("/")
+    return re.sub(r"\.(?:jpe?g|png)$", ".webp", normalized, flags=re.IGNORECASE)
+
+
+def _inferred_r2_object_path(rec: Dict[str, Any]) -> str:
+    """Infer keys for records whose newer schema omits an explicit image path."""
+    video_id = str(rec.get("video_id") or "")
+    keyframe = rec.get("keyframe") if isinstance(rec.get("keyframe"), dict) else {}
+    image_number = keyframe.get("id", rec.get("frame_number"))
+    try:
+        image_number = int(image_number)
+    except (TypeError, ValueError):
+        return ""
+
+    if re.fullmatch(r"M\d{2}_V\d+", video_id):
+        group = video_id.split("_", 1)[0]
+        return f"Keyframes_{group}/keyframes/{video_id}/{image_number:03d}.webp"
+
+    match = re.fullmatch(r"N(\d{3})_V\d+", video_id)
+    if match:
+        number = int(match.group(1))
+        range_start = ((number - 1) // 10) * 10 + 1
+        range_end = range_start + 9
+        path_video_id = video_id.replace("_", "-")
+        return (
+            f"Keyframes_N{range_start:03d}-N{range_end:03d}/keyframes/"
+            f"{path_video_id}/{image_number:03d}.webp"
+        )
+
+    if re.fullmatch(r"S\d{2}_V\d+", video_id):
+        group = video_id.split("_", 1)[0]
+        path_video_id = video_id.replace("_", "-")
+        return f"Keyframes_{group}/keyframes/{path_video_id}/{image_number:04d}.webp"
+
+    match = re.fullmatch(r"(L\d{2})_V\d+", video_id)
+    if match and match.group(1) != "L26":
+        return f"Keyframes_{match.group(1)}/keyframes/{video_id}/{image_number:03d}.webp"
+
+    return ""
+
+
+def build_r2_url(rec: Dict[str, Any]) -> str:
+    """Return a public R2 URL for both legacy and vision_v5 records."""
+    image = rec.get("image")
+    explicit_path = image.get("rel_path") if isinstance(image, dict) else image if isinstance(image, str) else ""
+    object_path = _normalize_r2_object_path(explicit_path) if explicit_path else _inferred_r2_object_path(rec)
+    return f"{_R2_PUBLIC_BASE_URL}/{object_path}" if object_path else ""
 
 
 def _result_key(item: Dict[str, Any]) -> Tuple[Any, ...]:
@@ -394,27 +451,22 @@ class SQLiteSearchEngine:
     def _format_result(self, raw_json_str: str, score: float) -> Dict[str, Any]:
         rec = json.loads(raw_json_str)
         vid = rec.get("video_id")
-        v_id = rec.get("clip", {}).get("vector_id")
+        clip_data = rec.get("clip") if isinstance(rec.get("clip"), dict) else {}
+        vector_data = rec.get("vector") if isinstance(rec.get("vector"), dict) else {}
+        v_id = clip_data.get("vector_id", vector_data.get("global_id"))
         
         timestamp_data = rec.get("timestamp") if isinstance(rec.get("timestamp"), dict) else {}
+        keyframe_data = rec.get("keyframe") if isinstance(rec.get("keyframe"), dict) else {}
         image_data = rec.get("image") if isinstance(rec.get("image"), dict) else {}
         ocr_data = rec.get("ocr") if isinstance(rec.get("ocr"), dict) else {}
         object_data = rec.get("object") if isinstance(rec.get("object"), dict) else {}
 
-        pts = float(timestamp_data.get("pts_time", 0.0))
+        pts = float(timestamp_data.get("pts_time", keyframe_data.get("pts_time", 0.0)))
         minutes = int(pts // 60)
         seconds = int(pts % 60)
 
         gdrive_id = image_data.get("file_id")
-        # Generate R2 URL from rel_path if it exists
-        rel_path = image_data.get("rel_path")
-        if rel_path:
-            # Replace .jpg with .webp since user uploaded compressed webp images to R2
-            if rel_path.endswith(".jpg"):
-                rel_path = rel_path[:-4] + ".webp"
-            r2_url = f"https://pub-63867f61a3cb4f34a8b442399021fbbd.r2.dev/{rel_path}"
-        else:
-            r2_url = ""
+        r2_url = build_r2_url(rec)
             
         img_url = image_data.get("url") or (f"https://lh3.googleusercontent.com/d/{gdrive_id}" if gdrive_id else "")
 
@@ -425,7 +477,9 @@ class SQLiteSearchEngine:
         return {
             "video_id": vid,
             "vector_id": int(v_id) if v_id is not None else 0,
-            "frame_idx": timestamp_data.get("frame_idx", rec.get("frame_number")),
+            "frame_idx": timestamp_data.get(
+                "frame_idx", keyframe_data.get("frame_idx", rec.get("frame_number"))
+            ),
             "pts_time": pts,
             "timestamp": f"{minutes:02d}:{seconds:02d} ({pts:.1f}s)",
             "image_path": img_url,
@@ -689,6 +743,52 @@ class SQLiteSearchEngine:
             for row in cur.fetchall():
                 results.append(self._format_result(row['raw_json'], 1.0))
         return results
+
+    def get_asr_segments(self, video_id: str, start_time: float, end_time: float, limit: int = 100):
+        """Return transcript segments overlapping a bounded video interval."""
+        if end_time < start_time:
+            start_time, end_time = end_time, start_time
+        limit = max(1, min(int(limit), 500))
+        with self._get_db() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT segment_index, start_time, end_time, text, source_type
+                FROM asr_segments
+                WHERE video_id = ?
+                  AND end_time >= ?
+                  AND start_time <= ?
+                  AND TRIM(COALESCE(text, '')) != ''
+                ORDER BY start_time ASC, segment_index ASC
+                LIMIT ?
+                """,
+                (video_id, float(start_time), float(end_time), limit),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def nearest_frame_by_time(self, video_id: str, pts_time: float) -> Optional[Dict[str, Any]]:
+        """Find the nearest stored keyframe using two indexed time seeks."""
+        with self._get_db() as conn:
+            cur = conn.cursor()
+            candidates = []
+            cur.execute(
+                "SELECT pts_time, raw_json FROM keyframes WHERE video_id = ? AND pts_time <= ? ORDER BY pts_time DESC LIMIT 1",
+                (video_id, float(pts_time)),
+            )
+            before = cur.fetchone()
+            if before:
+                candidates.append(before)
+            cur.execute(
+                "SELECT pts_time, raw_json FROM keyframes WHERE video_id = ? AND pts_time >= ? ORDER BY pts_time ASC LIMIT 1",
+                (video_id, float(pts_time)),
+            )
+            after = cur.fetchone()
+            if after:
+                candidates.append(after)
+        if not candidates:
+            return None
+        nearest = min(candidates, key=lambda row: abs(float(row["pts_time"]) - float(pts_time)))
+        return self._format_result(nearest["raw_json"], 1.0)
 
     def _fuzzy_text_search(self, query_text: str, field_name: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         raw_terms = [t for t in re.findall(r'\b\w+\b', query_text.lower()) if len(t) >= 2]

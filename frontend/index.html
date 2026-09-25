@@ -87,6 +87,7 @@
                 <button id="tabImageSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Tìm bằng ảnh</button>
                 <button id="tabTimeConvert" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Time ➔ Frame</button>
                 <button id="tabContextSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Khung hình lân cận</button>
+                <button id="tabTrafficSearch" class="px-4 py-2 bg-gray-800 text-gray-400 font-bold rounded-t-lg border-t border-l border-r border-gray-700 hover:text-white transition-colors">Camera giao thông</button>
             </div>
 
             <!-- Search Panel -->
@@ -209,6 +210,20 @@
                         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
                         Tìm khung hình lân cận
                     </button>
+                </form>
+
+                <!-- Traffic Camera Search Form -->
+                <form id="trafficSearchForm" class="hidden flex flex-wrap gap-3 items-end">
+                    <div class="w-28"><label class="block text-xs text-gray-400 mb-1">Camera</label><select id="trafficCamera" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Tất cả</option></select></div>
+                    <div class="w-28"><label class="block text-xs text-gray-400 mb-1">Đối tượng</label><select id="trafficClass" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Tất cả</option></select></div>
+                    <div class="w-28"><label class="block text-xs text-gray-400 mb-1">Màu</label><select id="trafficColor" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Tất cả</option></select></div>
+                    <div class="w-32"><label class="block text-xs text-gray-400 mb-1">Hướng</label><select id="trafficDirection" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Tất cả</option></select></div>
+                    <div class="w-36"><label class="block text-xs text-gray-400 mb-1">Trạng thái</label><select id="trafficMotion" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Tất cả</option></select></div>
+                    <div class="min-w-[190px] flex-1"><label class="block text-xs text-gray-400 mb-1">Sự kiện</label><select id="trafficEvent" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option value="">Không lọc sự kiện</option></select></div>
+                    <div class="w-24"><label class="block text-xs text-gray-400 mb-1">Từ giây</label><input id="trafficStart" type="number" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" placeholder="0"></div>
+                    <div class="w-24"><label class="block text-xs text-gray-400 mb-1">Đến giây</label><input id="trafficEnd" type="number" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" placeholder="600"></div>
+                    <div class="w-24"><label class="block text-xs text-gray-400 mb-1">Số kết quả</label><select id="trafficLimit" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white"><option>20</option><option selected>50</option><option>100</option><option>200</option></select></div>
+                    <button type="submit" class="h-[42px] rounded bg-amber-600 px-5 py-2 font-bold text-white hover:bg-amber-500">Tìm camera</button>
                 </form>
             </div>
 
@@ -372,6 +387,15 @@
                     </label>
                 </div>
             </div>
+            <section id="previewAsrPanel" class="w-full max-w-5xl mt-2 shrink-0 rounded-xl border border-gray-700 bg-gray-900/90 px-4 py-3 text-left" aria-live="polite">
+                <div class="flex items-center justify-between gap-3">
+                    <h4 class="font-bold text-emerald-300">Lời thoại ASR quanh thời điểm này</h4>
+                    <span id="previewAsrRange" class="text-xs font-mono text-gray-400"></span>
+                </div>
+                <div id="previewAsrContent" class="mt-2 max-h-28 overflow-y-auto space-y-1 text-sm text-gray-200">
+                    <p class="text-gray-500">Đang tải lời thoại…</p>
+                </div>
+            </section>
             <div id="videoContainer" class="w-full max-w-5xl mt-4 hidden bg-black rounded shadow-2xl overflow-hidden aspect-video border border-gray-700">
                 <iframe id="videoIframe" class="w-full h-full" src="" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
             </div>
@@ -461,6 +485,90 @@
             textarea.style.height = `${Math.min(contentHeight, maxHeight)}px`;
             textarea.style.overflowY = contentHeight > maxHeight ? 'auto' : 'hidden';
         }
+
+        function installBrowserSpeechInput(targetIds) {
+            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let activeRecognition = null;
+            let activeButton = null;
+
+            const resetButton = () => {
+                if (!activeButton) return;
+                activeButton.classList.remove('bg-red-600', 'animate-pulse', 'text-white');
+                activeButton.classList.add('bg-gray-700', 'text-gray-300');
+                activeButton.setAttribute('aria-pressed', 'false');
+                activeButton.title = 'Nhập bằng giọng nói tiếng Việt';
+                activeButton = null;
+                activeRecognition = null;
+            };
+
+            targetIds.forEach(targetId => {
+                const input = document.getElementById(targetId);
+                if (!input) return;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative min-w-0 flex-1';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+                input.classList.add('pr-12');
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50';
+                button.setAttribute('aria-label', 'Nhập bằng giọng nói tiếng Việt');
+                button.setAttribute('aria-pressed', 'false');
+                button.title = Recognition ? 'Nhập bằng giọng nói tiếng Việt' : 'Trình duyệt này không hỗ trợ nhận dạng giọng nói';
+                button.innerHTML = '<svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zm-7 9v1a7 7 0 0014 0v-1M12 19v3m-4 0h8"/></svg>';
+                button.disabled = !Recognition;
+                wrapper.appendChild(button);
+
+                button.onclick = () => {
+                    if (activeRecognition) {
+                        activeRecognition.stop();
+                        return;
+                    }
+                    const recognition = new Recognition();
+                    recognition.lang = 'vi-VN';
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+                    recognition.maxAlternatives = 3;
+                    activeRecognition = recognition;
+                    activeButton = button;
+                    button.classList.remove('bg-gray-700', 'text-gray-300');
+                    button.classList.add('bg-red-600', 'animate-pulse', 'text-white');
+                    button.setAttribute('aria-pressed', 'true');
+                    button.title = 'Đang nghe… nhấn lại để dừng';
+
+                    recognition.onresult = event => {
+                        let finalText = '';
+                        let interimText = '';
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const transcript = event.results[i][0]?.transcript?.trim() || '';
+                            if (event.results[i].isFinal) finalText += `${transcript} `;
+                            else interimText += `${transcript} `;
+                        }
+                        if (finalText.trim()) {
+                            const separator = input.value.trim() ? ' ' : '';
+                            input.value = `${input.value.trimEnd()}${separator}${finalText.trim()}`;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            resizeAutoGrowTextarea(input);
+                        }
+                        button.title = interimText.trim() ? `Đang nghe: ${interimText.trim()}` : 'Đang nghe… nhấn lại để dừng';
+                    };
+                    recognition.onerror = event => {
+                        const messages = {
+                            'not-allowed': 'Không có quyền dùng microphone. Hãy cho phép microphone trong trình duyệt.',
+                            'audio-capture': 'Không tìm thấy microphone.',
+                            'network': 'Dịch vụ nhận dạng giọng nói của trình duyệt không kết nối được mạng.',
+                            'no-speech': 'Không nghe thấy giọng nói. Hãy thử lại gần microphone hơn.'
+                        };
+                        if (event.error !== 'aborted') alert(messages[event.error] || `Nhận dạng giọng nói thất bại: ${event.error}`);
+                    };
+                    recognition.onend = resetButton;
+                    try { recognition.start(); } catch (error) { resetButton(); }
+                };
+            });
+        }
+
+        installBrowserSpeechInput(['questionInitialText', 'questionHintInput', 'queryInput', 'aiChatInput']);
 
         let appState = { queries: [], activeId: null, activeQuestion: null, searchDraft: {}, dresSubmissionHistory: [] };
         let lastResults = [];
@@ -700,7 +808,54 @@
         let filmstripPageLoading = false;
         let filmstripRangeStart = 0;
         let filmstripRangeEnd = 0;
+        let previewAsrRequestId = 0;
         const FILMSTRIP_PAGE_SIZE = 40;
+
+        function formatAsrTime(seconds) {
+            const value = Math.max(0, Number(seconds) || 0);
+            const minutes = Math.floor(value / 60);
+            const remainder = Math.floor(value % 60);
+            return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        }
+
+        async function loadPreviewAsr(videoId, centerTime) {
+            const requestId = ++previewAsrRequestId;
+            const content = document.getElementById('previewAsrContent');
+            const range = document.getElementById('previewAsrRange');
+            content.innerHTML = '<p class="text-gray-500">Đang tải lời thoại…</p>';
+            range.textContent = '';
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/video/${encodeURIComponent(videoId)}/asr?center_time=${encodeURIComponent(centerTime || 0)}&window=30&limit=100`);
+                const data = await response.json();
+                if (requestId !== previewAsrRequestId) return;
+                if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+                range.textContent = `${formatAsrTime(data.start_time)} – ${formatAsrTime(data.end_time)}`;
+                const segments = Array.isArray(data.segments) ? data.segments : [];
+                if (!segments.length) {
+                    content.innerHTML = '<p class="text-gray-500">Không có lời thoại ASR trong khoảng ±30 giây quanh khung hình này.</p>';
+                    return;
+                }
+                content.innerHTML = segments.map(segment => {
+                    const active = Number(segment.start_time) <= Number(centerTime) && Number(segment.end_time) >= Number(centerTime);
+                    return `<button type="button" data-asr-time="${Number(segment.start_time) || 0}" class="block w-full rounded px-2 py-1 text-left ${active ? 'bg-emerald-950/70 text-emerald-200 ring-1 ring-emerald-600' : 'hover:bg-gray-800'}"><span class="mr-2 font-mono text-xs text-emerald-400">${formatAsrTime(segment.start_time)}–${formatAsrTime(segment.end_time)}</span>${escapeHtml(segment.text || '')}</button>`;
+                }).join('');
+                content.querySelectorAll('[data-asr-time]').forEach(button => {
+                    button.onclick = () => {
+                        currentPts = Number(button.dataset.asrTime) || 0;
+                        const iframe = document.getElementById('videoIframe');
+                        if (!document.getElementById('videoContainer').classList.contains('hidden')) {
+                            fetch(`${API_BASE}/api/v1/video/${encodeURIComponent(currentVideoId)}`)
+                                .then(response => response.json())
+                                .then(video => { if (video.drive_file_id) iframe.src = `https://drive.google.com/file/d/${video.drive_file_id}/preview#t=${currentPts}`; });
+                        }
+                        loadPreviewAsr(currentVideoId, currentPts);
+                    };
+                });
+            } catch (error) {
+                if (requestId !== previewAsrRequestId) return;
+                content.innerHTML = `<p class="text-red-300">Không tải được ASR: ${escapeHtml(error.message)}</p>`;
+            }
+        }
 
         function frameImageUrl(item) {
             return frameImageSources(item)[0] || '';
@@ -755,6 +910,7 @@
             document.getElementById('modalDetails').textContent = `Frame: ${item.frame_idx} | Mốc thời gian: ${item.timestamp || 'Không có'} | Độ tương đồng: ${item.score != null ? Number(item.score).toFixed(1) + '%' : 'Không có'}`;
             document.getElementById('bboxesOverlay').innerHTML = '';
             renderFilmstrip();
+            loadPreviewAsr(currentVideoId, currentPts);
         }
 
         async function loadFilmstrip(videoId, frameIdx, direction = 'around') {
@@ -918,6 +1074,7 @@
             filmstripRangeStart = 0;
             filmstripRangeEnd = 0;
             loadFilmstrip(videoId, Number((details.match(/(?:Frame|Khung hình):\s*([\d.]+)/) || [])[1]) || 0, 'around');
+            loadPreviewAsr(videoId, currentPts);
             
             const btn = document.getElementById('btnPlayVideo');
             if (btn) {
@@ -1814,6 +1971,13 @@
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 ${item.timestamp}
                             </div>
+                            ${item.track_uid ? `<div class="flex flex-wrap gap-1 text-[10px]">
+                                ${item.event_type ? `<span class="rounded bg-amber-900/70 px-1.5 py-0.5 text-amber-200">${escapeHtml(item.event_type)}</span>` : ''}
+                                ${item.object_class ? `<span class="rounded bg-blue-900/70 px-1.5 py-0.5 text-blue-200">${escapeHtml(item.object_class)}</span>` : ''}
+                                ${item.color && item.color !== 'unknown' ? `<span class="rounded bg-gray-700 px-1.5 py-0.5 text-gray-200">${escapeHtml(item.color)}</span>` : ''}
+                                ${item.direction ? `<span class="rounded bg-purple-900/70 px-1.5 py-0.5 text-purple-200">${escapeHtml(item.direction)}</span>` : ''}
+                                <span class="rounded bg-gray-900 px-1.5 py-0.5 font-mono text-gray-400">${formatAsrTime(item.start_time)}–${formatAsrTime(item.end_time)}</span>
+                            </div>` : ''}
                             
                             <div class="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-gray-700">
                                 <button class="bg-gray-700 hover:bg-blue-600 text-white text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 font-medium" onclick="event.stopPropagation(); findSimilar(${item.vector_id})" title="Tìm khung hình có hình ảnh tương tự" aria-label="Tìm khung hình tương tự">
@@ -1967,8 +2131,33 @@
             };
 
         // Tabs Logic
-        const tabs = ['tabTextSearch', 'tabImageSearch', 'tabTimeConvert', 'tabContextSearch'];
-        const forms = ['searchForm', 'imageSearchForm', 'timeConvertForm', 'contextSearchForm'];
+        const tabs = ['tabTextSearch', 'tabImageSearch', 'tabTimeConvert', 'tabContextSearch', 'tabTrafficSearch'];
+        const forms = ['searchForm', 'imageSearchForm', 'timeConvertForm', 'contextSearchForm', 'trafficSearchForm'];
+        let trafficFiltersLoaded = false;
+
+        function fillTrafficSelect(id, values) {
+            const select = document.getElementById(id);
+            const first = select.options[0]?.outerHTML || '<option value="">Tất cả</option>';
+            select.innerHTML = first + (values || []).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+        }
+
+        async function loadTrafficFilters() {
+            if (trafficFiltersLoaded) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/traffic/filters`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+                fillTrafficSelect('trafficCamera', data.cameras);
+                fillTrafficSelect('trafficClass', data.classes);
+                fillTrafficSelect('trafficColor', data.colors);
+                fillTrafficSelect('trafficDirection', data.directions);
+                fillTrafficSelect('trafficMotion', data.motion_states);
+                fillTrafficSelect('trafficEvent', data.event_types);
+                trafficFiltersLoaded = true;
+            } catch (error) {
+                resultsCount.textContent = `Không tải được bộ lọc camera giao thông: ${friendlyApiError(error.message)}`;
+            }
+        }
         
         tabs.forEach((tabId, i) => {
             document.getElementById(tabId).onclick = (e) => {
@@ -1983,8 +2172,47 @@
                 
                 forms.forEach(f => document.getElementById(f).classList.add('hidden'));
                 document.getElementById(forms[i]).classList.remove('hidden');
+                if (tabId === 'tabTrafficSearch') loadTrafficFilters();
             };
         });
+
+        document.getElementById('trafficSearchForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const numberOrNull = id => {
+                const value = document.getElementById(id).value.trim();
+                return value === '' ? null : Number(value);
+            };
+            const payload = {
+                camera_id: document.getElementById('trafficCamera').value || null,
+                object_class: document.getElementById('trafficClass').value || null,
+                color: document.getElementById('trafficColor').value || null,
+                direction: document.getElementById('trafficDirection').value || null,
+                motion_state: document.getElementById('trafficMotion').value || null,
+                event_type: document.getElementById('trafficEvent').value || null,
+                start_time: numberOrNull('trafficStart'),
+                end_time: numberOrNull('trafficEnd'),
+                limit: Number(document.getElementById('trafficLimit').value) || 50
+            };
+            const searchStartTime = performance.now();
+            spinner.style.display = 'block';
+            resultsGrid.innerHTML = '';
+            resultsCount.textContent = 'Đang tìm trong dữ liệu camera giao thông…';
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/traffic/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+                renderResults(data.results || [], searchStartTime);
+                resultsCount.textContent = `Tìm thấy ${data.total || 0} kết quả camera giao thông.`;
+            } catch (error) {
+                resultsCount.textContent = `Không tìm được camera giao thông: ${friendlyApiError(error.message)}`;
+            } finally {
+                spinner.style.display = 'none';
+            }
+        };
 
         // Image Search Logic
         const imageInput = document.getElementById('imageInput');
@@ -2555,6 +2783,21 @@
                                                 const { verified = [] } = await validation.json();
                                                 const verifiedCards = verified.map(frame => ({ vid: frame.video_id, frame: frame.frame_idx, pts: frame.pts_time }));
                                                 if (verifiedCards.length) responseDiv.insertAdjacentHTML('beforeend', renderCandidateCardsHtml(verifiedCards));
+                                                if (verifiedCards.length && rawAssistantText.includes('[TRAFFIC_CAMERA_RESULTS]')) {
+                                                    const frameResults = await Promise.all(verifiedCards.map(async candidate => {
+                                                        const frameResponse = await fetch(`${API_BASE}/api/v1/search/context?video_id=${encodeURIComponent(candidate.vid)}&frame_idx=${candidate.frame}&limit=1&surrounding=false`);
+                                                        if (!frameResponse.ok) return null;
+                                                        const frameData = await frameResponse.json();
+                                                        return frameData.results?.[0] || null;
+                                                    }));
+                                                    const visibleFrames = frameResults.filter(Boolean);
+                                                    if (visibleFrames.length) {
+                                                        document.getElementById('tabTrafficSearch')?.click();
+                                                        renderResults(visibleFrames, performance.now());
+                                                        resultsCount.textContent = `AI đã tìm thấy ${visibleFrames.length} kết quả camera giao thông.`;
+                                                        document.getElementById('resultsScroller')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }
+                                                }
                                             }
                                         } catch (error) {
                                             console.warn('Could not verify Assistant candidates against the frame index.', error);
@@ -2595,10 +2838,11 @@
                                     rawAssistantText += unescapedToken;
 
                                     if (responseDiv) {
+                                        const visibleAssistantText = rawAssistantText.replace(/\[TRAFFIC_CAMERA_RESULTS\]/g, '').trimStart();
                                         if (window.marked && typeof marked.parse === 'function') {
-                                            responseDiv.innerHTML = marked.parse(rawAssistantText);
+                                            responseDiv.innerHTML = marked.parse(visibleAssistantText);
                                         } else {
-                                            let text = rawAssistantText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                                            let text = visibleAssistantText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
                                             responseDiv.innerHTML = text;
                                         }
                                     }
