@@ -73,6 +73,10 @@ class DresClient:
         ]
 
     async def submit(self, session_id: str, evaluation_id: str, payload: Dict[str, Any]) -> int:
+        result = await self.submit_with_verdict(session_id, evaluation_id, payload)
+        return result["http_status"]
+
+    async def submit_with_verdict(self, session_id: str, evaluation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self.base_url}/api/v2/submit/{evaluation_id}"
         try:
             async with self.client_factory(timeout=12.0, follow_redirects=False) as client:
@@ -83,4 +87,19 @@ class DresClient:
             raise DresApiError("DRES submit outcome is unknown; check the DRES evaluation before retrying", status_code=response.status_code, outcome_unknown=True)
         if not response.is_success:
             raise DresApiError("DRES rejected the submission", status_code=response.status_code)
-        return response.status_code
+        try:
+            body = response.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        verdict = body.get("submission")
+        if not isinstance(verdict, str):
+            verdict = None
+        else:
+            verdict = verdict.upper()
+        return {
+            "http_status": response.status_code,
+            "verdict": verdict,
+            "description": body.get("description") if isinstance(body.get("description"), str) else None,
+        }

@@ -293,28 +293,27 @@
                 <div class="p-4 flex-1 overflow-y-auto">
                     <!-- Create Query -->
                     <div class="bg-gray-900 p-3 rounded-lg border border-gray-700 mb-6 shadow-inner">
-                        <h3 class="text-sm font-bold text-blue-400 mb-2 uppercase tracking-wide">Tạo bộ đáp án mới</h3>
                         <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                            <input id="newQueryName" type="text" placeholder="Tên bộ đáp án" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
+                            <input id="newQueryName" type="text" placeholder="New answer set name" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
                             <select id="newQueryType" class="w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white font-mono">
                                 <option value="KIS">KIS (Text / Video)</option>
                                 <option value="QA">Q&amp;A</option>
                                 <option value="TRAKE">TRAKE</option>
                             </select>
-                            <button id="btnCreateQuery" type="button" aria-label="Tạo bộ đáp án" title="Tạo bộ đáp án" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Tạo</span></button>
+                            <button id="btnCreateQuery" type="button" aria-label="Create answer set" title="Create answer set" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Create</span></button>
                         </div>
                     </div>
 
                     <!-- Queries List -->
-                    <h3 class="text-sm font-bold text-gray-300 mb-2 uppercase tracking-wide">Các bộ đáp án đã lưu</h3>
+                    <h3 class="text-sm font-bold text-gray-300 mb-2 uppercase tracking-wide">Saved Answer Sets</h3>
                     <div id="queriesList" class="flex flex-col gap-2 mb-6 min-h-[50px]"></div>
 
                     <!-- Active Query Details -->
                     <div class="border-t border-gray-700 pt-4 mt-2">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 id="activeQueryTitle" class="text-md font-bold text-blue-400">Chưa chọn bộ đáp án</h3>
+                            <h3 id="activeQueryTitle" class="hidden text-md font-bold text-blue-400"></h3>
                             <div class="flex gap-2">
-                                <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Thêm dòng mới</button>
+                                <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Thêm dòng</button>
                                 <button id="btnClearQuery" class="text-xs text-red-400 hover:text-red-300 hidden bg-red-400/10 px-2 py-1 rounded">Xóa tất cả</button>
                             </div>
                         </div>
@@ -323,7 +322,7 @@
 
                     <div class="-mx-4 -mb-4 mt-6 border-t border-gray-700 bg-gray-900 p-4">
                         <button id="btnExportDres" class="w-full py-2.5 mb-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold shadow flex items-center justify-center gap-2 transition-transform active:scale-95">
-                            Kiểm tra đáp án DRES
+                            Kiểm tra và nộp
                         </button>
                         <button id="btnExportZip" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
                             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -388,7 +387,10 @@
                 <button id="btnCloseDresReview" type="button" class="justify-self-end text-gray-300 hover:text-white text-3xl leading-none" aria-label="Đóng phần kiểm tra">&times;</button>
             </div>
             <div class="space-y-4 p-5">
-                <div id="dresReviewError" class="hidden rounded border border-red-500/50 bg-red-950/40 p-3 text-sm text-red-200"></div>
+                <div id="dresReviewError" class="hidden rounded border border-red-500/50 bg-red-950/40 p-3 text-sm text-red-200">
+                    <p id="dresReviewErrorMessage"></p>
+                    <button id="btnEditMissingDresFrame" type="button" class="hidden mt-3 rounded border border-red-300/40 px-3 py-2 font-semibold text-white hover:bg-red-900/60">Sửa Frame ID</button>
+                </div>
                 <section>
                     <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-gray-300">Đáp án đã chọn và bằng chứng</h3>
                     <div id="dresReviewSummary" class="grid gap-3 sm:grid-cols-2"></div>
@@ -405,25 +407,19 @@
                                 <label for="dresSessionIdDisplay">Session ID</label>
                                 <code id="dresSessionIdDisplay" class="mt-1 block min-h-9 w-full break-all rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm font-sans text-gray-500">Chưa kết nối</code>
                             </div>
-                            <button id="btnDresRefreshSession" type="button" aria-label="Đăng nhập lại và làm mới session" title="Đăng nhập lại và làm mới session" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 disabled:cursor-wait disabled:opacity-50">
-                                Lấy session
-                            </button>
+                            <button id="btnDresRefreshSession" type="button" aria-label="Tải lại session" title="Tải lại session" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 disabled:cursor-wait disabled:opacity-50">Tải lại</button>
                         </div>
                         <div class="mt-2 flex flex-wrap items-end gap-2">
                             <label class="min-w-56 flex-1 text-xs text-gray-300">Evaluation đang hoạt động<select id="dresEvaluationSelect" class="mt-1 w-full rounded border border-gray-600 bg-gray-950 p-2 text-sm text-white" disabled><option value="">Đăng nhập để tải evaluation đang hoạt động</option></select></label>
                             <button id="btnDresLoadEvaluations" type="button" aria-label="Tải lại danh sách evaluation" title="Tải lại danh sách evaluation" class="rounded border border-gray-600 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800" disabled>Tải lại</button>
                         </div>
                         <div class="mt-8 flex justify-end">
-                            <button id="btnDresSubmit" type="button" class="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50" disabled>Gửi đáp án đã kiểm tra</button>
+                            <button id="btnDresSubmit" type="button" class="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50" disabled>Gửi đáp án</button>
                         </div>
                 </fieldset>
                 <section id="dresHistorySection" class="hidden rounded border border-gray-700 bg-gray-800/60 p-4">
                     <div id="dresDuplicateWarning" class="hidden mb-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200" role="status"></div>
                     <div id="dresCurrentAttemptStatus" class="mb-3 text-sm font-semibold text-gray-200" aria-live="polite" tabindex="-1"></div>
-                    <div class="mb-4 flex flex-wrap gap-2">
-                        <button id="btnRecordDresAccepted" type="button" class="hidden rounded bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600">Ghi nhận đã chấp nhận</button>
-                        <button id="btnRecordDresRejected" type="button" class="hidden rounded bg-red-800 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">Ghi nhận bị từ chối</button>
-                    </div>
                     <div id="dresHistoryEntries" class="max-h-72 space-y-2 overflow-y-auto text-xs text-gray-300"></div>
                 </section>
             </div>
@@ -517,7 +513,6 @@
                 'Query string cannot be empty': 'Hãy nhập nội dung cần tìm.',
                 'Selected video/frame was not found': 'Không tìm thấy video hoặc khung hình đã chọn.',
                 'Video metadata not found': 'Không tìm thấy thông tin video.',
-                'This exact answer was already sent or has an unknown submit outcome for this query.': 'Đáp án giống hệt đã được gửi hoặc chưa rõ kết quả cho câu này. Hãy kiểm tra DRES trước khi thao tác tiếp.',
                 'Configured DRES login is only available to the local same-origin app.': 'Đăng nhập bằng thông tin trong cấu hình chỉ dùng được trên ứng dụng localhost.',
                 'DRES_USERNAME and DRES_PASSWORD are not configured on the server.': 'Máy chủ chưa cấu hình thông tin đăng nhập DRES.',
                 'No ACTIVE evaluations were returned.': 'Không tìm thấy evaluation đang hoạt động.',
@@ -526,7 +521,6 @@
                 'video_id must be a non-empty item name, not a path': 'Video ID không được để trống hoặc chứa đường dẫn.',
                 'Q&A answer must be a non-empty string': 'Câu trả lời Q&A không được để trống.',
                 'TRAKE frame IDs must be strictly increasing': 'Các frame ID TRAKE phải tăng dần và không trùng nhau.',
-                'This exact answer was already submitted for the query': 'Đáp án giống hệt đã được ghi nhận cho câu này.'
             };
             if (known[raw]) return known[raw];
             if (/^Export validation failed/i.test(raw)) return `Không thể kiểm tra dữ liệu xuất${status ? ` (HTTP ${status})` : ''}.`;
@@ -1031,7 +1025,7 @@
 
             const query = {
                 id: Math.random().toString(36).slice(2, 11),
-                name: `Câu ${new Date().toLocaleTimeString('vi-VN')}`,
+                name: `Question ${new Date().toLocaleTimeString('vi-VN')}`,
                 type: expectedType,
                 items: []
             };
@@ -1047,11 +1041,11 @@
             if (query.type === expectedType) return '';
             const questionType = appState.activeQuestion?.type || questionTypeEl.value;
             const questionLabels = { KIS_TEXT: 'KIS văn bản', KIS_VIDEO: 'KIS video', QA: 'Q&A', TRAKE: 'TRAKE' };
-            return `Dạng câu thi đang chọn là ${questionLabels[questionType] || questionType}, nhưng bộ đáp án này thuộc dạng ${query.type}. Hãy chọn bộ đáp án dạng ${expectedType} để tiếp tục.`;
+            return `Dạng câu thi đang chọn là ${questionLabels[questionType] || questionType}, nhưng answer set này thuộc dạng ${query.type}. Hãy chọn answer set dạng ${expectedType} để tiếp tục.`;
         }
 
         document.getElementById('btnCreateQuery').onclick = () => {
-            const name = document.getElementById('newQueryName').value.trim() || `Câu ${new Date().toLocaleTimeString('vi-VN')}`;
+            const name = document.getElementById('newQueryName').value.trim() || `Question ${new Date().toLocaleTimeString('vi-VN')}`;
             const type = document.getElementById('newQueryType').value;
             const newQuery = { id: Math.random().toString(36).substr(2,9), name, type, items: [] };
             appState.queries.push(newQuery);
@@ -1072,7 +1066,7 @@
             if (!query) return;
             const trimmedName = newName.trim();
             if (!trimmedName) {
-                alert('Tên bộ đáp án không được để trống.');
+                alert('Tên answer set không được để trống.');
                 renderSidebar();
                 return;
             }
@@ -1173,36 +1167,39 @@
             
             const list = document.getElementById('queriesList');
             if (appState.queries.length === 0) {
-                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">Chưa có bộ đáp án nào.</p>`;
+                list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">Chưa có answer set nào.</p>`;
             } else {
                 list.innerHTML = appState.queries.map(q => `
                     <div class="flex items-center gap-2 p-2 rounded border border-transparent transition-all ${q.id === appState.activeId ? 'bg-gray-700 border-indigo-300 ring-2 ring-indigo-500/60 shadow-lg shadow-indigo-950/40' : 'bg-gray-800 hover:border-gray-500'}">
                         <input type="text" class="query-rename-button w-[44%] max-w-[44%] min-w-0 flex-none bg-transparent p-0 text-left font-medium text-white outline-none focus:text-blue-200" aria-label="Đổi tên ${escapeHtml(q.name)}" title="Nhập tên mới rồi nhấn Enter hoặc rời khỏi ô để lưu" value="${escapeHtml(q.name)}" onchange="updateQueryName('${q.id}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.value=this.defaultValue;this.blur()}">
-                        <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Chọn bộ đáp án này" onclick="setActive('${q.id}')">
+                        <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Chọn answer set này" onclick="setActive('${q.id}')">
                             <span class="text-xs bg-gray-900 px-2 py-0.5 rounded text-blue-300 font-bold border border-gray-600">${escapeHtml(q.type)}</span>
                             <span class="text-xs text-gray-400 w-12 text-right">${q.items.length}/100</span>
                         </button>
-                        <button type="button" class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" aria-label="Xóa ${escapeHtml(q.name)}" title="Xóa bộ đáp án" onclick="deleteQuery('${q.id}')">&times;</button>
+                        <button type="button" class="text-gray-500 hover:text-red-400 px-1 text-lg leading-none" aria-label="Xóa ${escapeHtml(q.name)}" title="Xóa answer set" onclick="deleteQuery('${q.id}')">&times;</button>
                     </div>
                 `).join('');
             }
 
             const itemsContainer = document.getElementById('activeQueryItems');
+            const activeQueryTitle = document.getElementById('activeQueryTitle');
             if (!activeQ) {
-                document.getElementById('activeQueryTitle').textContent = "Chưa chọn bộ đáp án";
+                activeQueryTitle.textContent = "";
+                activeQueryTitle.classList.add('hidden');
                 document.getElementById('btnClearQuery').style.display = "none";
                 document.getElementById('btnForceNewRow').style.display = "none";
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Hãy chọn bộ đáp án để tiếp tục.</p>";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Hãy chọn answer set để tiếp tục.</p>";
                 return;
             }
 
-            document.getElementById('activeQueryTitle').textContent = activeQ.name;
+            activeQueryTitle.textContent = activeQ.name;
+            activeQueryTitle.classList.remove('hidden');
             document.getElementById('btnClearQuery').style.display = "block";
             document.getElementById('btnForceNewRow').style.display = ['KIS', 'QA', 'TRAKE'].includes(activeQ.type) ? "block" : "none";
-            document.getElementById('btnClearQuery').onclick = () => { if(confirm("Xóa tất cả đáp án trong bộ này?")) { activeQ.items = []; saveState(); } };
+            document.getElementById('btnClearQuery').onclick = () => { activeQ.items = []; saveState(); };
 
             if (activeQ.items.length === 0) {
-                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Bộ đáp án này chưa có đáp án nào.</p>";
+                itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Answer set này chưa có đáp án nào.</p>";
                 return;
             }
 
@@ -1250,7 +1247,7 @@
 
         window.addToActive = function(vid, frame) {
             if (!appState.activeId) {
-                alert("Hãy chọn hoặc tạo một bộ đáp án ở thanh bên trước.");
+                alert("Hãy chọn hoặc tạo một answer set ở thanh bên trước.");
                 document.getElementById('submissionSidebar').classList.add('open');
                 if(window.innerWidth >= 640) document.getElementById('mainContentArea').style.marginRight = '420px';
                 document.getElementById('sidebarToggle').setAttribute('aria-expanded', 'true');
@@ -1285,7 +1282,7 @@
         };
 
         document.getElementById('btnExportZip').onclick = async () => {
-            if (appState.queries.length === 0) return alert("Chưa có bộ đáp án nào để xuất.");
+            if (appState.queries.length === 0) return alert("Chưa có answer set nào để xuất.");
             const zip = new JSZip();
             const folder = zip.folder("submission");
             appState.queries.forEach(q => {
@@ -1321,6 +1318,18 @@
         document.getElementById('btnCloseDresReview').onclick = closeDresReview;
         document.getElementById('btnCancelDresReview').onclick = closeDresReview;
         dresReviewModal.addEventListener('click', event => { if (event.target === dresReviewModal) closeDresReview(); });
+        document.getElementById('btnEditMissingDresFrame').onclick = () => {
+            document.getElementById('submissionSidebar').classList.add('open');
+            if (window.innerWidth >= 640) document.getElementById('mainContentArea').style.marginRight = '420px';
+            document.getElementById('sidebarToggle').setAttribute('aria-expanded', 'true');
+            document.getElementById('tabSubmitBtn')?.click();
+            closeDresReview();
+            requestAnimationFrame(() => {
+                const frameInput = document.querySelector('#activeQueryItems input[aria-label="Chỉ số khung hình"], #activeQueryItems input[aria-label="Danh sách frame ID TRAKE"]');
+                frameInput?.focus();
+                frameInput?.select();
+            });
+        };
         dresReviewModal.addEventListener('keydown', event => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -1343,7 +1352,9 @@
         });
 
         function showDresReviewError(message) {
-            document.getElementById('dresReviewError').textContent = message;
+            document.getElementById('dresReviewErrorMessage').textContent = message;
+            const canEditFrame = /không tìm thấy .*khung hình|frame.*not found|not found.*frame/i.test(message);
+            document.getElementById('btnEditMissingDresFrame').classList.toggle('hidden', !canEditFrame);
             document.getElementById('dresReviewError').classList.remove('hidden');
             document.getElementById('btnDownloadReviewedDres').disabled = true;
         }
@@ -1356,15 +1367,25 @@
             const url = `${API_BASE}/api/v1/video/${encodeURIComponent(videoId)}/frames?start_frame=${encodeURIComponent(frameId)}&end_frame=${encodeURIComponent(frameId)}&limit=1`;
             const response = await fetch(url);
             const result = await response.json();
-            if (!response.ok) throw new Error(result.detail || `Không tìm thấy khung hình (HTTP ${response.status}).`);
+            if (!response.ok) {
+                if (response.status === 404) return { video_id: videoId, frame_idx: Number(frameId), not_found: true };
+                throw new Error(result.detail || `Không thể tải khung hình (HTTP ${response.status}).`);
+            }
             const frame = (result.results || []).find(row => Number(row.frame_idx) === Number(frameId));
-            if (!frame) throw new Error(`Không tìm thấy khung hình ${frameId} trong dữ liệu video.`);
+            if (!frame) return { video_id: videoId, frame_idx: Number(frameId), not_found: true };
             return frame;
         }
 
         function renderDresEvidenceFrames(frames) {
             const host = document.getElementById('dresReviewFrames');
             host.innerHTML = frames.map((frame, index) => {
+                if (frame.not_found) {
+                    return `<article class="flex min-h-40 flex-col justify-center rounded border border-amber-500/40 bg-amber-950/20 p-5 text-center">
+                        <div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Khung hình ${Number(frame.frame_idx)}</div>
+                        <p class="mt-2 text-sm text-amber-200">Không tìm thấy khung hình này trong dữ liệu video.</p>
+                        <p class="mt-1 text-xs text-gray-400">Không thể tạo payload cho khung hình chưa có trong index. Hãy kiểm tra và sửa Frame ID.</p>
+                    </article>`;
+                }
                 const pts = Number(frame.pts_time);
                 const ptsLabel = Number.isFinite(pts) ? `${pts.toFixed(3)} giây` : 'Không có mốc thời gian';
                 const image = frameImageUrl(frame);
@@ -1382,61 +1403,35 @@
             if (!pendingDresReview) return;
             const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
             const current = history.find(record => record.id === pendingDresReview.historyRecordId);
-            if (!current) return;
-            const earlierSubmissions = history.filter(record => record.id !== current.id && record.queryId === current.queryId && record.fingerprint === current.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(record.status));
+            const submissionStatuses = ['sending', 'submitted', 'accepted', 'rejected', 'precondition_failed', 'session_expired', 'invalid_evaluation', 'duplicate', 'failed', 'outcome_unknown'];
+            const queryHistory = history.filter(record => record.queryId === pendingDresReview.queryId && submissionStatuses.includes(record.status));
+            const priorStatuses = ['sending', 'submitted', 'accepted', 'rejected', 'precondition_failed', 'duplicate', 'outcome_unknown'];
+            const earlierSubmissions = queryHistory.filter(record => record.id !== current?.id && record.fingerprint === pendingDresReview.fingerprint && priorStatuses.includes(record.status));
             const warning = document.getElementById('dresDuplicateWarning');
             if (earlierSubmissions.length) {
-                const latest = earlierSubmissions.slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt))[0];
-                const statusText = { submitted: 'đã gửi', accepted: 'được ghi nhận là đã chấp nhận', rejected: 'được ghi nhận là bị từ chối', outcome_unknown: 'đã thử gửi nhưng chưa rõ kết quả' }[latest.status];
-                warning.textContent = `Đáp án giống hệt cho câu này ${statusText} lúc ${new Date(latest.updatedAt || latest.createdAt).toLocaleString('vi-VN')}. Hệ thống đã chặn gửi lại.`;
+                warning.textContent = 'Lưu ý: payload này đã được gửi trước đó. Bạn vẫn có thể gửi lại; mỗi lần gửi sẽ tạo thêm một lần thử trên DRES.';
                 warning.classList.remove('hidden');
             } else {
                 warning.textContent = '';
                 warning.classList.add('hidden');
             }
 
-            const labels = { prepared: 'Đã chuẩn bị trên máy', submitted: 'Đã gửi tới DRES (chưa xác nhận được chấp nhận)', accepted: 'Được chấp nhận (operator đã ghi nhận)', rejected: 'Bị từ chối (operator đã ghi nhận)', outcome_unknown: 'Chưa rõ kết quả gửi — hãy kiểm tra DRES trước khi thao tác tiếp' };
-            const statusColors = { prepared: 'text-amber-300', submitted: 'text-emerald-300', accepted: 'text-emerald-300', rejected: 'text-red-300', outcome_unknown: 'text-amber-300' };
+            const labels = { sending: 'Đang nộp bài', submitted: 'Đã gửi — chưa có kết luận', accepted: 'Đúng — DRES xác nhận đáp án chính xác', rejected: 'Sai — DRES xác nhận đáp án không chính xác', precondition_failed: 'HTTP 412 — Trùng kết quả hoặc hết thời gian', session_expired: 'HTTP 401 — Session hết hạn', invalid_evaluation: 'HTTP 404 — Sai Evaluation ID', duplicate: 'Lần gửi trùng bị từ chối', failed: 'Nộp không thành công', outcome_unknown: 'Chưa rõ kết quả nộp bài' };
+            const statusColors = { sending: 'text-amber-300', submitted: 'text-emerald-300', accepted: 'text-emerald-300', rejected: 'text-red-300', precondition_failed: 'text-amber-300', session_expired: 'text-amber-300', invalid_evaluation: 'text-amber-300', failed: 'text-red-300', outcome_unknown: 'text-amber-300' };
             const currentStatus = document.getElementById('dresCurrentAttemptStatus');
-            currentStatus.textContent = `Lịch sử lần gửi: ${labels[current.status] || current.status}`;
-            document.getElementById('btnRecordDresAccepted').classList.toggle('hidden', current.status !== 'submitted');
-            document.getElementById('btnRecordDresRejected').classList.toggle('hidden', current.status !== 'submitted');
+            currentStatus.textContent = current
+                ? `Lịch sử nộp bài: ${labels[current.status] || current.status}`
+                : 'Lịch sử nộp bài';
             updateDresConnectionUi();
 
-            const entries = history.filter(record => record.queryId === current.queryId && record.fingerprint === current.fingerprint).slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt));
+            const entries = queryHistory.slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt));
             document.getElementById('dresHistoryEntries').innerHTML = entries.length ? entries.map(record => `
                 <article class="rounded border border-gray-700 bg-gray-900 p-2">
-                    <div class="font-semibold ${record.id === current.id ? (statusColors[record.status] || 'text-gray-100') : 'text-gray-100'}">${escapeHtml(labels[record.status] || record.status)} · ${escapeHtml(new Date(record.updatedAt || record.createdAt).toLocaleString('vi-VN'))}${record.id === current.id ? ' · Lần gửi hiện tại' : ''}</div>
+                    <div class="font-semibold ${statusColors[record.status] || 'text-gray-100'}">${escapeHtml(labels[record.status] || record.status)} · ${escapeHtml(new Date(record.updatedAt || record.createdAt).toLocaleString('vi-VN'))}${record.id === current?.id ? ' · Lần nộp hiện tại' : ''}</div>
                     <div class="mt-0.5 text-gray-400">${escapeHtml(record.queryName || record.queryType || '')}</div>
                     ${record.response ? `<div class="mt-1 whitespace-pre-wrap break-words text-gray-300">${escapeHtml(record.response)}</div>` : ''}
-                </article>`).join('') : '<p class="text-gray-500">Chưa có lần gửi nào được ghi nhận cho dữ liệu này.</p>';
+                </article>`).join('') : '<p class="text-gray-500">Chưa có lần nộp bài nào cho câu hỏi này.</p>';
         }
-
-        function recordDresSubmissionStatus(status) {
-            if (!pendingDresReview) return;
-            const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
-            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) {
-                showDresReviewError('Đáp án đã thay đổi sau khi kiểm tra. Hãy kiểm tra lại trước khi ghi nhận trạng thái.');
-                return;
-            }
-            const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
-            const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
-            if (!record) return;
-            if (status === 'submitted' && history.some(entry => entry.id !== record.id && entry.queryId === record.queryId && entry.fingerprint === record.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(entry.status))) {
-                return showDresReviewError('Đáp án giống hệt đã được gửi hoặc chưa rõ kết quả cho câu này. Hãy kiểm tra DRES và lịch sử trước khi thao tác tiếp.');
-            }
-            if (status === 'submitted' && record.status !== 'prepared') return;
-            if ((status === 'accepted' || status === 'rejected') && record.status !== 'submitted') return;
-            record.status = status;
-            record.updatedAt = Date.now();
-            appState.dresSubmissionHistory = history;
-            saveState();
-            renderDresSubmissionHistory();
-            document.getElementById('dresCurrentAttemptStatus').focus();
-        }
-
-        document.getElementById('btnRecordDresAccepted').onclick = () => recordDresSubmissionStatus('accepted');
-        document.getElementById('btnRecordDresRejected').onclick = () => recordDresSubmissionStatus('rejected');
 
         function updateDresConnectionUi() {
             const select = document.getElementById('dresEvaluationSelect');
@@ -1458,11 +1453,11 @@
             select.disabled = !dresSessionId || !dresActiveEvaluations.length || dresEvaluationState === 'loading';
             select.classList.toggle('text-yellow-300', dresEvaluationState === 'loading');
             select.classList.toggle('text-red-400', dresEvaluationState === 'error');
-            select.classList.toggle('text-emerald-300', dresEvaluationState === 'loaded' && dresActiveEvaluations.length > 0);
+            select.classList.toggle('text-emerald-300', dresEvaluationState === 'loaded' && dresActiveEvaluations.length > 0 && Boolean(select.value));
+            select.classList.toggle('text-gray-500', dresEvaluationState === 'loaded' && dresActiveEvaluations.length > 1 && !select.value);
             select.classList.toggle('text-white', dresEvaluationState === 'idle');
             document.getElementById('btnDresLoadEvaluations').disabled = !dresSessionId || dresEvaluationState === 'loading';
-            const duplicate = pendingDresReview && (appState.dresSubmissionHistory || []).some(entry => entry.queryId === pendingDresReview.queryId && entry.fingerprint === pendingDresReview.fingerprint && ['submitted', 'accepted', 'rejected', 'outcome_unknown'].includes(entry.status));
-            document.getElementById('btnDresSubmit').disabled = !dresSessionId || !select.value || !pendingDresReview || duplicate || dresSubmitBusy || dresLoginBusy || dresEvaluationState === 'loading';
+            document.getElementById('btnDresSubmit').disabled = !dresSessionId || !select.value || !pendingDresReview || dresSubmitBusy || dresLoginBusy || dresEvaluationState === 'loading';
             if (selected && [...select.options].some(option => option.value === selected)) select.value = selected;
         }
 
@@ -1480,11 +1475,11 @@
                 dresActiveEvaluations = Array.isArray(data.evaluations) ? data.evaluations : [];
                 if (!dresActiveEvaluations.length) throw new Error('No ACTIVE evaluations were returned.');
                 dresEvaluationState = 'loaded';
-                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="">Chọn evaluation đang hoạt động</option>';
+                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="" class="text-gray-500">Chọn evaluation đang hoạt động</option>';
                 select.innerHTML = optionPlaceholder + dresActiveEvaluations.map(evaluation => {
                     const id = String(evaluation.evaluationId ?? evaluation.id ?? '');
                     const label = String(evaluation.name ?? evaluation.title ?? id);
-                    return id ? `<option value="${escapeHtml(id)}">${escapeHtml(label)} (${escapeHtml(id)})</option>` : '';
+                    return id ? `<option value="${escapeHtml(id)}" class="text-emerald-300">${escapeHtml(label)} (${escapeHtml(id)})</option>` : '';
                 }).join('');
                 if (dresActiveEvaluations.length === 1) {
                     const onlyEvaluationId = String(dresActiveEvaluations[0].evaluationId ?? dresActiveEvaluations[0].id ?? '');
@@ -1502,7 +1497,7 @@
         }
 
         async function loginToDres() {
-            if (dresLoginBusy) return;
+            if (dresLoginBusy) return false;
             const button = document.getElementById('btnDresRefreshSession');
             const previousSessionId = dresSessionId;
             const previousEvaluations = dresActiveEvaluations;
@@ -1519,14 +1514,17 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || `Đăng nhập DRES thất bại (HTTP ${response.status}).`);
                 dresSessionId = data.session_id;
+                if (!dresSessionId) throw new Error('DRES did not return a session ID.');
                 dresActiveEvaluations = [];
                 updateDresConnectionUi();
                 await loadDresEvaluations();
+                return true;
             } catch (error) {
                 dresSessionId = previousSessionId;
                 dresActiveEvaluations = previousEvaluations;
                 dresSessionFailed = !previousSessionId;
                 updateDresConnectionUi();
+                return false;
             } finally {
                 dresLoginBusy = false;
                 button.disabled = false;
@@ -1547,34 +1545,66 @@
             if (!evaluationId) return;
             if (!window.confirm(`Gửi đáp án ${pendingDresReview.queryType} đã kiểm tra tới evaluation ${evaluationId}? Nếu đáp án sai, bạn có thể bị trừ điểm và không thể thu hồi lần gửi này.`)) return;
             const button = document.getElementById('btnDresSubmit');
+            const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
+            const attempt = {
+                id: window.crypto?.randomUUID?.() || `dres-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                queryId: pendingDresReview.queryId,
+                queryName: pendingDresReview.queryName,
+                queryType: pendingDresReview.queryType,
+                evaluationId,
+                fingerprint: pendingDresReview.fingerprint,
+                payload: pendingDresReview.payload,
+                status: 'sending',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                response: 'Đang chờ DRES phản hồi.'
+            };
+            history.push(attempt);
+            appState.dresSubmissionHistory = history;
+            pendingDresReview.historyRecordId = attempt.id;
+            saveState();
+            renderDresSubmissionHistory();
             dresSubmitBusy = true; button.disabled = true; button.textContent = 'Đang gửi…';
             try {
                 const response = await fetch(`${API_BASE}/api/v1/dres/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: dresSessionId, evaluation_id: evaluationId, query_id: pendingDresReview.queryId, query_type: pendingDresReview.queryType, payload: pendingDresReview.payload }) });
                 const data = await response.json();
-                const history = appState.dresSubmissionHistory || [];
-                const record = history.find(entry => entry.id === pendingDresReview.historyRecordId);
+                const record = appState.dresSubmissionHistory.find(entry => entry.id === attempt.id);
                 if (response.ok) {
-                    if (record) { record.status = 'submitted'; record.response = `DRES HTTP ${data.http_status}; đã gửi, chưa xác nhận được chấp nhận.`; record.updatedAt = Date.now(); }
+                    const verdict = String(data.verdict || '').toUpperCase();
+                    const status = data.accepted === true ? 'accepted' : data.accepted === false ? 'rejected' : 'submitted';
+                    const verdictText = { CORRECT: 'DRES xác nhận đáp án chính xác.', WRONG: 'DRES xác nhận đáp án không chính xác.', INDETERMINATE: 'DRES chưa thể xác định kết quả.', UNDECIDABLE: 'DRES chưa thể xác định kết quả.' }[verdict];
+                    const responseText = verdictText || data.description || (Number(data.http_status) === 202 ? 'DRES đã nhận đáp án nhưng chưa có kết luận.' : 'DRES đã nhận đáp án nhưng chưa trả verdict.');
+                    if (record) { record.status = status; record.response = `HTTP ${data.http_status}: ${responseText}`; record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
-                } else if (response.status === 504 || response.status === 409) {
+                } else if (response.status === 504) {
                     if (record) { record.status = 'outcome_unknown'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
                 } else if (response.status === 412) {
-                    if (record) { record.status = 'rejected'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
+                    if (record) { record.status = 'precondition_failed'; record.response = 'HTTP 412 (Precondition Failed): Bạn vừa nộp trùng kết quả với lần nộp trước, hoặc thời gian làm bài của task đã hết.'; record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
+                    updateDresConnectionUi();
+                } else if (response.status === 401) {
+                    if (record) { record.status = 'session_expired'; record.response = 'HTTP 401 (Unauthorized): Session ID của bạn đã hết hạn, cần đăng nhập lại.'; record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
+                    updateDresConnectionUi();
+                } else if (response.status === 404) {
+                    if (record) { record.status = 'invalid_evaluation'; record.response = 'HTTP 404 (Not Found): Sai Evaluation ID.'; record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
                     updateDresConnectionUi();
                 } else {
+                    if (record) { record.status = 'failed'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
+                    saveState(); renderDresSubmissionHistory();
                     showDresReviewError(friendlyApiError(data.detail, response.status));
                     updateDresConnectionUi();
                 }
             } catch (error) {
-                const record = (appState.dresSubmissionHistory || []).find(entry => entry.id === pendingDresReview.historyRecordId);
+                const record = (appState.dresSubmissionHistory || []).find(entry => entry.id === attempt.id);
                 if (record) { record.status = 'outcome_unknown'; record.response = 'Trình duyệt không xác nhận được phản hồi. Hãy kiểm tra DRES trước khi thao tác tiếp.'; record.updatedAt = Date.now(); saveState(); renderDresSubmissionHistory(); }
                 showDresReviewError(`Không xác nhận được kết quả gửi: ${friendlyApiError(error.message)}. Hãy kiểm tra DRES trước khi thao tác tiếp.`);
                 updateDresConnectionUi();
-            } finally { dresSubmitBusy = false; button.textContent = 'Gửi đáp án đã kiểm tra'; updateDresConnectionUi(); }
+            } finally { dresSubmitBusy = false; button.textContent = 'Gửi đáp án'; updateDresConnectionUi(); }
         };
 
         document.getElementById('btnExportDres').onclick = async () => {
@@ -1585,7 +1615,8 @@
             document.getElementById('dresReviewSummary').innerHTML = '';
             document.getElementById('dresReviewFrames').innerHTML = '';
             document.getElementById('dresReviewJson').textContent = 'Đang chuẩn bị dữ liệu…';
-            reviewError.textContent = '';
+            document.getElementById('dresReviewErrorMessage').textContent = '';
+            document.getElementById('btnEditMissingDresFrame').classList.add('hidden');
             reviewError.classList.add('hidden');
             pendingDresReview = null;
             document.getElementById('btnDownloadReviewedDres').disabled = true;
@@ -1597,10 +1628,10 @@
             document.getElementById('btnCloseDresReview').focus();
 
             const query = appState.queries.find(item => item.id === appState.activeId);
-            if (!query) return showDresReviewError('Hãy chọn bộ đáp án trước.');
+            if (!query) return showDresReviewError('Hãy chọn answer set trước.');
             const typeMismatch = getSubmissionTypeMismatch(query);
             if (typeMismatch) return showDresReviewError(typeMismatch);
-            if (query.items.length !== 1) return showDresReviewError('Để kiểm tra DRES, bộ đáp án đang chọn phải có đúng một đáp án.');
+            if (query.items.length !== 1) return showDresReviewError('Để kiểm tra DRES, answer set đang chọn phải có đúng một đáp án.');
             const item = query.items[0];
             const fieldErrors = validateDresItem(query, item);
             if (Object.keys(fieldErrors).length) {
@@ -1609,7 +1640,6 @@
             }
             const videoId = String(item.video_id || '').trim();
             if (!videoId) return showDresReviewError('Thiếu Video ID. Hãy sửa đáp án đã chọn trong Trình tạo đáp án.');
-            if (!dresSessionId) void loginToDres();
             const requestBody = { query_type: query.type, video_id: videoId };
             let frameIds = [];
             if (query.type === 'KIS' || query.type === 'QA') {
@@ -1627,8 +1657,14 @@
 
             button.disabled = true;
             const originalText = button.textContent;
-            button.textContent = 'Đang kiểm tra…';
+            button.textContent = 'Đang tải session…';
             try {
+                const sessionRefreshed = await loginToDres();
+                if (!sessionRefreshed) {
+                    showDresReviewError('Không thể tải Session ID mới từ DRES. Hãy thử lại.');
+                    return;
+                }
+                button.textContent = 'Đang kiểm tra…';
                 const [payloadResponse, evidenceFrames] = await Promise.all([
                     fetch(`${API_BASE}/api/v1/submission/dres/export`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
@@ -1638,13 +1674,13 @@
                 const payload = await payloadResponse.json();
                 if (!payloadResponse.ok) throw new Error(payload.detail || `Export validation failed (${payloadResponse.status})`);
 
-                    const summary = [dresLabel('Bộ đáp án', query.name || query.id), dresLabel('Dạng câu', query.type), dresLabel('Video ID', videoId)];
+                    const summary = [dresLabel('Answer set', query.name || query.id), dresLabel('Dạng câu', query.type), dresLabel('Video ID', videoId)];
                 if (query.type === 'KIS' || query.type === 'QA') {
                     const serializedAnswer = payload.answerSets?.[0]?.answers?.[0] || {};
                     const serializedMillis = query.type === 'KIS'
                         ? serializedAnswer.start
                         : (typeof serializedAnswer.text === 'string' ? serializedAnswer.text.match(/-(\d+)$/)?.[1] : null);
-                    summary.push(dresLabel('Khung hình đã chọn', String(frameIds[0])));
+                    summary.push(dresLabel('Frame', String(frameIds[0])));
                     summary.push(dresLabel('Mốc thời gian gửi (ms)', serializedMillis ?? 'Không có'));
                     if (query.type === 'QA') summary.push(dresLabel('Câu trả lời', item.answer || '(để trống — dữ liệu kiểm tra phải từ chối)'));
                 } else {
@@ -1655,13 +1691,8 @@
                 renderDresEvidenceFrames(evidenceFrames);
                 document.getElementById('dresReviewJson').textContent = JSON.stringify(payload, null, 2);
                 const fingerprint = JSON.stringify(payload);
-                const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
-                const historyRecord = { id: (window.crypto?.randomUUID?.() || `dres-${Date.now()}-${Math.random().toString(36).slice(2)}`), queryId: query.id, queryName: query.name || query.id, queryType: query.type, fingerprint, payload, status: 'prepared', createdAt: Date.now(), updatedAt: Date.now(), response: '' };
-                history.push(historyRecord);
-                appState.dresSubmissionHistory = history;
-                pendingDresReview = { queryId: query.id, queryName: query.name || query.id, queryType: query.type, itemSnapshot: JSON.stringify(item), payload, fingerprint, historyRecordId: historyRecord.id };
+                pendingDresReview = { queryId: query.id, queryName: query.name || query.id, queryType: query.type, itemSnapshot: JSON.stringify(item), payload, fingerprint, historyRecordId: null };
                 document.getElementById('dresHistorySection').classList.remove('hidden');
-                saveState();
                 renderDresSubmissionHistory();
                 document.getElementById('btnDownloadReviewedDres').disabled = false;
             } catch (error) {
@@ -1743,7 +1774,7 @@
                             ${displayScore ? `<div class="absolute top-2 left-2 bg-black/80 text-white text-[11px] font-bold px-2 py-0.5 rounded backdrop-blur-sm border border-gray-700">${displayScore}</div>` : ''}
                             <div class="absolute top-2 right-2 flex gap-1">
                             <button class="w-7 h-8 rounded flex items-center justify-center font-bold text-lg shadow-lg border ${isPinned ? 'bg-amber-500 text-black border-amber-300' : 'bg-black/60 text-white border-gray-500 hover:bg-amber-600'}" onclick="event.stopPropagation(); togglePinnedFrame(${index})" title="${isPinned ? 'Bỏ ghim khỏi danh sách ưu tiên' : 'Ghim lên đầu kết quả tìm kiếm'}" aria-label="${isPinned ? 'Bỏ ghim khung hình' : 'Ghim khung hình'}">${isPinned ? '★' : '☆'}</button>
-                            <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="${isAdded ? 'Đã thêm vào bộ đáp án đang chọn' : 'Chọn làm đáp án'}" aria-label="${isAdded ? 'Đã thêm vào bộ đáp án đang chọn' : 'Chọn khung hình này làm đáp án'}">
+                            <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="${isAdded ? 'Đã thêm vào answer set đang chọn' : 'Chọn làm đáp án'}" aria-label="${isAdded ? 'Đã thêm vào answer set đang chọn' : 'Chọn khung hình này làm đáp án'}">
                                 ${isAdded ? '✓' : '+'}
                             </button>
                             </div>

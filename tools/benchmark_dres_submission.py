@@ -85,11 +85,11 @@ def run_contract_benchmark() -> Tuple[int, int, List[str]]:
         original = build_kis_payload("L1_V2", 12.0)
         corrected = build_kis_payload("L1_V2", 13.0)
         deduper.record("q1", original)
-        _raises(lambda: deduper.record("q1", original))
+        deduper.record("q1", original)
         deduper.record("q1", corrected)
         deduper.record("q2", original)
 
-    scenarios.append(("dedupe_identical_but_allow_corrections", dedupe_behavior))
+    scenarios.append(("record_identical_retries_and_allow_corrections", dedupe_behavior))
     scenarios.append(("full_score_formula", lambda: _assert_equal(
         [score_full_answer(0, 300, 0), score_full_answer(150, 300, 1), score_full_answer(300, 300, 0)],
         [100.0, 65.0, 50.0],

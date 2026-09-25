@@ -22,8 +22,8 @@
 
 - Log in using organizer-provided credentials, select the correct `ACTIVE` evaluation, and submit only after reviewing the payload.
 - The app stores the DRES session only in page memory; refreshing the page clears it. Environment credentials stay on the backend and are not returned to the browser or written to application logs. Credentials typed into the manual form are not saved by the app.
-- A successful HTTP response means `Sent`; it does not prove that DRES accepted or scored the answer. Record Accepted/Rejected only after checking the organizer's evaluation response.
-- Never submit the same payload twice for one query. If the app reports an unknown submit outcome, check DRES before taking further action; the app blocks an exact retry.
+- Submission history uses green for `CORRECT`, red for `WRONG`, and amber for HTTP 412 (duplicate result or expired task time), 401 (session expired; log in again), and 404 (invalid Evaluation ID). HTTP 202 is shown as sent with no verdict yet. Other verdicts such as `INDETERMINATE` remain visible in the response details and are not guessed as accepted or rejected.
+- If the same payload for the same query was already sent, the review dialog shows a warning, but you can still submit it again; every send may count as another DRES attempt. Corrected payloads are also available as new attempts. If an outcome is unknown, check DRES before retrying because the earlier request may already have been recorded.
 - A rejected answer or uncertain location may cost points. Check the task's location and answer before submitting.
 
 ## Known checks for the first organizer rehearsal

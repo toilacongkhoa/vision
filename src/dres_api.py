@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .dres_client import DresApiError, DresClient
-from .dres_submission import SubmissionDeduper, SubmissionError, validate_payload
+from .dres_submission import SubmissionError, validate_payload
 
 
 class DRESLoginRequest(BaseModel):
@@ -34,11 +34,9 @@ class DRESSubmitRequest(BaseModel):
 
 def create_dres_router(
     client: Optional[DresClient] = None,
-    deduper: Optional[SubmissionDeduper] = None,
 ) -> APIRouter:
-    """Build routes around injectable client/deduper dependencies."""
+    """Build routes around an injectable DRES client."""
     dres_client = client or DresClient()
-    submission_deduper = deduper or SubmissionDeduper()
     submission_lock = asyncio.Lock()
     router = APIRouter()
 
@@ -88,24 +86,28 @@ def create_dres_router(
 
     @router.post("/api/v1/dres/submit")
     async def dres_submit(request: DRESSubmitRequest):
+        if not request.query_id.strip():
+            raise HTTPException(status_code=422, detail="query_id must be non-empty")
         try:
             validate_payload(request.payload, request.query_type)
         except SubmissionError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         async with submission_lock:
-            if submission_deduper.contains(request.query_id, request.payload):
-                raise HTTPException(status_code=409, detail="This exact answer was already sent or has an unknown submit outcome for this query.")
             try:
-                status_code = await dres_client.submit(request.session_id, request.evaluation_id, request.payload)
+                result = await dres_client.submit_with_verdict(request.session_id, request.evaluation_id, request.payload)
             except DresApiError as exc:
                 if exc.outcome_unknown:
-                    submission_deduper.record(request.query_id, request.payload)
                     raise HTTPException(status_code=504, detail=str(exc)) from exc
                 if exc.status_code == 412:
-                    submission_deduper.record(request.query_id, request.payload)
                     raise HTTPException(status_code=412, detail=str(exc)) from exc
                 raise HTTPException(status_code=exc.status_code or 502, detail=str(exc)) from exc
-            submission_deduper.record(request.query_id, request.payload)
-        return {"status": "sent", "http_status": status_code, "accepted": None}
+        verdict = result.get("verdict")
+        accepted = True if verdict == "CORRECT" else False if verdict == "WRONG" else None
+        response = {"status": "sent", "http_status": result["http_status"], "accepted": accepted}
+        if verdict:
+            response["verdict"] = verdict
+        if result.get("description"):
+            response["description"] = result["description"]
+        return response
 
     return router

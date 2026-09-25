@@ -79,26 +79,27 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
         active = await self.client.evaluations("session")
         self.assertEqual(active, [{"id": "active-1", "status": "ACTIVE"}])
 
-    async def test_deduper_blocks_same_query_payload_and_allows_correction(self):
+    async def test_deduper_records_same_query_payload_without_blocking_retry(self):
         guard = SubmissionDeduper()
         first = {"answerSets": [{"answers": [{"text": "QA-spoon-L26_V1-200"}]}]}
         corrected = {"answerSets": [{"answers": [{"text": "QA-ladle-L26_V1-200"}]}]}
         guard.record("query-1", first)
         self.assertTrue(guard.contains("query-1", first))
         self.assertFalse(guard.contains("query-1", corrected))
-        with self.assertRaises(SubmissionError):
-            guard.record("query-1", first)
+        guard.record("query-1", first)
+        guard.record("query-1", corrected)
 
     async def test_credentials_require_https(self):
         for base_url in ("http://dres.test", "https://user:password@dres.test"):
             with self.assertRaises(ValueError):
                 DresClient(base_url)
 
-    async def test_api_routes_login_list_submit_and_block_duplicate(self):
+    async def test_api_routes_login_list_submit_and_allow_duplicate(self):
         payload = {"answerSets": [{"answers": [{"text": "TR-L26_V1-10,20"}]}]}
         self.responses.extend([
             httpx.Response(200, json={"sessionId": "route-session"}),
             httpx.Response(200, json=[{"id": "eval-1", "name": "Final", "status": "ACTIVE"}]),
+            httpx.Response(202, json={"status": "pending"}),
             httpx.Response(202, json={"status": "pending"}),
         ])
         app = FastAPI()
@@ -112,11 +113,11 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(evaluations.json()["evaluations"][0]["id"], "eval-1")
             body = {"session_id": session, "evaluation_id": "eval-1", "query_id": "query-1", "query_type": "TRAKE", "payload": payload}
             submitted = await api.post("/api/v1/dres/submit", json=body)
-            duplicate = await api.post("/api/v1/dres/submit", json=body)
+            repeated = await api.post("/api/v1/dres/submit", json=body)
             self.assertEqual(submitted.status_code, 200)
             self.assertEqual(submitted.json(), {"status": "sent", "http_status": 202, "accepted": None})
-            self.assertEqual(duplicate.status_code, 409)
-        self.assertEqual(len([request for request in self.requests if "/api/v2/submit/" in request.url.path]), 1)
+            self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(len([request for request in self.requests if "/api/v2/submit/" in request.url.path]), 2)
 
     async def test_configured_login_uses_server_env_for_local_same_origin(self):
         self.responses.append(httpx.Response(200, json={"sessionId": "configured-session"}))
@@ -150,7 +151,7 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(self.requests, [])
 
-    async def test_api_routes_validate_before_submit_and_lock_unknown_outcome(self):
+    async def test_api_routes_validate_before_submit_and_allow_unknown_retry(self):
         app = FastAPI()
         app.include_router(create_dres_router(self.client))
         transport = httpx.ASGITransport(app=app)
@@ -160,18 +161,30 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
                 "query_type": "TRAKE", "payload": {"answerSets": []},
             })
             self.assertEqual(invalid.status_code, 422)
+            blank_query = await api.post("/api/v1/dres/submit", json={
+                "session_id": "session", "evaluation_id": "eval-1", "query_id": "   ",
+                "query_type": "KIS", "payload": {"answerSets": [{"answers": [{"mediaItemName": "L26_V1", "start": "20", "end": "20"}]}]},
+            })
+            self.assertEqual(blank_query.status_code, 422)
             self.assertEqual(self.requests, [])
 
             payload = {"answerSets": [{"answers": [{"mediaItemName": "L26_V1", "start": "20", "end": "20"}]}]}
-            self.responses.append(httpx.Response(503, json={"detail": "temporary"}))
+            self.responses.extend([
+                httpx.Response(503, json={"detail": "temporary"}),
+                httpx.Response(202, json={"status": "pending"}),
+                httpx.Response(202, json={"status": "pending"}),
+            ])
             body = {"session_id": "session", "evaluation_id": "eval-1", "query_id": "query-2", "query_type": "KIS", "payload": payload}
             unknown = await api.post("/api/v1/dres/submit", json=body)
-            duplicate = await api.post("/api/v1/dres/submit", json=body)
+            retry = await api.post("/api/v1/dres/submit", json=body)
+            body["payload"] = {"answerSets": [{"answers": [{"mediaItemName": "L26_V1", "start": "21", "end": "21"}]}]}
+            corrected = await api.post("/api/v1/dres/submit", json=body)
             self.assertEqual(unknown.status_code, 504)
-            self.assertEqual(duplicate.status_code, 409)
-        self.assertEqual(len(self.requests), 1)
+            self.assertEqual(retry.status_code, 200)
+            self.assertEqual(corrected.status_code, 200)
+        self.assertEqual(len(self.requests), 3)
 
-    async def test_api_route_locks_rejected_payload_and_allows_correction(self):
+    async def test_api_route_allows_retry_of_rejected_payload_and_correction(self):
         app = FastAPI()
         app.include_router(create_dres_router(self.client))
         original = {"answerSets": [{"answers": [{"text": "TR-L26_V1-10,20"}]}]}
@@ -179,23 +192,47 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
         self.responses.extend([
             httpx.Response(412, json={"detail": "rejected"}),
             httpx.Response(200, json={"status": "ok"}),
+            httpx.Response(200, json={"status": "ok"}),
         ])
         body = {"session_id": "session", "evaluation_id": "eval-1", "query_id": "query-3", "query_type": "TRAKE", "payload": original}
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as api:
             rejected = await api.post("/api/v1/dres/submit", json=body)
-            duplicate = await api.post("/api/v1/dres/submit", json=body)
+            retry = await api.post("/api/v1/dres/submit", json=body)
             body["payload"] = corrected
             corrected_response = await api.post("/api/v1/dres/submit", json=body)
         self.assertEqual(rejected.status_code, 412)
-        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(retry.status_code, 200)
         self.assertEqual(corrected_response.status_code, 200)
-        self.assertEqual(len(self.requests), 2)
+        self.assertEqual(len(self.requests), 3)
 
-    async def test_api_route_serializes_concurrent_duplicate_attempts(self):
+    async def test_api_route_preserves_dres_auth_and_evaluation_errors(self):
         app = FastAPI()
         app.include_router(create_dres_router(self.client))
-        self.responses.append(httpx.Response(200, json={"status": "ok"}))
+        self.responses.extend([
+            httpx.Response(401, json={"detail": "unauthorized"}),
+            httpx.Response(404, json={"detail": "evaluation not found"}),
+        ])
+        body = {
+            "session_id": "session", "evaluation_id": "eval-1", "query_id": "query-5",
+            "query_type": "KIS",
+            "payload": {"answerSets": [{"answers": [{"mediaItemName": "L26_V1", "start": "20", "end": "20"}]}]},
+        }
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as api:
+            unauthorized = await api.post("/api/v1/dres/submit", json=body)
+            missing_evaluation = await api.post("/api/v1/dres/submit", json=body)
+        self.assertEqual(unauthorized.status_code, 401)
+        self.assertEqual(missing_evaluation.status_code, 404)
+        self.assertEqual(len(self.requests), 2)
+
+    async def test_api_route_forwards_concurrent_duplicate_retries(self):
+        app = FastAPI()
+        app.include_router(create_dres_router(self.client))
+        self.responses.extend([
+            httpx.Response(200, json={"status": "ok"}),
+            httpx.Response(200, json={"status": "ok"}),
+        ])
         payload = {"answerSets": [{"answers": [{"mediaItemName": "L26_V1", "start": "20", "end": "20"}]}]}
         body = {"session_id": "session", "evaluation_id": "eval-1", "query_id": "query-4", "query_type": "KIS", "payload": payload}
         transport = httpx.ASGITransport(app=app)
@@ -204,8 +241,8 @@ class DresContractTests(unittest.IsolatedAsyncioTestCase):
                 api.post("/api/v1/dres/submit", json=body),
                 api.post("/api/v1/dres/submit", json=body),
             )
-        self.assertEqual(sorted([first.status_code, second.status_code]), [200, 409])
-        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(sorted([first.status_code, second.status_code]), [200, 200])
+        self.assertEqual(len(self.requests), 2)
 
 
 if __name__ == "__main__":

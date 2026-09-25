@@ -143,7 +143,7 @@ def validate_payload(payload: Any, query_type: str) -> None:
 
 @dataclass
 class SubmissionDeduper:
-    """Track exact payloads already sent, while allowing corrected answers."""
+    """Track payload fingerprints without blocking operator-requested retries."""
 
     _seen: Dict[str, Set[str]] = field(default_factory=dict)
 
@@ -158,8 +158,6 @@ class SubmissionDeduper:
             raise SubmissionError("query_id must be non-empty")
         digest = self.fingerprint(payload)
         seen = self._seen.setdefault(key, set())
-        if digest in seen:
-            raise SubmissionError("this exact answer was already submitted for the query")
         seen.add(digest)
 
     def contains(self, query_id: str, payload: Mapping[str, Any]) -> bool:
