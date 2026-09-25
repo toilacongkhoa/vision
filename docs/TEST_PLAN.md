@@ -1,6 +1,6 @@
 # Kế hoạch kiểm thử toàn bộ dự án Vision
 
-**Ngày lập:** 2026-09-25. **Môi trường đang có:** backend tại `http://127.0.0.1:8000`, dữ liệu local và cấu hình DRES trong `.env`. Kế hoạch này bao phủ runtime, giao diện, dữ liệu, trợ lý/MCP và đường đi nộp DRES. Các bài DRES ở đây dùng mock hoặc request bị chặn ở validator local; không POST đáp án hợp lệ lên evaluation thật. Chỉ chuyển sang rehearsal DRES thật khi có evaluation tập huấn, đáp án mẫu và quy tắc tính điểm được xác nhận.
+**Ngày lập:** 2026-09-25. **Môi trường:** dữ liệu local, cấu hình DRES trong `.env`; backend local đã được dùng trên port riêng và dừng sau smoke. Kế hoạch này bao phủ runtime, giao diện, dữ liệu, trợ lý/MCP và đường đi nộp DRES. DRES dùng mock cho contract và đã có một POST duy nhất lên evaluation ACTIVE tên `AIC2026 - Textual KIS Test 2` theo yêu cầu người dùng; không POST lên evaluation thi. Chỉ tiếp tục DRES live khi có câu hỏi và đáp án mẫu đã xác minh cho test evaluation.
 
 ## 1. Phạm vi và nguyên tắc
 
@@ -27,6 +27,17 @@
 
 ## 3. Dữ liệu test và thứ tự chạy
 
+### Gate cài đặt/preflight (2026-09-25)
+
+- `tools/preflight.py` chạy được bằng Python 3.12.5 x64; dependency import được và `pip check` không có lỗi; SQLite schema/read-only query qua, có `177,321` frame và sample chứa Video ID/Frame ID/PTS; ma trận vector `(177321, 512)` float32 đọc bằng memory map.
+- Cấu hình `.env` cục bộ đã đặt `HOST=127.0.0.1`. Preflight xác nhận OpenCLIP checkpoint trong Hugging Face cache đúng repo `timm/vit_base_patch32_clip_224.openai`. Baseline log có QuickGELU mismatch; model variant khớp tag đã so trên p2/p3, MRR tăng mà R@50 không giảm ở cửa sổ rộng. Sau đổi default, server trên port 8001 load QuickGELU không còn mismatch; health, semantic, context và KIS export đều pass. Port 8000 đang có Python listener nên không dừng. Model dịch offline thiếu nhưng là tùy chọn.
+- `tools/data_manifest.py create` và `verify` chạy thành công trên dữ liệu local hiện có. `tools/run_server.py` định vị project từ đường dẫn script; chưa khởi chạy server qua script từ một thư mục làm việc khác. Nghiệm thu ba máy còn lại được bỏ khỏi phạm vi theo quyết định 2026-09-25.
+- Đây là kiểm tra một máy; không suy ra baseline hiệu năng, accuracy hoặc mức RAM tối thiểu của đội.
+- Smoke qua `tools/run_server.py`: health trả `healthy`, `search_ready=true`, 177,321 frame và đủ 5 mode; semantic query trả 3 candidate; context trả 5 frame; KIS export trả payload với `start=end=993240` ms từ PTS index. `python -m unittest tools.dres_contract_checks` đạt 15/15. Không gửi POST DRES thật; smoke query chỉ xác nhận đường đi kỹ thuật, không chấm độ chính xác.
+- Retrieval baseline có nhãn sơ bộ: xem [`docs/ACCURACY_BASELINE_2026-09-25.md`](ACCURACY_BASELINE_2026-09-25.md). Đã chạy semantic exact/5 s; semantic/OCR/ASR/hybrid ở cửa sổ 150 s chỉ để chẩn đoán; ASR/hybrid thêm ở 5 s. Không bật dịch online, tolerance chưa được BTC xác nhận, không thay đổi thuật toán từ các số này.
+- Tách hồi cứu p2/p3 theo ID rồi thử sentence split: `tools/benchmark_sentence_fusion.py` cho R@50 0/30 trên p2 và 0/33 trên p3 ở cả variant hiện tại lẫn candidate; latency p50 tăng nên candidate bị loại. p3 đã được xem qua trong thí nghiệm này và QuickGELU, không coi là holdout sạch cho thử nghiệm sau.
+- QuickGELU comparison: `tools/benchmark.py --id-prefix query-p2-` và `query-p3-` với `CLIP_MODEL_NAME=ViT-B-32-quickgelu`, cửa sổ 150 s diagnostic. R@50 giữ nguyên, target rank 3→2 trên p2 và 6→3 trên p3; ở 5 s cả hai model 0 hit. Default đã đổi; API smoke trên port 8001 pass.
+
 1. **Ghi baseline:** `git status --short`, commit hiện tại, phiên bản Python, `/api/v1/health`, danh sách path trong `/openapi.json`, số vector/row và trạng thái Agy. Không đưa credential vào log. Server đang chạy thì dùng server đó; chỉ restart nếu code/config thay đổi và cần so phiên bản.
 2. **Contract nhanh:** `\.venv\Scripts\python.exe -m unittest tools.dres_contract_checks`; `\.venv\Scripts\python.exe tools/benchmark_dres_submission.py`; `\.venv\Scripts\python.exe tools/benchmark_dres_operator.py`; `\.venv\Scripts\python.exe tools/benchmark_operator_search.py`; thêm `benchmark_trake_sequence.py`, `benchmark_qa_evidence.py`, `benchmark_dres_timing.py`, `benchmark_chatbot_stream.py`, `benchmark_chatbot_sessions.py`, `benchmark_agy_result_stream.py`, `benchmark_database_config.py`, `benchmark_runtime_paths.py` cho các khu vực tương ứng. Script benchmark hiệu năng/relevance (`benchmark.py`, `benchmark_multimodal.py`, `benchmark_chatbot.py`, `benchmark_vlm_selection.py`) chạy riêng với dataset/ground truth cố định; ghi cấu hình, seed, thời gian và kết quả, không lấy một smoke test làm chất lượng retrieval.
 3. **API local:** thử `/`, health, video/context/filmstrip/convert_time; POST search ở bốn mode và image/similar; POST export KIS/QA/TRAKE; thử input không hợp lệ và status 4xx. So `pts_time` frame nguồn với `start/end` hoặc text đã xuất. Chạy trên `127.0.0.1:8000`, timeout ngắn, giới hạn `top_k` nhỏ để tránh tải lớn.
@@ -44,9 +55,9 @@
 | D05 | Request sai schema, thiếu answer, sai query type/evaluation ID, timestamp/frame sai | Local 422 trước upstream; giữ dữ liệu để operator sửa; không tạo attempt đã gửi. |
 | D06 | Mock 401/403/412, 408/5xx, timeout hoặc mất kết nối sau POST | 401/403 báo lỗi auth; 412 rejected; 408/5xx/timeout ghi outcome unknown và hướng dẫn kiểm tra DRES trước khi thử lại. |
 | D07 | Bấm gửi hai lần, request đồng thời, refresh, server restart; gửi cùng fingerprint rồi payload đã sửa | Cùng payload luôn được chuyển tiếp lên DRES; UI cảnh báo nếu fingerprint/query đã có trong lịch sử nhưng vẫn cho phép gửi. Kiểm tra mỗi lần bấm tạo một request upstream và cảnh báo giữ nguyên với payload đã sửa lại đúng fingerprint cũ. |
-| D08 | Review KIS point `start == end`, QA `QA-<ANSWER>-<VIDEO_ID>-<TIME_MS>`, TRAKE `TR-<VIDEO_ID>-<FRAME_ID...>` | JSON, thứ tự và đơn vị đúng contract mock. Việc DRES thật chấp nhận `start == end` còn cần rehearsal của BTC. |
+| D08 | Review KIS point `start == end`, QA `QA-<ANSWER>-<VIDEO_ID>-<TIME_MS>`, TRAKE `TR-<VIDEO_ID>-<FRAME_ID...>` | JSON, thứ tự và đơn vị đúng contract mock. Một payload KIS `start == end` được DRES Test 2 xử lý và chấm (HTTP 200, `WRONG`); chưa suy ra điểm đúng hoặc chấp nhận ở evaluation thi. |
 
-**Cổng cho DRES thật (chưa chạy):** xác nhận URL BTC, credential thử, evaluation ID dành cho tập huấn, loại câu và đáp án mẫu được phép nộp; chụp trạng thái ACTIVE trước khi gửi; gửi đúng **một** request đã review; ghi HTTP status, body đã ẩn session, verdict và lịch sử; kiểm tra điểm/trạng thái trên DRES; dừng khi response chưa rõ, không tự retry. Evaluation thi đang tính điểm không dùng cho smoke test.
+**Cổng DRES live:** URL `https://eventretrieval.one`, credential và danh sách evaluation đã xác thực; một lần submit KIS được ghi ở mục 10. Không submit tiếp cho tới khi đọc được câu hiện tại và xác minh đáp án mẫu tương ứng. Evaluation thi đang tính điểm không dùng cho smoke test.
 
 ## 5. Kịch bản UI end-to-end và hiệu năng
 
@@ -80,10 +91,71 @@ Mỗi loại chạy thêm ít nhất một nhánh: không có kết quả, ảnh
 | Static/dependencies | 5/5 inline script qua `node --check`; `pip check` không phát hiện dependency lỗi. |
 | API local | 17/22 route path đã được gọi: root/health, video metadata, context/range/filmstrip/interval/time, bốn search mode, search all/similar, export KIS/QA/TRAKE, schema validation DRES và từ chối configured login cross-origin đều trả status mong đợi. Chưa gọi 3 route Supabase, Drive proxy và chat/Agy vì cần dịch vụ ngoài hoặc khởi chạy agent. |
 | UI local | Trang khởi động và hiển thị trạng thái healthy; trên hostname `vision.localhost` riêng đã thao tác timer và thêm hint `TEST` để tránh localStorage hiện có. Search báo không kết nối API và trang từ chối reload qua alias; không tính đây là E2E UI pass. `localhost` và `127.0.0.1` có nháp người dùng nên không sửa/refresh chúng. Kiểm tra viewport dưới 640 px chưa xác minh được: browser viewport override không đổi `innerWidth=811`; đã reset override. |
-| DRES thật/tích hợp ngoài | Không chạy theo lựa chọn hiện có. Mock/local không xác nhận credential, evaluation, verdict, điểm hoặc chấp nhận `start == end` trên máy BTC. |
-| Retrieval quality | Chưa chạy `benchmark.py`, `benchmark_multimodal.py` hoặc `benchmark_chatbot.py`: dataset ground truth `answerAndQuestion.jsonl` không có trong workspace. |
+| DRES thật/tích hợp ngoài | Một lần đăng nhập/liệt kê evaluation và POST tới `AIC2026 - Textual KIS Test 2`; HTTP 200, verdict `WRONG`. Xác nhận tích hợp và xử lý point payload, không xác nhận đáp án hiện tại hoặc evaluation chấm điểm. |
+| Retrieval quality | Có baseline sơ bộ trên 57 case; kết quả/giới hạn tại `docs/ACCURACY_BASELINE_2026-09-25.md`. Còn thiếu translator offline, nhãn phân loại Textual/Video KIS, Video KIS descriptions và TRAKE coverage rộng; chưa tune/holdout hoặc đo Assistant end-to-end. |
 
-**Kết quả trước cập nhật yêu cầu:** contract `tools.dres_contract_checks` 14/14 và các benchmark nêu trên đã xác minh hành vi chặn duplicate cũ. Theo yêu cầu mới, đã kiểm tra lại hành vi gửi trùng; xem mục 8 để biết kết quả cập nhật. Local backend ở port 8000 vẫn là process đã nạp code cũ; thay đổi mới được xác minh bằng ASGI/mock, không gửi DRES thật.
+**Kết quả trước cập nhật yêu cầu:** contract `tools.dres_contract_checks` 14/14 và các benchmark nêu trên đã xác minh hành vi chặn duplicate cũ. Theo yêu cầu mới, đã kiểm tra lại hành vi gửi trùng; xem mục 8 để biết kết quả cập nhật. Smoke UI dùng backend local riêng; lần DRES Test 2 trực tiếp được ghi ở mục 10.
+
+## 11. Diễn tập local bốn dạng và độ ổn định 20 phút — 2026-09-25
+
+- Chạy server tại `127.0.0.1:8001` với `AGY_PREWARM_ON_STARTUP=false`; không chạm listener đang có trên port 8000. Health cuối cùng trả `healthy`, database/vector/QuickGELU sẵn sàng, 177,321 keyframe. Dừng server sau diễn tập; port 8001 hiện không còn listener.
+- Bài stability chạy 20 phút, mỗi phút gọi `/api/v1/health` và tìm semantic tổng hợp đã warm cache: **20/20** mẫu health healthy, mỗi search trả 10 kết quả, **0 lỗi health/search**. Thời gian search từng mẫu 14–251 ms (trung vị 27 ms; truy vấn warm-cache tổng hợp, không đại diện truy vấn thi). Log xác nhận các request này đều HTTP 200.
+- UI dùng query/đáp án tổng hợp trên `127.0.0.1:8001` và `localhost:8001`: Textual KIS tìm 50 kết quả, chọn `L26_V292/2945`; Q&A tìm 50, chọn `L23_V021/5583`, nhập đáp án test `red`; TRAKE tìm 50, tải thêm 30 frame từ `L23_V018`, ghim `5730,5847,5850` đúng thứ tự; Video KIS tìm 50, chọn `L24_V038/6992`. QA/TRAKE nháp còn sau refresh; timer đếm lùi và hết hạn được quan sát.
+- Export local không gửi DRES: QA cho `QA-red-L23_V021-223320`; KIS cho `L23_V018` tại `229200 ms`; Video KIS cho `L24_V038` tại `233067 ms`; TRAKE cho `TR-L23_V018-5730,5847,5850`. KIS frame giả `L23_V018/99999999` trả 404. Đây là kiểm tra schema, thứ tự và PTS từ index, không xác minh độ đúng nội dung câu hỏi.
+- Hạn chế quan sát được: ảnh chỉ tải một phần; server ghi bốn request tới Drive proxy trả HTTP 500 trên hai asset ID khi tải ảnh. Search, context frame, health và local export vẫn thành công. UI review Q&A không tải được Session ID mới nên không hiện payload trong modal. Không thực hiện DRES POST ở lượt này.
+- Thử live Assistant→MCP một lần với prompt tổng hợp và `PORT=8001`: Agy ban đầu dừng trước khi gọi MCP vì không thấy phiên đăng nhập và log CLI bị chặn quyền ghi. Người dùng xác nhận lệnh in `READY` chạy thành công trong PowerShell của họ. Lần gọi MCP `inspect_vision_probe` headless đầu bị Agy từ chối do thiếu allow-rule; sau đó gọi được bằng Agy có `--dangerously-skip-permissions` (chỉ yêu cầu probe ảnh tổng hợp) và trả `MCP_OK`. Khi thử gọi retrieval thật qua Agy, auto-review chặn vì thao tác sẽ chuyển metadata kết quả tìm video trong DB cục bộ tới dịch vụ ngoài; không retry hay chuyển dữ liệu đó.
+- Đã xóa answer set tổng hợp tạo trong hai origin kiểm thử cùng mô tả, clue, query và answer QA. Không thao tác origin port 8000. Không chạy trên ba máy còn lại theo quyết định phạm vi.
+
+**Trạng thái sau diễn tập lúc ghi nhận:** stability health/search đạt 20 phút; P1 vẫn một phần do ảnh Drive lỗi, chưa nghiệm thu fallback offline, timeout 120 giây và nhánh force-kill. Bài ASGI timeout 120 giây và force-kill giả đã được chạy sau đó, xem mục “Timeout route 120 giây và force-kill escalation”. P4 khi đó vẫn một phần: có smoke tìm/chọn/export cho bốn dạng, nhưng chưa hoàn tất hai lượt độc lập có ground truth, thao tác trong deadline và UI review/export với DRES đăng nhập được. Không đánh giá accuracy qua các query tổng hợp.
+
+### Đo route tìm ảnh cục bộ — 2026-09-25
+
+- `tools/benchmark_image_cache.py --top-k 50 --json`: 2/2 kịch bản pass; ảnh lặp cho cùng thứ tự ID, kết quả top-50 bằng tiền tố top-500. Model/DB load khoảng 7.93 giây; lần direct-engine đầu 558 ms, warm 0.17 ms, truy vấn top-500 487 ms. Probe dùng JPEG màu tổng hợp 64×64, không có giá trị accuracy.
+- Gửi 20 JPEG màu tổng hợp khác nhau tới backend warm đang chạy trên `127.0.0.1:8000`, mỗi request `top_k=50`: 20/20 trả 50 kết quả; p50 481 ms, p95 1,359 ms, max 2,595 ms. Health được poll đồng thời mỗi 10 ms: 179/179 trả HTTP 200, p95 84 ms. Đây là phép đo cục bộ cho route HTTP và khả năng event loop tiếp tục xử lý health trong lúc inference ảnh chạy; không gồm cold startup, tải ảnh Drive/R2, upload lớn hoặc chất lượng trên ảnh thật. Server có sẵn trên port 8000 được dùng cho request chỉ đọc.
+- Kết luận giới hạn: số đo route ảnh tổng hợp nằm dưới ngưỡng thử nghiệm p95 8 giây trong cấu hình máy hiện tại; chưa chứng minh đường tải ảnh ngoài khỏe. Bốn HTTP 500 Drive ghi nhận ở mục trên và fallback offline vẫn là phần P1 còn mở.
+
+### Dọn tiến trình Agy thật — 2026-09-25
+
+- Chạy `AgySession` với prompt tổng hợp `Reply with exactly READY. Do not call tools, inspect files, or access the network.` và deadline nội bộ ép về 0 giây: nhận SSE timeout, session bị xóa, process Agy kết thúc (exit code 1); danh sách PID có tên Agy/Antigravity không tăng sau khi đóng.
+- Chạy lần nữa, hủy stream ngay sau sự kiện `Model Router` (prompt đã được gửi): nhánh hủy gọi `session.close()`, session bị xóa, process thoát (exit code 0), không có PID Agy/Antigravity mới sót lại. Cùng `close()` được gọi bởi chat route khi client hủy; route timeout/hủy với session giả đã pass 2 check trước đó.
+- Giới hạn: đây là bài process cleanup trên Agy thật với deadline tức thời/hủy chủ động, không chờ đủ 120 giây và không ép Agy treo quá 5 giây để đi vào nhánh `proc.kill()`. Không đưa query hay metadata video vào prompt.
+
+## Rerun kiểm tra cục bộ — 2026-09-25
+
+- `tools/preflight.py` với `PORT=8001`: **0 lỗi chặn, 1 cảnh báo** (thiếu offline translator); Python/dependency/pip, DB 177,321 row, vectors `(177321,512)`, OpenCLIP QuickGELU, Agy CLI, manifest và port pass. Ghi nhận 74.2 GiB disk free và 2.0 GiB RAM available/15.6 GiB. `pip check`: no broken requirements.
+- Retrieval benchmark trên cùng 57 nhãn, local-only, top-k 50, cửa sổ chẩn đoán 150 giây: 4/4 chiến lược hoàn tất, 0 lỗi; kết quả đúng/recall không đổi so lượt trước. Lượt mới p95 semantic/OCR/ASR/hybrid là 1,805/4,621/5,900/3,520 ms; ASR vượt ngưỡng thử 5 giây. Xem bảng repeat ở `docs/ACCURACY_BASELINE_2026-09-25.md`.
+- Rerun contracts/mocks: DRES route **15/15**, submission **16/16**, timing **6/6**, operator export **9/9**, operator search **4/4**, TRAKE sequence **3/3**, QA evidence **3/3**, chatbot stream **3/3**, Agy result stream **3/3**, structured chat workspace **10/10**, database config **2/2**, runtime paths **2/2**, VLM scorecard self-test **23/23** (synthetic). Các bài này không gửi DRES/Agy dữ liệu nhãn.
+- Test chính xác handler `handleFrameImageError` từ `frontend/index.html` bằng DOM giả: lỗi ảnh chính lần lượt thử hai URL fallback; khi hết nguồn, ảnh được ẩn và placeholder được hiện. Thẻ kết quả vẫn có thông báo giữ Video ID/frame. Đây là kiểm tra logic fallback cục bộ, không xác minh R2/Drive ngoài mạng.
+- Browser UI trên `localhost:8000` với nội dung đã có sẵn trong trang trả 50 kết quả; API 359 ms, ảnh đầu 710 ms, 6/50 ảnh hiển thị. Kết quả xác nhận luồng thật trong trình duyệt nhưng chưa đại diện độ sẵn sàng dịch vụ ảnh. Quan sát thấy telemetry ảnh không kết thúc đúng khi các URL đều lỗi; sửa để đếm riêng ảnh hiển thị và ảnh hết fallback, báo hoàn tất sau khi mọi ảnh có kết quả cuối. Kiểm tra trên mã nguồn mới: 2 script inline parse được; DOM giả thử hai fallback và lỗi cuối phát đúng một sự kiện; callback telemetry đếm một ảnh thành công và một lỗi cuối đúng một lần, nhãn hiển thị 1/2.
+- DRES live: `POST /api/v1/dres/login` trên backend local trả HTTP 200/session; `POST /api/v1/dres/evaluations` trả HTTP 200 và 5 evaluation ACTIVE. UI review dùng cấu hình đăng nhập thành công, hiển thị evidence của frame đã chọn, PTS và JSON payload; không chọn evaluation, không gọi submit. Session ID không ghi vào báo cáo và được giữ trong bộ nhớ phiên trang.
+- Kiểm tra dữ liệu lưu phía trình duyệt bằng Node trên mã nguồn hiện tại: **5/5** lời gọi `localStorage.setItem` ghi `appState`; không có luồng copy DRES session ID vào `appState`/localStorage. Session chat dùng `sessionStorage` riêng.
+- Rerun suite contract/mocks: DRES route **15/15**, submission **16/16**, timing **6/6**, operator export **9/9**, operator search **4/4**, TRAKE sequence **3/3**, QA evidence **3/3**, chatbot stream **3/3**, Agy result stream **3/3**, structured chat workspace **10/10**, database config **2/2**, runtime paths **2/2**, VLM scorecard self-test **23/23** (synthetic). `pip check` sạch.
+- Cổng còn mở: clean install không cache; độ sẵn sàng/fallback ảnh dịch vụ ngoài; dịch offline; ASR p95 dưới ngưỡng trong các lượt tải tương đương; holdout mới và nhãn tách Textual/Video KIS; hai diễn tập operator đủ bốn dạng có ground truth trong deadline; kiểm thử DRES submit với câu hỏi/đáp án đã xác minh; live Assistant qua Agy trên metadata video (auto-review chặn truyền kết quả DB ra dịch vụ ngoài); force-kill khi Agy thật bị treo. Ba máy còn lại không thuộc phạm vi.
+
+### Timeout route 120 giây và force-kill escalation — 2026-09-25
+
+- Gọi endpoint chat qua FastAPI ASGI transport với Agy giả cố tình treo, không gửi prompt ra ngoài: HTTP **200**, SSE timeout và `[DONE]` được phát sau **120.0 giây**, `close()` được gọi.
+- Gắn process giả không thoát vào `AgySession.close()`: sau 5 giây `kill()` được gọi; process reference, readiness và session-pool entry được dọn. Bài này xác minh nhánh escalation trong mã, không mô phỏng tiến trình Agy thật bị treo.
+- Agy thật đã được xác minh riêng ở timeout tức thời và hủy stream; còn thiếu tình huống Agy thật đứng im đủ 120 giây.
+
+## Assistant workspace context và frame verification
+
+- Chat request nhận `question_type` (`KIS_TEXT`, `KIS_VIDEO`, `QA`, `TRAKE`), mô tả, clue, số giây còn lại và frame ghim; TRAKE luôn dùng route model nặng. Prompt yêu cầu format ứng viên/bằng chứng/độ tin cậy/phần thiếu/thao tác tiếp theo.
+- `POST /api/v1/frames/validate` tra chính xác cặp Video ID + Frame ID trong SQLite và trả PTS index. Thẻ ứng viên được trích từ câu trả lời Assistant chỉ render sau khi route xác nhận frame; frame ghim trong chat cũng được kiểm tra trước khi chuyển cho model.
+- Smoke server QuickGELU trên port 8001: frame mẫu `L26_V183/5895` xác minh thành công với PTS `235.8`; cặp giả `NO_SUCH_VIDEO/42` bị loại. OpenAPI công bố đủ bốn loại câu; các script inline qua `node --check`, Python compile và DRES contract **15/15** pass.
+- `python tools/benchmark_chat_workspace.py`: **10/10 pass** với Agy giả và DB local; xác nhận chuyển context, bỏ pin không hợp lệ, TRAKE/multi-event routing, chặn loại câu ngoài enum, và gọi cleanup khi timeout/hủy. Process thật cũng đã được kiểm tra đóng khi deadline nội bộ ép về 0 và khi hủy stream; bài route ASGI 120 giây và force-kill giả được ghi ở mục trên. Chưa kiểm tra Agy thật đứng im đủ 120 giây.
+- `agy --version`/`agy mcp list` xác nhận CLI/MCP cài đặt. Người dùng chạy lệnh `agy --print-timeout 120s --output-format text --print="Reply with exactly READY."` từ PowerShell và nhận `READY`. Agy gọi thành công `video-researcher.inspect_vision_probe` trên ảnh tổng hợp với `--dangerously-skip-permissions`; chỉ yêu cầu tool probe này. Retrieval qua Agy với kết quả tìm từ DB local bị auto-review chặn do gửi metadata sang dịch vụ ngoài, nên không thực hiện. MCP stdio gọi trực tiếp tại máy xác nhận `search_semantic_video`, `search_ocr_video`, `search_asr_video`, `search_video_evidence` đều được đăng ký và không lỗi; ba search gọi backend `/api/v1/search` HTTP 200, evidence gọi `/api/v1/search/all` HTTP 200 và hoàn tất 9.988 giây. Đây là kiểm tra tích hợp MCP→backend trên query tổng hợp, không phải kiểm thử Assistant end-to-end, ground truth hay accuracy. Chưa đo ứng viên đầu tiên/correctness bốn dạng. P3 mới là triển khai một phần; nghiệm thu ba máy còn lại được loại khỏi phạm vi theo quyết định 2026-09-25.
+
+## Kiểm tra lại máy hiện tại sau đăng nhập Agy
+
+- Preflight với `PORT=8001`: **0 lỗi chặn**, DB/vector/OpenCLIP/dependency/manifest/port pass; cảnh báo duy nhất là model dịch offline chưa có. Ghi nhận đĩa trống 83.8 GiB và RAM khả dụng 2.7/15.6 GiB tại thời điểm chạy.
+- `tools/benchmark_runtime_paths.py`: **2/2 pass**; `tools/benchmark_database_config.py`: **2/2 pass**; DRES contract: **15/15 pass**.
+- Retrieval local-only trên 57 case, top-k 50 và cửa sổ 150 giây chỉ để chẩn đoán: semantic R@50 2/63, OCR 0/63, ASR 7/63, hybrid 8/63. p95 lần chạy được ghi lần lượt 442, 755, 870 và 1,952 ms. Xem `docs/ACCURACY_BASELINE_2026-09-25.md`; không xem dung sai này là luật thi.
+- Khởi động Uvicorn trên 8001 với `AGY_PREWARM_ON_STARTUP=false`: log xác nhận hai phiên không prewarm; health healthy, semantic search trả 3 kết quả, frame validator giữ đúng frame `L26_V183/5895` với PTS 235.8 và loại frame giả. Đã dừng server sau smoke.
+- Agy auth prompt tối giản trả `READY`, nhưng chưa gửi query benchmark hoặc chạy live Assistant→MCP. Ba máy khác được bỏ khỏi phạm vi theo yêu cầu.
+- UI smoke local trên `127.0.0.1:8001` dùng câu và clue tổng hợp (không lấy từ nhãn thi): timer bắt đầu và đếm lùi; Smart Hybrid trả 50 kết quả, API **1,662 ms**, ảnh đầu **2,046 ms**, chỉ **21/50** ảnh tải được. Metadata Video ID/Frame ID/PTS hiển thị; chọn được `L25_V024 / 29337` vào answer set và mở màn hình review. Lúc đó UI-local không lấy được Session ID (502 do egress bị chặn); sau đó xác thực và submit trực tiếp bằng đường mạng được cấp quyền, chi tiết ở mục 10.
+- Đã xóa answer set khói thử và clue khói thử. Hộp xác nhận khi dọn phần còn lại bị kẹt trong browser automation; server đã dừng, nên chưa xác nhận việc mô tả/timer bị xóa khỏi localStorage của origin `127.0.0.1:8001`. Không sửa dữ liệu ở origin port 8000. Ảnh 29/50 chưa tải trong smoke, do vậy cần xử lý như nhánh ảnh lỗi khi diễn tập.
+- P4 còn thiếu hai lượt diễn tập độc lập, đủ bốn dạng, có ground truth và hoàn thành trong hạn. Stability 20 phút đã đạt ở mục 11; không có kết quả nào được suy rộng sang ba máy đã loại khỏi phạm vi.
 
 ## 8. Kiểm tra lại DRES duplicate theo yêu cầu 2026-09-25
 
@@ -92,7 +164,7 @@ Mỗi loại chạy thêm ít nhất một nhánh: không có kết quả, ảnh
 - Serializer contract: `python tools/benchmark_dres_submission.py` — **16/16 pass**.
 - Operator export: `.venv\\Scripts\\python.exe tools\\benchmark_dres_operator.py` — **9/9 pass**.
 - Frontend inline scripts: **2/2** qua `node --check`; UI bỏ việc vô hiệu hóa nút theo fingerprint và vẫn hiển thị cảnh báo trước payload trùng.
-- `git diff --check` sạch. Không gửi request tới DRES thật; cảnh báo không thể đảm bảo lần thử gửi lại sẽ không bị tính điểm/phạt.
+- `git diff --check` sạch. Không gửi request lên evaluation thi; một lần gửi tới test evaluation có verdict `WRONG` và được mô tả ở mục 10.
 
 ## 9. Màu và thông báo trạng thái DRES
 
@@ -101,6 +173,13 @@ Mỗi loại chạy thêm ít nhất một nhánh: không có kết quả, ảnh
 - Route mock xác nhận HTTP 401 và 404 được giữ nguyên tới giao diện; contract **15/15** và hai script inline qua `node --check`.
 
 Kế hoạch toàn hệ thống vẫn còn mở: năm route phụ thuộc ngoài, retrieval ground truth và UI E2E/viewport cần môi trường tương ứng.
+
+## 10. DRES Test 2 — một lần submit theo yêu cầu 2026-09-25
+
+- Đăng nhập trực tiếp vào `https://eventretrieval.one`, liệt kê được bốn evaluation ACTIVE có tên `AIC2026 - Textual KIS Test 2`, `AIC2026 - TRAKE Test 2`, `AIC2026 - Video KIS Test 2`, `AIC2026 - QA Test 2`. Chỉ chọn evaluation Textual KIS Test 2.
+- Payload lấy từ frame đã xác minh trong DB local: `L26_V183`, frame ID `5895`, PTS `235.8s`; JSON gửi là `{"answerSets":[{"answers":[{"mediaItemName":"L26_V183","start":"235800","end":"235800"}]}]}`. Không ghi query text, credential hoặc session ID vào báo cáo.
+- DRES trả HTTP **200**, verdict **`WRONG`**, mô tả `Submission wrong, try again!`. Điều này xác nhận request được nhận và chấm; không chứng minh payload khớp câu đang hoạt động vì frame được lấy từ nhãn benchmark, chưa đối chiếu với prompt Test 2.
+- Không retry và không gửi lên evaluation thi. Để xác minh verdict đúng, cần lấy câu hiện tại từ đúng evaluation Test 2 rồi đối chiếu đáp án có bằng chứng trước khi gửi thêm.
 
 ## 7. Tiêu chí đóng kế hoạch test
 

@@ -1,0 +1,6 @@
+# Vision external data manifest v1; excludes local credentials and config.
+c11f69a66cf83bdfc6718a4c9c5bcb250757ec595996beb66d471c1816549070  813916160  video_index_v2.db
+b906a7ecf47c42ca3fb725bde5b4dfdc2f6d79140e90ba102c639c2fb17fb933  363153536  all_vectors.npy
+4ccbcb4b919252c02e8c41943350f583b6378582c7a963d3875eff7fd61db17f  595186  video_drive_metadata.json
+fbec61dda6866ed6adf5fdac39f6d9501fbe594a87f56743dfd3bc51eb7db6f9  20113  video_fps_map.json
+94b1074cd543a69bb4685ed2da32177f606bdd4ad36c9314da5a90d92ed27253  278994410  frame_map_supabase.json

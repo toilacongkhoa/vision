@@ -9,6 +9,7 @@ import os
 import sys
 import ssl
 import json
+import sqlite3
 import time
 import hashlib
 import uuid
@@ -31,9 +32,23 @@ from pydantic import BaseModel, Field
 from .agy_session import AgySession, is_complex_visual_query, session_pool
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 import asyncio
+class CandidateFrame(BaseModel):
+    video_id: str = Field(..., min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    frame_idx: int = Field(..., ge=0, le=10_000_000)
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    question_type: Literal["KIS_TEXT", "KIS_VIDEO", "QA", "TRAKE"] = "KIS_TEXT"
+    description: str = Field("", max_length=4000)
+    clues: List[str] = Field(default_factory=list, max_length=20)
+    remaining_seconds: Optional[int] = Field(None, ge=0, le=300)
+    pinned_frames: List[CandidateFrame] = Field(default_factory=list, max_length=20)
+
+
+class FrameValidationRequest(BaseModel):
+    candidates: List[CandidateFrame] = Field(default_factory=list, max_length=20)
 
 from .config import DATA_ROOT, DB_PATH, CONSOLIDATED_VECTORS_PATH, BASE_DIR, HOST, PORT, CORS_ORIGINS
 from .sqlite_engine import SQLiteSearchEngine as VectorSearchEngine
@@ -59,6 +74,9 @@ app = FastAPI(
     description="High-performance Video Keyframe Retrieval Backend with Supabase REST API & Google Drive Integration",
     version="2.1.0"
 )
+AGY_PREWARM_ON_STARTUP = os.getenv("AGY_PREWARM_ON_STARTUP", "true").strip().lower() not in {
+    "0", "false", "no", "off"
+}
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,6 +122,9 @@ class DRESExportRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     print("[Startup] Video Retrieval & Supabase Backend online!", flush=True)
+    if not AGY_PREWARM_ON_STARTUP:
+        print("[Startup] Agy prewarming disabled by AGY_PREWARM_ON_STARTUP.", flush=True)
+        return
     import asyncio
     
     async def warm_ai_sessions():
@@ -143,12 +164,43 @@ def read_root():
 
 @app.get("/api/v1/health")
 def health_check():
+    database_connected = False
+    total_keyframes = 0
+    database_error = None
+    try:
+        db_path = Path(DB_PATH).resolve()
+        with sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=2) as conn:
+            row = conn.execute("SELECT COUNT(*) FROM keyframes").fetchone()
+            total_keyframes = int(row[0])
+            sample = conn.execute(
+                "SELECT video_id, frame_idx, pts_time FROM keyframes "
+                "WHERE video_id IS NOT NULL AND frame_idx IS NOT NULL "
+                "AND pts_time IS NOT NULL LIMIT 1"
+            ).fetchone()
+            database_connected = total_keyframes > 0 and sample is not None
+            if not database_connected:
+                database_error = "No indexed frame with Video ID, Frame ID and PTS."
+    except (sqlite3.Error, OSError) as exc:
+        database_error = type(exc).__name__
+
+    vector_matrix_loaded = getattr(search_engine, "vectors", None) is not None
+    clip_model_loaded = getattr(search_engine, "model", None) is not None
+    search_ready = database_connected and vector_matrix_loaded and clip_model_loaded
+    searchable_modes = []
+    if database_connected:
+        searchable_modes.extend(["ocr", "asr"])
+    if database_connected and vector_matrix_loaded and clip_model_loaded:
+        searchable_modes.extend(["semantic", "smart", "image"])
     return {
-        "status": "healthy",
+        "status": "healthy" if search_ready else "degraded",
+        "search_ready": search_ready,
+        "searchable_modes": searchable_modes,
         "supabase_connected": supabase_svc.is_configured,
-        "database_connected": DB_PATH.exists(),
-        "vector_matrix_loaded": CONSOLIDATED_VECTORS_PATH.exists(),
-        "total_keyframes": 177321
+        "database_connected": database_connected,
+        "database_error": database_error,
+        "vector_matrix_loaded": vector_matrix_loaded,
+        "clip_model_loaded": clip_model_loaded,
+        "total_keyframes": total_keyframes,
     }
 
 
@@ -330,17 +382,52 @@ def search_similar(req: SearchSimilarRequest):
 @app.post("/api/v1/search/image")
 async def search_by_image(file: UploadFile = File(...), top_k: int = Form(50), video_id: Optional[str] = Form(None)):
     image_bytes = await file.read()
-    results = search_engine.search_by_image(image_bytes, top_k=top_k, video_id_filter=video_id)
+    results = await asyncio.to_thread(
+        search_engine.search_by_image,
+        image_bytes,
+        top_k=top_k,
+        video_id_filter=video_id,
+    )
     return {
         "status": "success",
         "total_results": len(results),
         "results": results
     }
 
+
+def validate_frame_candidates(candidates: List[CandidateFrame]) -> List[Dict[str, Any]]:
+    """Return only candidates whose exact Video ID/frame pair exists in the index."""
+    verified = []
+    db_path = Path(DB_PATH).resolve()
+    with sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=2) as conn:
+        for candidate in candidates:
+            row = conn.execute(
+                "SELECT video_id, frame_idx, pts_time FROM keyframes "
+                "WHERE video_id = ? AND frame_idx = ? AND pts_time IS NOT NULL LIMIT 1",
+                (candidate.video_id, candidate.frame_idx),
+            ).fetchone()
+            if row is not None:
+                verified.append({
+                    "video_id": str(row[0]),
+                    "frame_idx": int(row[1]),
+                    "pts_time": float(row[2]),
+                })
+    return verified
+
+
+@app.post("/api/v1/frames/validate")
+async def validate_frames(req: FrameValidationRequest):
+    try:
+        verified = await asyncio.to_thread(validate_frame_candidates, req.candidates)
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=503, detail="Frame index is unavailable") from exc
+    return {"verified": verified}
+
 @app.post("/api/v1/chat")
 async def chat_endpoint(req: ChatRequest):
-    # Model Routing Logic
-    is_complex = is_complex_visual_query(req.message)
+    # TRAKE needs sequence reasoning; other routes use the light model unless
+    # the request itself clearly describes multiple linked events.
+    is_complex = req.question_type == "TRAKE" or is_complex_visual_query(req.message)
 
     # Keep each client's Agy conversation isolated.  The model is part of the
     # key so switching between simple and complex routing cannot mix contexts.
@@ -357,12 +444,54 @@ async def chat_endpoint(req: ChatRequest):
     else:
         session = session_pool[sid]
 
+    try:
+        verified_pins = await asyncio.to_thread(validate_frame_candidates, req.pinned_frames)
+    except sqlite3.Error:
+        verified_pins = []
+    type_guidance = {
+        "KIS_TEXT": "Find one best-supported frame. Track which textual/visual clues are verified; use OCR or ASR only when the clue concerns on-screen text or speech.",
+        "KIS_VIDEO": "Return a short visual shortlist early, then inspect candidate frames or a sequence. Do not ask for or reconstruct a recording of the query clip.",
+        "QA": "Find and verify the scene, then answer the question only from visible, OCR, ASR, or indexed context evidence. State what evidence is missing.",
+        "TRAKE": "Split the request into ordered events, search each stage, and require one video with strictly increasing indexed frame IDs. Mark missing stages instead of guessing.",
+    }[req.question_type]
+    context_lines = [
+        "[EXAM WORKSPACE CONTEXT]",
+        f"Question type: {req.question_type}",
+        f"Workflow: {type_guidance}",
+    ]
+    if req.description.strip():
+        context_lines.append("Question description: " + req.description.strip())
+    clues = [clue.strip() for clue in req.clues if clue.strip()]
+    if clues:
+        context_lines.append("Clues in order:\n" + "\n".join(f"{i}. {clue}" for i, clue in enumerate(clues, 1)))
+    if req.remaining_seconds is not None:
+        context_lines.append(f"Time remaining on the local question timer: {req.remaining_seconds} seconds.")
+    if verified_pins:
+        context_lines.append("Verified pinned candidates (Video ID, indexed Frame ID, source PTS seconds):\n" + "\n".join(
+            f"- {item['video_id']}, {item['frame_idx']}, {item['pts_time']:.3f}s" for item in verified_pins
+        ))
+    elif req.pinned_frames:
+        context_lines.append("No pinned candidate was verified in the frame index; do not use the submitted IDs as evidence.")
+    context_lines.append("Only report a candidate Video ID and Frame ID after a search tool returns it; never invent IDs or calculate PTS from FPS.")
+    context_lines.append("Answer in Vietnamese with: primary/alternate candidates, cited tool evidence for each, confidence and why, missing evidence, and one next action. For TRAKE, list each ordered stage with its verified Video ID/Frame ID and mark any missing stage.")
+    assistant_message = "\n".join(context_lines) + "\n\n[USER MESSAGE]\n" + req.message
+
     async def gen():
         try:
-            async for chunk in session.send_message(req.message):
-                yield chunk
-        except Exception as e:
-            yield f"data: [ERROR] Lỗi hệ thống: {str(e)}\n\n"
+            async with asyncio.timeout(120):
+                async for chunk in session.send_message(assistant_message):
+                    yield chunk
+        except asyncio.TimeoutError:
+            await session.close()
+            yield "data: [ERROR] Lỗi: AI vượt quá giới hạn 120 giây; phiên đã được dọn. Có thể tiếp tục tìm kiếm thủ công.\n\n"
+            yield "data: [DONE]\n\n"
+        except asyncio.CancelledError:
+            await session.close()
+            raise
+        except Exception as exc:
+            await session.close()
+            yield f"data: [ERROR] Lỗi hệ thống ({type(exc).__name__}); phiên đã được dọn.\n\n"
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 

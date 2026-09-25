@@ -1,12 +1,12 @@
 # Bối cảnh dự án — Video Retrieval System
 
-> Cập nhật: 2026-09-24. File này mô tả mã nguồn hiện có. UI tiếng Việt được triển khai trong `frontend/index.html`; `docs/plan.md` ghi phạm vi, glossary và trạng thái nghiệm thu; `docs/CHANGELOG.md` lưu kết quả kiểm tra. Các kiểm tra offline không xác nhận DRES thật đã nhận/chấm bài.
+> Cập nhật: 2026-09-25. File này mô tả mã nguồn hiện có. UI tiếng Việt được triển khai trong `frontend/index.html`; `docs/plan.md` ghi kế hoạch gốc cho bốn máy và phạm vi nghiệm thu hiện tại chỉ trên máy này theo quyết định người dùng; `docs/TEST_PLAN.md` ghi phạm vi kiểm thử. Các kiểm tra offline không xác nhận DRES thật đã nhận/chấm bài.
 
 ## Mục đích và ưu tiên hiện tại
 
 Ứng dụng “Hệ thống tìm kiếm video” giúp đội thi AI Challenge tìm keyframe, kiểm chứng video/vị trí và chuẩn bị đáp án cho Textual KIS, Video KIS, Q&A, TRAKE. Người thao tác ghi câu hỏi và gợi ý, tìm bằng văn bản hoặc ảnh, xem frame/video lân cận, giữ ứng viên, chọn đáp án, xem payload DRES rồi tải JSON hoặc gửi qua DRES. Video KIS dùng mô tả hoặc phác họa do người thi nhập; quy định cuộc thi không cho thu lại clip truy vấn bằng thiết bị điện tử để nạp vào công cụ.
 
-Ưu tiên hiện tại là luồng thao tác UI trong giới hạn 4 phút cho Video KIS và 5 phút cho các dạng còn lại. Tên hiển thị là “Hệ thống tìm kiếm video” (không kèm số phiên bản). Các nhãn, trạng thái và chỉ dẫn do ứng dụng kiểm soát đã được Việt hóa; giữ các tên riêng, chữ viết tắt và khóa kỹ thuật cần đối chiếu. Riêng danh sách chọn dạng câu giữ nguyên tiếng Anh: `Textual KIS`, `Video KIS`, `Q&A`, `TRAKE`. Công việc này không đổi thuật toán tìm kiếm, cấu trúc dữ liệu, giao thức DRES hay nội dung nguồn OCR/ASR/chatbot. Kết quả, glossary và giới hạn kiểm chứng ở mục 6 của `docs/plan.md`.
+Ưu tiên kế tiếp là để bốn thành viên **mỗi người chạy một bản cài trên máy của mình**, với độ chính xác, tốc độ tìm kiếm và độ ổn định đủ dùng lúc thi, cùng Assistant chuyên biệt cho `Textual KIS`, `Video KIS`, `Q&A`, `TRAKE`. Đây là kế hoạch, chưa phải phần đã triển khai; không có yêu cầu một backend phục vụ bốn người đồng thời. Tên hiển thị là “Hệ thống tìm kiếm video” (không kèm số phiên bản). Các nhãn, trạng thái và chỉ dẫn do ứng dụng kiểm soát đã được Việt hóa; giữ các tên riêng, chữ viết tắt và khóa kỹ thuật cần đối chiếu. Danh sách chọn dạng câu giữ nguyên tiếng Anh. Luồng UI và DRES hiện có cần được giữ đúng khi thực hiện kế hoạch mới.
 
 ## Kiến trúc runtime
 
@@ -16,7 +16,7 @@ Trình duyệt / frontend/index.html (HTML + Tailwind CDN + JavaScript inline)
   ├─ localStorage: vrs_submission_v2; sessionStorage: ID phiên chat
   └─ HTTP → FastAPI / src/main.py
       ├─ SQLiteSearchEngine / src/sqlite_engine.py
-      │   ├─ OpenCLIP ViT-B-32/openai + NumPy + all_vectors.npy
+      │   ├─ OpenCLIP ViT-B-32-quickgelu/openai + NumPy + all_vectors.npy
       │   └─ video_index_v2.db: keyframes, OCR/ASR qua FTS hoặc LIKE
       ├─ FastTranslator / src/fast_translator.py: cache + model offline tùy chọn
       ├─ metadata video/FPS, R2 URL, Google Drive proxy, Supabase tùy chọn
@@ -26,7 +26,7 @@ Trình duyệt / frontend/index.html (HTML + Tailwind CDN + JavaScript inline)
           └─ MCP `video-researcher` / mcp_server.py → API tìm kiếm và ảnh kiểm chứng
 ```
 
-Backend khởi tạo search engine khi import ứng dụng, tải vector và model OpenCLIP; chatbot prewarm hai phiên Agy `flash`/`pro` sau startup. Mỗi client chat có `session_id` riêng; luồng chat trả SSE với thông báo tool, kết quả hoặc lỗi. MCP có 9 tool tìm semantic/OCR/ASR, evidence đa sự kiện, context, ảnh URL và contact/sequence sheet. Câu trả lời tự do của model khác với nhãn UI cố định cần dịch.
+Backend khởi tạo search engine khi import ứng dụng, tải vector và model OpenCLIP; chatbot mặc định prewarm hai phiên Agy `flash`/`pro` sau startup. Có thể đặt `AGY_PREWARM_ON_STARTUP=false` để tiết kiệm RAM và khởi chạy phiên khi có chat đầu tiên. Mỗi client chat có `session_id` riêng; luồng chat trả SSE với deadline 120 giây và cleanup process khi timeout hoặc client hủy. Tìm ảnh chạy ở worker thread để không chặn event loop. MCP có 9 tool tìm semantic/OCR/ASR, evidence đa sự kiện, context, ảnh URL và contact/sequence sheet. Câu trả lời tự do của model khác với nhãn UI cố định cần dịch.
 
 Semantic search có thể dịch truy vấn tiếng Việt sang tiếng Anh bằng cache, model offline tùy chọn hoặc dịch vụ dự phòng trước khi encode. `smart` là mode mặc định, kết hợp semantic và ASR; `semantic` chỉ dùng semantic search. OCR/ASR dùng FTS5 khi DB có bảng tương ứng, nếu thiếu thì fallback `LIKE`. `_init_faiss()` hiện không dùng FAISS; xếp hạng vector bằng NumPy. Tìm bằng ảnh, tìm frame tương tự và các nhánh tìm kiếm có cache trong tiến trình.
 
@@ -45,7 +45,7 @@ Semantic search có thể dịch truy vấn tiếng Việt sang tiếng Anh bằ
 | `src/supabase_service.py` | Metadata Supabase tùy chọn. |
 | `tools/benchmark_*.py`, `tools/dres_contract_checks.py` | Benchmark và contract checks; không phải mã runtime. |
 | `chatbot/*.py` | Tiện ích tra DB và tải/xem frame cục bộ. |
-| `docs/plan.md`, `docs/CHANGELOG.md` | Kế hoạch thao tác UI và lịch sử triển khai/thử nghiệm. |
+| `docs/plan.md`, `docs/CHANGELOG.md` | Kế hoạch triển khai trên máy từng thành viên và lịch sử triển khai/thử nghiệm. |
 | `docs/AI_Challenge_2026_Chung_Ket.md`, `docs/DRES_OPERATOR_CHECKLIST.md` | Tóm lược quy định Chung kết và checklist nộp bài. |
 
 `docs/PROJECT_CONTEXT.md` và `docs/plan.md` được theo dõi bằng Git. Một số ghi chú cục bộ, dữ liệu lớn và `.env` vẫn bị `.gitignore` loại khỏi Git. Không đưa credential, DB, vector, archive dữ liệu hoặc artifact benchmark lên Git khi chỉ làm tài liệu/UI.
@@ -53,8 +53,8 @@ Semantic search có thể dịch truy vấn tiếng Việt sang tiếng Anh bằ
 ## Dữ liệu và cấu hình
 
 - Runtime mặc định tìm `video_index_v2.db`, `all_vectors.npy`, `video_drive_metadata.json`, `video_fps_map.json` ở thư mục gốc. `translation_cache.db` là cache cục bộ; `models/opus-mt-vi-en-ct2/` là model dịch offline tùy chọn. `frame_map_supabase.json` là artifact local, không thấy đường gọi trực tiếp trong runtime hiện tại.
-- `DB_PATH`, `CONSOLIDATED_VECTORS_PATH`, `DATA_ROOT`, `HOST`, `PORT`, `CORS_ORIGINS`, `AGY_PATH`, `SUPABASE_URL/KEY` và `DRES_API_BASE_URL` được cấu hình qua `.env`. DRES có thể dùng `DRES_USERNAME/PASSWORD` trên server khi operator chủ động bấm lấy session từ `.env` trên cùng origin localhost.
-- Frontend và MCP vẫn có API base gắn cổng 8000; đổi `PORT` riêng lẻ chưa bảo đảm cả hệ thống chạy đúng. Health hiện kiểm tra tồn tại DB/vector và trả `total_keyframes` cố định 177321, chưa xác nhận schema/model/Agy/DRES.
+- `DB_PATH`, `CONSOLIDATED_VECTORS_PATH`, `DATA_ROOT`, `HOST`, `PORT`, `CORS_ORIGINS`, `AGY_PATH`, `AGY_PREWARM_ON_STARTUP`, `SUPABASE_URL/KEY` và `DRES_API_BASE_URL` được cấu hình qua `.env`. DRES có thể dùng `DRES_USERNAME/PASSWORD` trên server khi operator chủ động bấm lấy session từ `.env` trên cùng origin localhost.
+- Frontend dùng origin hiện tại, MCP đọc `PORT` cấu hình. Health truy vấn SQLite thật, báo tổng frame, vector/model đã nạp và các mode sẵn sàng; readiness không kiểm tra tình trạng DRES hoặc dịch vụ ảnh ngoài.
 - Các số liệu artifact trong tài liệu cũ là quan sát tại thời điểm thử, không phải hằng số giao thức. Không cần đọc/sửa file nhị phân để dịch UI.
 
 ## API và dữ liệu phải giữ nguyên khi dịch UI
@@ -109,6 +109,6 @@ Các thuật ngữ còn tiếng Anh như `Video ID`, `DRES`, `evaluation`, `fram
 
 ## Khởi chạy và quy tắc cập nhật
 
-Trên Windows với Python 3.10–3.12, cài `requirements.txt`, chép `.env.example` thành `.env`, đặt dữ liệu bắt buộc ở root rồi chạy `python -m src.main`. Chatbot cần CLI `agy` và MCP `video-researcher` trỏ tới `mcp_server.py`. Mở `http://localhost:8000/`; `/api/v1/health` chỉ là phép kiểm tra sơ bộ. Không gửi DRES thật để thử bản dịch; dùng payload giả, mock/contract checks và diễn tập UI local.
+Trên Windows với Python 3.12 x64, cài `requirements.txt`, chép `.env.example` thành `.env`, đặt dữ liệu cần thiết ở root, chạy `python tools/preflight.py`, sau đó `python tools/run_server.py`. Hai script định vị project theo chính file nên có thể chạy bằng đường dẫn tuyệt đối từ thư mục khác. Mặc định backend bind loopback; `.env` có thể ghi đè giá trị này. Health kiểm tra DB queryable, số frame, vector và model đã nạp; HTTP 200 một mình không đồng nghĩa semantic/image search sẵn sàng. Chatbot cần CLI `agy` và MCP `video-researcher` trỏ tới `mcp_server.py`. Chat POST nhận dạng câu `KIS_TEXT`, `KIS_VIDEO`, `QA`, `TRAKE`, mô tả, clue, thời gian còn lại và tối đa 20 frame ghim. `POST /api/v1/frames/validate` chỉ trả Video ID/Frame ID khớp chính xác index kèm PTS nguồn; UI chỉ tạo thẻ Assistant từ các frame đã xác minh. Dùng payload giả và mock/contract checks; không gửi DRES thật để thử bản dịch.
 
-Khi đổi kiến trúc, API, dữ liệu, trạng thái UI hoặc workflow DRES, sửa trực tiếp file này. Cập nhật tiến độ Việt hóa ở `docs/plan.md` và ghi kết quả thử có ngày trong `docs/CHANGELOG.md`. Luôn phân biệt **đã triển khai**, **đã thử cục bộ** và **đã xác nhận bằng DRES thật**.
+Khi đổi kiến trúc, API, dữ liệu, trạng thái UI hoặc workflow DRES, sửa trực tiếp file này. Cập nhật tiến độ cài đặt và tối ưu trên máy từng thành viên ở `docs/plan.md`, kết quả kiểm thử ở `docs/TEST_PLAN.md`. Luôn phân biệt **đã triển khai**, **đã thử cục bộ** và **đã xác nhận bằng DRES thật**.

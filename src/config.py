@@ -31,10 +31,12 @@ CSV_EXTENSIONS = {".csv", ".tsv", ".txt"}
 VECTOR_EXTENSIONS = {".npy"}
 
 # CLIP Model Settings
-CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "ViT-B-32")
+CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "ViT-B-32-quickgelu")
 CLIP_PRETRAINED = os.getenv("CLIP_PRETRAINED", "openai")
 
 # Server Settings
-HOST = os.getenv("HOST", "0.0.0.0")
+# This application is installed per operator machine. Keep it private to the
+# local machine unless the operator explicitly configures a LAN bind.
+HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")

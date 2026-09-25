@@ -431,9 +431,11 @@
     </div>
 
     <script>
-        const PROD_BACKEND_URL = 'http://localhost:8000'; 
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-        const API_BASE = isLocal ? 'http://localhost:8000' : PROD_BACKEND_URL;
+        // The backend serves this page, so use its actual origin and honor PORT.
+        // A file:// preview still targets the documented local default.
+        const API_BASE = window.location.protocol === 'file:'
+            ? 'http://127.0.0.1:8000'
+            : window.location.origin;
         const chatSessionStorageKey = 'vision_chat_session_id';
         window.chatSessionId = sessionStorage.getItem(chatSessionStorageKey);
         if (!window.chatSessionId) {
@@ -511,7 +513,7 @@
             const raw = String(detail || '').trim();
             const known = {
                 'Query string cannot be empty': 'Hãy nhập nội dung cần tìm.',
-                'Selected video/frame was not found': 'Không tìm thấy video hoặc khung hình đã chọn.',
+                'Selected video/frame was not found': 'Không tìm thấy video hoặc frame đã chọn.',
                 'Video metadata not found': 'Không tìm thấy thông tin video.',
                 'Configured DRES login is only available to the local same-origin app.': 'Đăng nhập bằng thông tin trong cấu hình chỉ dùng được trên ứng dụng localhost.',
                 'DRES_USERNAME and DRES_PASSWORD are not configured on the server.': 'Máy chủ chưa cấu hình thông tin đăng nhập DRES.',
@@ -524,11 +526,11 @@
             };
             if (known[raw]) return known[raw];
             if (/^Export validation failed/i.test(raw)) return `Không thể kiểm tra dữ liệu xuất${status ? ` (HTTP ${status})` : ''}.`;
-            if (/^Frame lookup failed/i.test(raw)) return `Không thể tìm khung hình${status ? ` (HTTP ${status})` : ''}.`;
+            if (/^Frame lookup failed/i.test(raw)) return `Không thể tìm frame${status ? ` (HTTP ${status})` : ''}.`;
             if (/^Video ID '.*' not found in Supabase$/i.test(raw)) return `Không tìm thấy video ${raw.match(/'([^']+)'/)?.[1] || ''} trong dữ liệu.`;
-            if (/^Frame ID '.*' not found in Supabase$/i.test(raw)) return `Không tìm thấy khung hình ${raw.match(/'([^']+)'/)?.[1] || ''} trong dữ liệu.`;
+            if (/^Frame ID '.*' not found in Supabase$/i.test(raw)) return `Không tìm thấy frame ${raw.match(/'([^']+)'/)?.[1] || ''} trong dữ liệu.`;
             if (/^Failed fetching Google Drive File/i.test(raw)) return 'Không thể tải tệp ảnh từ Google Drive.';
-            if (/^direction must be/i.test(raw)) return 'Hướng tìm khung hình không hợp lệ.';
+            if (/^direction must be/i.test(raw)) return 'Hướng tìm frame không hợp lệ.';
             if (/^Could not reach DRES during login/i.test(raw)) return 'Không kết nối được tới DRES khi đăng nhập.';
             if (/^Could not reach DRES while loading evaluations/i.test(raw)) return 'Không kết nối được tới DRES khi tải danh sách evaluation.';
             if (/^DRES login response did not include a sessionId/i.test(raw)) return 'DRES không trả về session ID sau khi đăng nhập.';
@@ -541,7 +543,7 @@
             if (/^DRES login failed/i.test(raw)) return `Đăng nhập DRES thất bại${status ? ` (HTTP ${status})` : ''}.`;
             if (/^DRES submit/i.test(raw)) return `DRES không thể hoàn tất thao tác gửi${status ? ` (HTTP ${status})` : ''}. Hãy kiểm tra trạng thái trước khi thử lại.`;
             if (/^video_id must be/i.test(raw)) return 'Video ID không hợp lệ. Hãy nhập đúng mã video, không kèm đường dẫn hoặc đuôi tệp.';
-            if (/^frame_id must be|^frame_idx must be|^start must be|^end must be/i.test(raw)) return 'Chỉ số khung hình hoặc mốc thời gian không hợp lệ. Hãy dùng số nguyên không âm.';
+            if (/^frame_id must be|^frame_idx must be|^start must be|^end must be/i.test(raw)) return 'Frame ID hoặc mốc thời gian không hợp lệ. Hãy dùng số nguyên không âm.';
             if (/^TRAKE requires/i.test(raw)) return 'TRAKE cần ít nhất một frame ID.';
             if (/^TRAKE frame IDs must/i.test(raw)) return 'Các frame ID TRAKE phải tăng dần và không trùng nhau.';
             if (/^Q&A answer requires/i.test(raw)) return 'Payload Q&A chưa có câu trả lời hợp lệ.';
@@ -719,6 +721,8 @@
             if (nextSource) { image.src = nextSource; return; }
             image.classList.add('hidden');
             image.parentElement?.querySelector('[data-image-fallback]')?.classList.remove('hidden');
+            image.dataset.imageFinalized = '1';
+            image.dispatchEvent(new Event('frameimagefinalized'));
         }
 
         function renderFilmstrip() {
@@ -1353,7 +1357,7 @@
 
         function showDresReviewError(message) {
             document.getElementById('dresReviewErrorMessage').textContent = message;
-            const canEditFrame = /không tìm thấy .*khung hình|frame.*not found|not found.*frame/i.test(message);
+            const canEditFrame = /không tìm thấy .*?(?:frame|khung hình)|frame.*not found|not found.*frame/i.test(message);
             document.getElementById('btnEditMissingDresFrame').classList.toggle('hidden', !canEditFrame);
             document.getElementById('dresReviewError').classList.remove('hidden');
             document.getElementById('btnDownloadReviewedDres').disabled = true;
@@ -1369,7 +1373,7 @@
             const result = await response.json();
             if (!response.ok) {
                 if (response.status === 404) return { video_id: videoId, frame_idx: Number(frameId), not_found: true };
-                throw new Error(result.detail || `Không thể tải khung hình (HTTP ${response.status}).`);
+                throw new Error(result.detail || `Không thể tải frame (HTTP ${response.status}).`);
             }
             const frame = (result.results || []).find(row => Number(row.frame_idx) === Number(frameId));
             if (!frame) return { video_id: videoId, frame_idx: Number(frameId), not_found: true };
@@ -1381,9 +1385,9 @@
             host.innerHTML = frames.map((frame, index) => {
                 if (frame.not_found) {
                     return `<article class="flex min-h-40 flex-col justify-center rounded border border-amber-500/40 bg-amber-950/20 p-5 text-center">
-                        <div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Khung hình ${Number(frame.frame_idx)}</div>
-                        <p class="mt-2 text-sm text-amber-200">Không tìm thấy khung hình này trong dữ liệu video.</p>
-                        <p class="mt-1 text-xs text-gray-400">Không thể tạo payload cho khung hình chưa có trong index. Hãy kiểm tra và sửa Frame ID.</p>
+                        <div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Frame ${Number(frame.frame_idx)}</div>
+                        <p class="mt-2 text-sm text-amber-200">Không tìm thấy frame này trong dữ liệu video.</p>
+                        <p class="mt-1 text-xs text-gray-400">Không thể tạo payload cho frame chưa có trong index. Hãy kiểm tra và sửa Frame ID.</p>
                     </article>`;
                 }
                 const pts = Number(frame.pts_time);
@@ -1391,10 +1395,10 @@
                 const image = frameImageUrl(frame);
                 const evidence = [frame.ocr_text && `OCR: ${frame.ocr_text}`, frame.asr_text && `ASR: ${frame.asr_text}`, frame.objects && `Đối tượng: ${frame.objects}`].filter(Boolean).join('\n');
                 return `<article class="overflow-hidden rounded border border-gray-700 bg-gray-800">
-                    ${image ? `<span class="relative block bg-black"><img src="${escapeHtml(image)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(frame).slice(1)))}" alt="Ảnh bằng chứng, khung hình ${Number(frame.frame_idx)}" class="aspect-video w-full object-contain" loading="lazy" onerror="handleFrameImageError(this)"><span data-image-fallback class="hidden absolute inset-0 flex aspect-video items-center justify-center bg-gray-950 px-2 text-center text-xs text-gray-400">Ảnh không tải được. Video ID, số khung hình và mốc thời gian vẫn hiển thị bên dưới.</span></span>` : '<div class="flex aspect-video items-center justify-center bg-gray-950 text-xs text-gray-500">Không có ảnh</div>'}
-                    <div class="p-3"><div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Khung hình ${Number(frame.frame_idx)}</div>
+                    ${image ? `<span class="relative block bg-black"><img src="${escapeHtml(image)}" data-image-sources="${escapeHtml(JSON.stringify(frameImageSources(frame).slice(1)))}" alt="Ảnh bằng chứng, frame ${Number(frame.frame_idx)}" class="aspect-video w-full object-contain" loading="lazy" onerror="handleFrameImageError(this)"><span data-image-fallback class="hidden absolute inset-0 flex aspect-video items-center justify-center bg-gray-950 px-2 text-center text-xs text-gray-400">Ảnh không tải được. Video ID, Frame ID và mốc thời gian vẫn hiển thị bên dưới.</span></span>` : '<div class="flex aspect-video items-center justify-center bg-gray-950 text-xs text-gray-500">Không có ảnh</div>'}
+                    <div class="p-3"><div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Frame ${Number(frame.frame_idx)}</div>
                     <div class="mt-1 text-xs text-gray-300">Mốc thời gian nguồn: ${escapeHtml(frame.timestamp || ptsLabel)} · ${escapeHtml(ptsLabel)}${Number.isFinite(pts) ? ` · ${Math.floor(pts * 1000 + 0.5)} ms` : ''}</div>
-                    ${evidence ? `<pre class="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] text-gray-400">${escapeHtml(evidence)}</pre>` : '<p class="mt-2 text-[11px] text-gray-500">Khung hình này không có văn bản OCR/ASR hoặc thông tin đối tượng.</p>'}</div>
+                    ${evidence ? `<pre class="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] text-gray-400">${escapeHtml(evidence)}</pre>` : '<p class="mt-2 text-[11px] text-gray-500">Frame này không có văn bản OCR/ASR hoặc thông tin đối tượng.</p>'}</div>
                 </article>`;
             }).join('');
         }
@@ -1635,7 +1639,7 @@
             const item = query.items[0];
             const fieldErrors = validateDresItem(query, item);
             if (Object.keys(fieldErrors).length) {
-                const labels = { video_id: 'Video ID', frame_idx: 'Chỉ số khung hình', answer: 'Câu trả lời Q&A', frames: 'Frame ID TRAKE' };
+                const labels = { video_id: 'Video ID', frame_idx: 'Frame ID', answer: 'Câu trả lời Q&A', frames: 'Frame ID TRAKE' };
                 return showDresReviewError(`Hãy sửa các trường sau trước khi kiểm tra: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`);
             }
             const videoId = String(item.video_id || '').trim();
@@ -1644,7 +1648,7 @@
             let frameIds = [];
             if (query.type === 'KIS' || query.type === 'QA') {
                 const frameId = Number(item.frame_idx);
-                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Chỉ số khung hình phải là số nguyên không âm. Hãy sửa đáp án trong Trình tạo đáp án.');
+                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Frame ID phải là số nguyên không âm. Hãy sửa đáp án trong Trình tạo đáp án.');
                 requestBody.frame_idx = frameId;
                 frameIds = [frameId];
                 if (query.type === 'QA') requestBody.answer = item.answer || '';
@@ -1685,7 +1689,7 @@
                     if (query.type === 'QA') summary.push(dresLabel('Câu trả lời', item.answer || '(để trống — dữ liệu kiểm tra phải từ chối)'));
                 } else {
                     summary.push(dresLabel('Frame ID TRAKE theo thứ tự', frameIds.join(' → ')));
-                    summary.push(dresLabel('Số khung hình', String(frameIds.length)));
+                    summary.push(dresLabel('Số frame', String(frameIds.length)));
                 }
                 document.getElementById('dresReviewSummary').innerHTML = summary.join('');
                 renderDresEvidenceFrames(evidenceFrames);
@@ -1808,7 +1812,9 @@
                 if (searchStartTime) {
                     const totalImgs = visibleItems.length;
                     let loadedCount = 0;
+                    let successfulCount = 0;
                     let firstImageReported = false;
+                    const finalizedImages = new WeakSet();
                     const badgeFirst = document.getElementById('badgeFirstImg');
                     const badgeAll = document.getElementById('badgeAllImgs');
                     
@@ -1817,27 +1823,30 @@
 
                     const imgEls = targetGrid.querySelectorAll('img');
                     imgEls.forEach((img) => {
-                        const onImgDone = () => {
+                        const onImgDone = (success) => {
+                            if (finalizedImages.has(img)) return;
+                            finalizedImages.add(img);
                             loadedCount++;
                             const now = performance.now();
-                            if (!firstImageReported) {
+                            if (success) successfulCount++;
+                            if (success && !firstImageReported) {
                                 firstImageReported = true;
                                 const firstMs = Math.round(now - searchStartTime);
                                 if (badgeFirst) badgeFirst.innerHTML = `<svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Ảnh 1: ${firstMs}ms`;
                             }
                             if (loadedCount >= totalImgs) {
                                 const allMs = Math.round(now - searchStartTime);
-                                if (badgeAll) badgeAll.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Toàn bộ: ${allMs}ms`;
+                                if (!firstImageReported && badgeFirst) badgeFirst.textContent = 'Ảnh 1: lỗi';
+                                if (badgeAll) badgeAll.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Ảnh: ${successfulCount}/${totalImgs} · ${allMs}ms`;
+                                if (badgeAll) badgeAll.title = `${successfulCount}/${totalImgs} ảnh hiển thị; ${loadedCount - successfulCount} ảnh đã hết nguồn dự phòng.`;
                             } else if (badgeAll) {
-                                badgeAll.title = `Đã tải ${loadedCount}/${totalImgs} ảnh`;
+                                badgeAll.title = `Đã xử lý ${loadedCount}/${totalImgs}; hiển thị ${successfulCount} ảnh.`;
                             }
                         };
-                        if (img.complete && img.naturalWidth !== 0) {
-                            onImgDone();
-                        } else {
-                            img.addEventListener('load', onImgDone, { once: true });
-                            img.addEventListener('error', onImgDone, { once: true });
-                        }
+                        img.addEventListener('load', () => onImgDone(true));
+                        img.addEventListener('frameimagefinalized', () => onImgDone(false));
+                        if (img.complete && img.naturalWidth !== 0) onImgDone(true);
+                        else if (img.dataset.imageFinalized === '1') onImgDone(false);
                     });
                 }
             }
@@ -2159,7 +2168,10 @@
                 const res = await fetch(`${API_BASE}/api/v1/health`);
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById('statsBadge').innerHTML = `Trạng thái: <span class="text-green-400 font-bold">Đang hoạt động</span> | DB: <span class="font-mono">${data.total_keyframes.toLocaleString('vi-VN')}</span>`;
+                    const statusLabel = data.search_ready ? 'Sẵn sàng tìm kiếm' : 'Đang hoạt động, giảm chức năng';
+                    const statusClass = data.search_ready ? 'text-green-400' : 'text-amber-300';
+                    const frameCount = Number(data.total_keyframes || 0).toLocaleString('vi-VN');
+                    document.getElementById('statsBadge').innerHTML = `Trạng thái: <span class="${statusClass} font-bold">${statusLabel}</span> | DB: <span class="font-mono">${frameCount}</span>`;
                 }
             } catch(e) { document.getElementById('statsBadge').innerHTML = `Trạng thái: <span class="text-red-400 font-bold">Ngoại tuyến</span>`; }
         }
@@ -2336,7 +2348,7 @@
                         <div class="w-7 h-7 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-mono font-bold text-[11px] shrink-0">🎬</div>
                         <div class="truncate">
                             <div class="font-bold text-xs text-white">${c.vid}</div>
-                    <div class="text-[10px] text-gray-400">Khung hình ${c.frame}</div>
+                    <div class="text-[10px] text-gray-400">Khung hình ${c.frame}${Number.isFinite(c.pts) ? ` · ${c.pts.toFixed(3)}s PTS` : ''}</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -2456,12 +2468,28 @@
 
                 let rawAssistantText = '';
                 let firstTextTokenReceived = false;
+                const activeQuestion = appState.activeQuestion || {};
+                const questionType = activeQuestion.type || questionTypeEl.value || 'KIS_TEXT';
+                const questionRemainingSeconds = activeQuestion.startedAt
+                    ? Math.max(0, Math.ceil((questionDurationMs(questionType) - (Date.now() - activeQuestion.startedAt)) / 1000))
+                    : null;
 
                 try {
                     const res = await fetch(`${API_BASE}/api/v1/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: msg, session_id: window.chatSessionId }),
+                        body: JSON.stringify({
+                            message: msg,
+                            session_id: window.chatSessionId,
+                            question_type: questionType,
+                            description: String(activeQuestion.initialText || '').slice(0, 4000),
+                            clues: (activeQuestion.hints || []).slice(-20).map(hint => String(hint.text || '').slice(0, 500)),
+                            remaining_seconds: questionRemainingSeconds,
+                            pinned_frames: (activeQuestion.pinnedFrames || []).slice(-20).map(frame => ({
+                                video_id: String(frame.video_id || '').replace(/\.[^/.]+$/, ''),
+                                frame_idx: Math.round(Number(frame.frame_idx))
+                            })).filter(frame => frame.video_id && Number.isInteger(frame.frame_idx) && frame.frame_idx >= 0)
+                        }),
                         signal: chatAbortController.signal
                     });
 
@@ -2496,7 +2524,20 @@
                                     // Render rich candidate cards
                                     const candidates = extractCandidatesFromText(rawAssistantText);
                                     if (candidates.length > 0 && responseDiv) {
-                                        responseDiv.insertAdjacentHTML('beforeend', renderCandidateCardsHtml(candidates));
+                                        try {
+                                            const validation = await fetch(`${API_BASE}/api/v1/frames/validate`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ candidates: candidates.map(c => ({ video_id: c.vid, frame_idx: c.frame })) })
+                                            });
+                                            if (validation.ok) {
+                                                const { verified = [] } = await validation.json();
+                                                const verifiedCards = verified.map(frame => ({ vid: frame.video_id, frame: frame.frame_idx, pts: frame.pts_time }));
+                                                if (verifiedCards.length) responseDiv.insertAdjacentHTML('beforeend', renderCandidateCardsHtml(verifiedCards));
+                                            }
+                                        } catch (error) {
+                                            console.warn('Could not verify Assistant candidates against the frame index.', error);
+                                        }
                                     }
                                 } else if (data.startsWith('[ERROR]')) {
                                     clearInterval(timerInterval);

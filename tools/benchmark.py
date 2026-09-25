@@ -21,7 +21,17 @@ from urllib.request import Request, urlopen
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATASET_PATH = PROJECT_ROOT / "answerAndQuestion.jsonl"
+DATASET_PATH = next(
+    (
+        candidate
+        for candidate in (
+            PROJECT_ROOT / "answerAndQuestion.jsonl",
+            PROJECT_ROOT / "docs" / "answerAndQuestion.jsonl",
+        )
+        if candidate.is_file()
+    ),
+    PROJECT_ROOT / "answerAndQuestion.jsonl",
+)
 FPS_MAP_PATH = PROJECT_ROOT / "video_fps_map.json"
 TOLERANCE_SECONDS = 150.0
 RECALL_CUTOFFS = (1, 5, 10, 50)
@@ -363,8 +373,14 @@ def format_latency_metrics(records: Iterable[Dict[str, Any]]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
+    parser.add_argument("--id-prefix", help="run only case IDs beginning with this prefix, for repeatable p2/p3 splits")
     parser.add_argument("--fps-map", type=Path, default=FPS_MAP_PATH)
-    parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
+    parser.add_argument(
+        "--tolerance-seconds",
+        type=float,
+        default=TOLERANCE_SECONDS,
+        help="diagnostic temporal match window; this is not a competition rule",
+    )
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--api-url", help="Base URL of a running FastAPI server; otherwise use the direct production pipeline")
     parser.add_argument(
@@ -379,6 +395,10 @@ def main() -> int:
     configure_translation_network(args.allow_online_translation)
 
     cases = load_cases(args.dataset)
+    if args.id_prefix:
+        cases = [case for case in cases if str(case.get("id", "")).startswith(args.id_prefix)]
+        if not cases:
+            parser.error(f"no benchmark cases start with {args.id_prefix!r}")
     fps_map = load_fps_map(args.fps_map)
     search = make_api_search(args.api_url, args.top_k) if args.api_url else make_direct_search(args.top_k)
 

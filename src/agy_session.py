@@ -262,11 +262,18 @@ STRICT EFFICIENCY & TIMING RULES (CRITICAL):
     async def close(self):
         proc = self.proc
         if proc and proc.returncode is None:
-            proc.stdin.close()
+            try:
+                proc.stdin.close()
+            except (BrokenPipeError, AttributeError):
+                pass
             try:
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
             except asyncio.TimeoutError:
-                proc.terminate()
+                proc.kill()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
         self.proc = None
         self.ready.clear()
         session_pool.pop(self.session_id, None)

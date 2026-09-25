@@ -162,7 +162,12 @@ def main() -> int:
     parser.add_argument("--fps-map", type=Path, default=FPS_MAP_PATH)
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--max-lexical-terms", type=int, default=6)
-    parser.add_argument("--tolerance-seconds", type=float, default=TOLERANCE_SECONDS)
+    parser.add_argument(
+        "--tolerance-seconds",
+        type=float,
+        default=TOLERANCE_SECONDS,
+        help="diagnostic temporal match window; this is not a competition rule",
+    )
     parser.add_argument("--limit", type=int)
     parser.add_argument("--strategies", nargs="+", choices=STRATEGIES, default=list(STRATEGIES))
     parser.add_argument(
