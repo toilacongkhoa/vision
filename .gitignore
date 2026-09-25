@@ -58,4 +58,5 @@ test_*.py
 !tools/test_r2_paths.py
 !tools/test_asr_preview.py
 !tools/test_traffic_search.py
+!tools/test_mcp_http_endpoint.py
 debug_search.py
