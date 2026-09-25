@@ -1078,12 +1078,33 @@
             saveState();
         };
         window.deleteItem = (qId, idx) => { const q = appState.queries.find(x => x.id === qId); if (q) { q.items.splice(idx, 1); saveState(); } };
-        window.moveItem = (qId, idx, dir) => {
-            const q = appState.queries.find(x => x.id === qId);
-            if (!q) return;
-            const arr = q.items;
-            if (dir === -1 && idx > 0) { [arr[idx], arr[idx-1]] = [arr[idx-1], arr[idx]]; }
-            if (dir === 1 && idx < arr.length - 1) { [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; }
+        window.adjustFrame = (qId, idx, delta) => {
+            const query = appState.queries.find(candidate => candidate.id === qId);
+            const item = query?.items[idx];
+            if (!query || !item || ![-1, 1].includes(delta)) return;
+
+            if (query.type === 'KIS' || query.type === 'QA') {
+                const raw = String(item.frame_idx ?? '').trim();
+                if (!/^\d+$/.test(raw)) return;
+                const frame = Number(raw);
+                const adjusted = frame + delta;
+                if (!Number.isSafeInteger(frame) || !Number.isSafeInteger(adjusted) || adjusted < 0) return;
+                item.frame_idx = adjusted;
+            } else if (query.type === 'TRAKE') {
+                const raw = item.framesDraft !== undefined
+                    ? String(item.framesDraft)
+                    : (Array.isArray(item.frames) ? item.frames.join(', ') : '');
+                const tokens = raw.split(',').map(token => token.trim());
+                if (!raw.trim() || tokens.some(token => !/^\d+$/.test(token))) return;
+                const frames = tokens.map(Number);
+                if (frames.some((frame, frameIndex) => !Number.isSafeInteger(frame) || (frameIndex > 0 && frame <= frames[frameIndex - 1]))) return;
+                const adjustedFrames = frames.map(frame => frame + delta);
+                if (adjustedFrames.some(frame => !Number.isSafeInteger(frame) || frame < 0)) return;
+                item.frames = adjustedFrames;
+                item.framesDraft = adjustedFrames.join(', ');
+            } else {
+                return;
+            }
             saveState();
         };
 
@@ -1225,8 +1246,8 @@
                         <span class="mt-2 w-4 shrink-0 text-xs text-gray-500">${idx+1}.</span>
                         ${inputs}
                         <div class="mt-2 flex shrink-0 flex-col gap-0 opacity-50 group-hover:opacity-100 transition-opacity">
-                            <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, -1)">▲</button>
-                            <button class="text-gray-400 hover:text-white leading-none text-xs px-1" onclick="moveItem('${activeQ.id}', ${idx}, 1)">▼</button>
+                            <button type="button" class="text-gray-400 hover:text-white leading-none text-xs px-1" aria-label="Tăng Frame ID hàng ${idx+1}" title="Tăng Frame ID lên 1" onclick="adjustFrame('${activeQ.id}', ${idx}, 1)">▲</button>
+                            <button type="button" class="text-gray-400 hover:text-white leading-none text-xs px-1" aria-label="Giảm Frame ID hàng ${idx+1}" title="Giảm Frame ID xuống 1" onclick="adjustFrame('${activeQ.id}', ${idx}, -1)">▼</button>
                         </div>
                         <button class="mt-1 shrink-0 text-red-400 hover:text-red-300 px-1 text-lg leading-none opacity-50 group-hover:opacity-100 transition-opacity" onclick="deleteItem('${activeQ.id}', ${idx})">&times;</button>
                     </div>

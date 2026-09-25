@@ -172,6 +172,12 @@ Mỗi loại chạy thêm ít nhất một nhánh: không có kết quả, ảnh
 - HTTP 412 được ghi màu vàng với nội dung trùng kết quả trước đó hoặc hết thời gian task; HTTP 401 màu vàng yêu cầu đăng nhập lại; HTTP 404 màu vàng báo sai Evaluation ID.
 - Route mock xác nhận HTTP 401 và 404 được giữ nguyên tới giao diện; contract **15/15** và hai script inline qua `node --check`.
 
+## DRES Builder — tăng/giảm Frame ID
+
+- Nút ▲/▼ cạnh mỗi hàng tăng/giảm Frame ID một đơn vị; với KIS/Q&A chỉ cập nhật frame của hàng đó. Với TRAKE, dịch tất cả frame trong danh sách của hàng cùng một đơn vị để vẫn giữ thứ tự tăng dần.
+- Không thay đổi dữ liệu nếu frame đang nhập sai định dạng, phép giảm tạo giá trị âm, hoặc kết quả vượt giới hạn số nguyên an toàn.
+- Kiểm tra giao diện thủ công cần xác nhận giá trị hiển thị và payload sau ▲/▼, gồm frame `0`, một frame TRAKE và một dãy TRAKE; kiểm tra này chưa được chạy trong phiên sửa mã.
+
 Kế hoạch toàn hệ thống vẫn còn mở: năm route phụ thuộc ngoài, retrieval ground truth và UI E2E/viewport cần môi trường tương ứng.
 
 ## 10. DRES Test 2 — một lần submit theo yêu cầu 2026-09-25
