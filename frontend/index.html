@@ -1313,6 +1313,15 @@
         let dresSessionFailed = false;
         let dresActiveEvaluations = [];
         let dresEvaluationState = 'idle';
+        // Prefer the organizer's active AIC2026 Final Session 2 evaluation when
+        // more than one active evaluation is returned for this DRES session.
+        const DRES_PREFERRED_EVALUATION_ID = 'ee42784d-7867-4eb9-a5d4-c191d5269c44';
+
+        function getDefaultDresEvaluationId(evaluations = dresActiveEvaluations) {
+            const ids = evaluations.map(evaluation => String(evaluation.evaluationId ?? evaluation.id ?? '')).filter(Boolean);
+            if (ids.includes(DRES_PREFERRED_EVALUATION_ID)) return DRES_PREFERRED_EVALUATION_ID;
+            return ids.length === 1 ? ids[0] : '';
+        }
         let dresSubmitBusy = false;
         let dresLoginBusy = false;
         let dresAutoSubmitBusy = false;
@@ -1535,18 +1544,14 @@
                     updateDresConnectionUi();
                     return;
                 }
-                const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="" class="text-gray-500">Chọn evaluation đang hoạt động</option>';
+                const defaultEvaluationId = getDefaultDresEvaluationId();
+                const optionPlaceholder = defaultEvaluationId ? '' : '<option value="" class="text-gray-500">Chọn evaluation đang hoạt động</option>';
                 select.innerHTML = optionPlaceholder + dresActiveEvaluations.map(evaluation => {
                     const id = String(evaluation.evaluationId ?? evaluation.id ?? '');
                     const label = String(evaluation.name ?? evaluation.title ?? id);
                     return id ? `<option value="${escapeHtml(id)}" class="text-emerald-300">${escapeHtml(label)} (${escapeHtml(id)})</option>` : '';
                 }).join('');
-                if (dresActiveEvaluations.length === 1) {
-                    const onlyEvaluationId = String(dresActiveEvaluations[0].evaluationId ?? dresActiveEvaluations[0].id ?? '');
-                    select.value = onlyEvaluationId;
-                } else {
-                    select.value = '';
-                }
+                select.value = defaultEvaluationId;
                 updateDresConnectionUi();
             } catch (error) {
                 dresActiveEvaluations = [];
@@ -1791,21 +1796,20 @@
                 await document.getElementById('btnExportDres').onclick({ silent: true });
                 if (!pendingDresReview) return;
 
-                if (dresEvaluationState !== 'loaded' || dresActiveEvaluations.length !== 1) {
+                if (dresEvaluationState !== 'loaded' || !dresActiveEvaluations.length) {
                     const count = dresActiveEvaluations.length;
                     const message = dresEvaluationState === 'error'
                         ? 'Không tải được danh sách evaluation. Đáp án chưa được gửi.'
-                        : count === 0
-                            ? 'Không tìm thấy evaluation đang hoạt động. Đáp án chưa được gửi.'
-                            : `Tìm thấy ${count} evaluation đang hoạt động. Cần đúng một evaluation để tự động nộp; đáp án chưa được gửi.`;
+                            : count === 0
+                                ? 'Không tìm thấy evaluation đang hoạt động. Đáp án chưa được gửi.'
+                                : `Tìm thấy ${count} evaluation đang hoạt động nhưng chưa xác định được evaluation mặc định; đáp án chưa được gửi.`;
                     setDresInlineStatus(pendingDresReview.queryId, pendingDresReview.queryName, 'failed', message);
                     return;
                 }
 
-                const onlyEvaluation = dresActiveEvaluations[0];
-                const evaluationId = String(onlyEvaluation.evaluationId ?? onlyEvaluation.id ?? '');
+                const evaluationId = getDefaultDresEvaluationId();
                 if (!evaluationId) {
-                    setDresInlineStatus(pendingDresReview.queryId, pendingDresReview.queryName, 'failed', 'Evaluation đang hoạt động không có ID hợp lệ. Đáp án chưa được gửi.');
+                    setDresInlineStatus(pendingDresReview.queryId, pendingDresReview.queryName, 'failed', 'Không tìm thấy evaluation mặc định trong danh sách đang hoạt động. Đáp án chưa được gửi.');
                     return;
                 }
                 document.getElementById('dresEvaluationSelect').value = evaluationId;
