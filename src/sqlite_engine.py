@@ -175,6 +175,9 @@ class SQLiteSearchEngine:
         self.data_root = Path(data_root).resolve()
         self.vectors_path = Path(vectors_path).resolve()
         self.db_path = str(Path(db_path).resolve())
+        self.text_search_db_path = Path(self.db_path).with_name(
+            f"{Path(self.db_path).stem}.text_fts5.db"
+        )
         
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = None
@@ -201,6 +204,9 @@ class SQLiteSearchEngine:
         self._semantic_cache_maxsize = 256
         self._fts_table_cache: Dict[str, bool] = {}
         self._fts_table_lock = threading.Lock()
+        self._text_fts_lock = threading.Lock()
+        self._text_fts_build_thread: Optional[threading.Thread] = None
+        self._text_fts_ready = self._is_text_fts_index_current()
         self._db_local = threading.local()
         self._score_local = threading.local()
         
@@ -208,6 +214,144 @@ class SQLiteSearchEngine:
         self._load_metadata_cache()
         self._init_faiss()
         self.load_clip_model()
+
+    def _text_db_signature(self) -> Tuple[int, int]:
+        stat = Path(self.db_path).stat()
+        return stat.st_size, stat.st_mtime_ns
+
+    def _is_text_fts_index_current(self) -> bool:
+        """Check whether the local sidecar index was built from this DB file."""
+        if not self.text_search_db_path.exists():
+            return False
+        try:
+            size, mtime_ns = self._text_db_signature()
+            conn = sqlite3.connect(
+                f"file:{self.text_search_db_path}?mode=ro", uri=True, timeout=1
+            )
+            try:
+                metadata = dict(conn.execute("SELECT key, value FROM index_metadata"))
+                has_fts = conn.execute(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' "
+                    "AND name IN ('asr_fts', 'ocr_fts')"
+                ).fetchone()[0] == 2
+            finally:
+                conn.close()
+            return (
+                has_fts
+                and metadata.get("complete") == "1"
+                and metadata.get("source_size") == str(size)
+                and metadata.get("source_mtime_ns") == str(mtime_ns)
+            )
+        except (OSError, sqlite3.Error, ValueError, TypeError):
+            return False
+
+    def start_text_search_index_build(self) -> bool:
+        """Build a disposable FTS5 trigram sidecar without blocking API startup."""
+        with self._text_fts_lock:
+            if self._text_fts_ready or self._is_text_fts_index_current():
+                self._text_fts_ready = True
+                return False
+            if self._text_fts_build_thread and self._text_fts_build_thread.is_alive():
+                return False
+            self._text_fts_build_thread = threading.Thread(
+                target=self._build_text_search_index,
+                name="text-search-fts-builder",
+                daemon=True,
+            )
+            self._text_fts_build_thread.start()
+            return True
+
+    def _build_text_search_index(self) -> None:
+        import time
+
+        temp_path = self.text_search_db_path.with_name(
+            f"{self.text_search_db_path.stem}.building-{os.getpid()}-{threading.get_ident()}.db"
+        )
+        started = time.perf_counter()
+        try:
+            source_size, source_mtime_ns = self._text_db_signature()
+            if sqlite3.sqlite_version_info < (3, 34, 0):
+                raise RuntimeError("SQLite build does not support FTS5 trigram tokenizer")
+            index = sqlite3.connect(str(temp_path), timeout=30)
+            try:
+                index.execute("PRAGMA journal_mode=OFF")
+                index.execute("PRAGMA synchronous=OFF")
+                index.execute("PRAGMA temp_store=MEMORY")
+                index.execute(
+                    "CREATE VIRTUAL TABLE asr_fts USING fts5(video_id UNINDEXED, "
+                    "asr_text, tokenize='trigram')"
+                )
+                index.execute(
+                    "CREATE VIRTUAL TABLE ocr_fts USING fts5(video_id UNINDEXED, "
+                    "ocr_text, tokenize='trigram')"
+                )
+                index.execute(
+                    "CREATE TABLE index_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+                )
+                index.executemany(
+                    "INSERT INTO index_metadata(key, value) VALUES (?, ?)",
+                    [("complete", "0"), ("source_size", str(source_size)),
+                     ("source_mtime_ns", str(source_mtime_ns))],
+                )
+
+                source = self._get_db()
+                cursor = source.execute(
+                    "SELECT vector_id, video_id, asr_text, ocr_text FROM keyframes "
+                    "ORDER BY vector_id"
+                )
+                indexed_rows = 0
+                while True:
+                    rows = cursor.fetchmany(2000)
+                    if not rows:
+                        break
+                    asr_rows = []
+                    ocr_rows = []
+                    for row in rows:
+                        vector_id, video_id, asr_text, ocr_text = row
+                        video_id = video_id or ""
+                        if asr_text and str(asr_text).strip():
+                            asr_rows.append((vector_id, video_id, asr_text))
+                        if ocr_text and str(ocr_text).strip():
+                            ocr_rows.append((vector_id, video_id, ocr_text))
+                    index.executemany(
+                        "INSERT INTO asr_fts(rowid, video_id, asr_text) VALUES (?, ?, ?)",
+                        asr_rows,
+                    )
+                    index.executemany(
+                        "INSERT INTO ocr_fts(rowid, video_id, ocr_text) VALUES (?, ?, ?)",
+                        ocr_rows,
+                    )
+                    indexed_rows += len(rows)
+                    index.commit()
+                    if indexed_rows % 20000 == 0:
+                        print(
+                            f"[TextSearch] Indexed {indexed_rows:,} / keyframes into trigram sidecar.",
+                            flush=True,
+                        )
+
+                if self._text_db_signature() != (source_size, source_mtime_ns):
+                    raise RuntimeError("source database changed while text index was building")
+                index.execute(
+                    "UPDATE index_metadata SET value='1' WHERE key='complete'"
+                )
+                index.commit()
+            finally:
+                index.close()
+
+            os.replace(temp_path, self.text_search_db_path)
+            self._text_fts_ready = True
+            print(
+                f"[TextSearch] Trigram sidecar ready for {indexed_rows:,} keyframes "
+                f"in {time.perf_counter() - started:.1f}s.",
+                flush=True,
+            )
+        except Exception as exc:
+            self._text_fts_ready = False
+            print(f"[TextSearch] Trigram sidecar build skipped: {exc}", flush=True)
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def _load_metadata_cache(self):
         cache_path = self.data_root.parent / "metadata_cache.pkl"
@@ -706,6 +850,7 @@ class SQLiteSearchEngine:
             for row in cur.fetchall():
                 results.append(self._format_result(row['raw_json'], 1.0))
         return results
+
     def search_frame_range(self, video_id: str, start_frame: int, end_frame: int, limit: int = 80):
         results = []
         with self._get_db() as conn:
@@ -790,6 +935,58 @@ class SQLiteSearchEngine:
         nearest = min(candidates, key=lambda row: abs(float(row["pts_time"]) - float(pts_time)))
         return self._format_result(nearest["raw_json"], 1.0)
 
+    def _indexed_text_candidates(
+        self,
+        raw_terms: List[str],
+        field_name: str,
+        top_k: int,
+        video_id_filter: Optional[str],
+    ) -> Optional[Tuple[Tuple[int, float], ...]]:
+        """Return trigram-indexed candidates, or None when a scan is still needed."""
+        if (
+            not self._text_fts_ready
+            or video_id_filter is not None
+            or any(len(term) < 3 for term in raw_terms)
+        ):
+            return None
+
+        table_name = "ocr_fts" if field_name == "ocr_text" else "asr_fts"
+        column_name = "ocr_text" if table_name == "ocr_fts" else "asr_text"
+        # FTS5 phrase quoting keeps user punctuation from becoming query syntax.
+        match_expr = " OR ".join(
+            '"' + term.replace('"', '""') + '"' for term in dict.fromkeys(raw_terms)
+        )
+        hit_expr = " + ".join(
+            f"({column_name} LIKE ?)" for _ in raw_terms
+        )
+        first_hit_expr = "CASE " + " ".join(
+            f"WHEN {column_name} LIKE ? THEN {index}"
+            for index, _ in enumerate(raw_terms)
+        ) + " END"
+        patterns = [f"%{term}%" for term in raw_terms]
+        where = f"{table_name} MATCH ?"
+        params: List[Any] = [*patterns, *patterns, match_expr]
+        if video_id_filter:
+            where += " AND video_id = ?"
+            params.append(video_id_filter)
+        try:
+            conn = sqlite3.connect(
+                f"file:{self.text_search_db_path}?mode=ro", uri=True, timeout=2
+            )
+            try:
+                rows = conn.execute(
+                    f"SELECT rowid, hits FROM (SELECT rowid, {hit_expr} AS hits, "
+                    f"{first_hit_expr} AS first_hit FROM {table_name} WHERE {where}) "
+                    f"WHERE hits > 0 ORDER BY hits DESC, first_hit ASC, rowid ASC LIMIT ?",
+                    [*params, max(0, int(top_k))],
+                ).fetchall()
+            finally:
+                conn.close()
+            return tuple((int(row[0]), float(row[1])) for row in rows)
+        except sqlite3.Error as exc:
+            print(f"[TextSearch] Indexed query fallback: {exc}", flush=True)
+            return None
+
     def _fuzzy_text_search(self, query_text: str, field_name: str, top_k: int = 50, video_id_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         raw_terms = [t for t in re.findall(r'\b\w+\b', query_text.lower()) if len(t) >= 2]
         if not raw_terms:
@@ -823,41 +1020,45 @@ class SQLiteSearchEngine:
                         self._fuzzy_candidate_cache.popitem(last=False)
 
         if cached_candidates is None:
-            vid_scores = defaultdict(float)
-            with self._get_db() as conn:
-                cur = conn.cursor()
-                patterns = [f"%{term}%" for term in raw_terms]
-                hit_columns = ", ".join(
-                    f"{field_name} LIKE ? AS hit_{index}"
-                    for index in range(len(patterns))
-                )
-                where_terms = " OR ".join(f"{field_name} LIKE ?" for _ in patterns)
-                params: List[Any] = [*patterns]
-                if video_id_filter:
-                    where_clause = f"video_id = ? AND ({where_terms})"
-                    params.append(video_id_filter)
-                else:
-                    where_clause = f"({where_terms})"
-                params.extend(patterns)
-                cur.execute(
-                    f"SELECT vector_id, {hit_columns} "
-                    f"FROM keyframes WHERE {where_clause}",
-                    params,
-                )
-                matching_rows = cur.fetchall()
-
-                # Preserve the old per-term insertion order so equal-score
-                # results remain identical while scanning the table once.
-                for term_index in range(len(raw_terms)):
-                    hit_column = f"hit_{term_index}"
-                    for row in matching_rows:
-                        if not row[hit_column]:
-                            continue
-                        vid_scores[row['vector_id']] += 1.0
-
-            cached_candidates = tuple(
-                sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+            cached_candidates = self._indexed_text_candidates(
+                raw_terms, field_name, top_k, video_id_filter
             )
+            if cached_candidates is None:
+                vid_scores = defaultdict(float)
+                with self._get_db() as conn:
+                    cur = conn.cursor()
+                    patterns = [f"%{term}%" for term in raw_terms]
+                    hit_columns = ", ".join(
+                        f"{field_name} LIKE ? AS hit_{index}"
+                        for index in range(len(patterns))
+                    )
+                    where_terms = " OR ".join(f"{field_name} LIKE ?" for _ in patterns)
+                    params: List[Any] = [*patterns]
+                    if video_id_filter:
+                        where_clause = f"video_id = ? AND ({where_terms})"
+                        params.append(video_id_filter)
+                    else:
+                        where_clause = f"({where_terms})"
+                    params.extend(patterns)
+                    cur.execute(
+                        f"SELECT vector_id, {hit_columns} "
+                        f"FROM keyframes WHERE {where_clause}",
+                        params,
+                    )
+                    matching_rows = cur.fetchall()
+
+                    # Preserve the old per-term insertion order so equal-score
+                    # results remain identical while scanning the table once.
+                    for term_index in range(len(raw_terms)):
+                        hit_column = f"hit_{term_index}"
+                        for row in matching_rows:
+                            if not row[hit_column]:
+                                continue
+                            vid_scores[row['vector_id']] += 1.0
+
+                cached_candidates = tuple(
+                    sorted(vid_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+                )
             with self._fuzzy_cache_lock:
                 self._fuzzy_candidate_cache[cache_key] = cached_candidates
                 self._fuzzy_candidate_cache.move_to_end(cache_key)

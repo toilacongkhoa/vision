@@ -136,10 +136,12 @@ class DRESExportRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     print("[Startup] Video Retrieval & Supabase Backend online!", flush=True)
+    if search_engine.start_text_search_index_build():
+        print("[Startup] Building the local text-search index in the background.", flush=True)
+    import asyncio
     if not AGY_PREWARM_ON_STARTUP:
         print("[Startup] Agy prewarming disabled by AGY_PREWARM_ON_STARTUP.", flush=True)
         return
-    import asyncio
     
     async def warm_ai_sessions():
         async def warm_one(sid: str, model: str, label: str):
@@ -371,6 +373,18 @@ def traffic_search(request: TrafficSearchRequest):
 @app.get("/api/v1/search/context")
 def search_context(video_id: str, frame_idx: int, limit: int = 50, surrounding: bool = False):
     results = search_engine.search_context(video_id, frame_idx, limit, surrounding=surrounding)
+    return {"status": "success", "results": results}
+
+@app.post("/api/v1/search/contexts")
+def search_contexts(request: FrameValidationRequest):
+    """Resolve several candidate frames in one local API request."""
+    results = []
+    for candidate in request.candidates:
+        matches = search_engine.search_context(
+            candidate.video_id, candidate.frame_idx, limit=1
+        )
+        if matches:
+            results.append(matches[0])
     return {"status": "success", "results": results}
 
 @app.get("/api/v1/video/{video_id}/frames")

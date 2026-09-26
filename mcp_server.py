@@ -64,26 +64,31 @@ def inspect_vision_probe(variant: str = "probe_a") -> Image:
     return Image(data=_build_vision_probe(variant), format="jpeg")
 
 
-async def _resolve_candidate(
-    client: httpx.AsyncClient, candidate: Dict[str, Any]
-) -> Dict[str, Any]:
-    video_id = str(candidate.get("video_id", "")).strip()
-    try:
-        frame_idx = int(candidate.get("frame_idx"))
-    except (TypeError, ValueError):
-        raise ValueError("each candidate requires an integer frame_idx")
-    if not video_id:
-        raise ValueError("each candidate requires a video_id")
+async def _resolve_candidates(
+    client: httpx.AsyncClient, candidates: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    normalized = []
+    for candidate in candidates:
+        video_id = str(candidate.get("video_id", "")).strip()
+        try:
+            frame_idx = int(candidate.get("frame_idx"))
+        except (TypeError, ValueError):
+            raise ValueError("each candidate requires an integer frame_idx")
+        if not video_id:
+            raise ValueError("each candidate requires a video_id")
+        normalized.append({"video_id": video_id, "frame_idx": frame_idx})
 
-    response = await client.get(
-        f"{API_BASE}/api/v1/search/context",
-        params={"video_id": video_id, "frame_idx": frame_idx, "limit": 1},
+    response = await client.post(
+        f"{API_BASE}/api/v1/search/contexts",
+        json={"candidates": normalized},
     )
     response.raise_for_status()
     results = response.json().get("results", [])
-    if not results:
-        raise ValueError(f"frame not found: {video_id}, {frame_idx}")
-    return results[0]
+    if len(results) != len(normalized):
+        raise ValueError(
+            f"resolved {len(results)} of {len(normalized)} requested frames"
+        )
+    return results
 
 
 async def _download_candidate_image(
@@ -178,9 +183,7 @@ async def inspect_candidate_grid(
     timeout = httpx.Timeout(12.0, connect=4.0)
     limits = httpx.Limits(max_connections=8, max_keepalive_connections=8)
     async with httpx.AsyncClient(timeout=timeout, limits=limits, follow_redirects=True) as client:
-        resolved = await asyncio.gather(
-            *(_resolve_candidate(client, candidate) for candidate in unique)
-        )
+        resolved = await _resolve_candidates(client, unique)
         semaphore = asyncio.Semaphore(6)
         frames = await asyncio.gather(
             *(_download_candidate_image(client, semaphore, candidate) for candidate in resolved)
@@ -245,6 +248,17 @@ def format_results(results: List[Dict[str, Any]], limit: int = 20) -> str:
     
     return "\n".join(output)
 
+
+def format_semantic_candidates(results: List[Dict[str, Any]], limit: int = 20) -> str:
+    """Keep visual retrieval output compact; image inspection resolves evidence."""
+    if not results:
+        return "Không tìm thấy kết quả phù hợp."
+    return "\n".join(
+        f"• {r.get('video_id', 'unknown')}, {r.get('frame_idx', 0)} "
+        f"(match {r.get('score', 0)}%)"
+        for r in results[:max(1, min(limit, 20))]
+    )
+
 @mcp.tool()
 async def search_semantic_video(query: str, top_k: int = 5, video_id: Optional[str] = None) -> str:
     """
@@ -258,7 +272,7 @@ async def search_semantic_video(query: str, top_k: int = 5, video_id: Optional[s
             response = await client.post(f"{API_BASE}/api/v1/search", json=payload)
             response.raise_for_status()
             data = response.json()
-            return f"Found {data['total_results']} semantic candidates for '{query}':\n" + format_results(data['results'])
+            return f"Found {data['total_results']} semantic candidates:\n" + format_semantic_candidates(data['results'], top_k)
     except Exception as e:
         return f"Error connecting to backend: {str(e)}"
 
