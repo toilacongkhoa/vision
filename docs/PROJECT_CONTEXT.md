@@ -4,7 +4,7 @@
 
 ## Mục đích và ưu tiên hiện tại
 
-Ứng dụng “Hệ thống tìm kiếm video” giúp đội thi AI Challenge tìm keyframe, kiểm chứng video/vị trí và chuẩn bị đáp án cho Textual KIS, Video KIS, Q&A, TRAKE. Người thao tác ghi câu hỏi và gợi ý, tìm bằng văn bản hoặc ảnh, xem frame/video lân cận, giữ ứng viên, chọn đáp án, xem payload DRES rồi tải JSON hoặc gửi qua DRES. Video KIS dùng mô tả hoặc phác họa do người thi nhập; quy định cuộc thi không cho thu lại clip truy vấn bằng thiết bị điện tử để nạp vào công cụ.
+Ứng dụng “Hệ thống tìm kiếm video” giúp đội thi AI Challenge tìm keyframe, kiểm chứng video/vị trí và chuẩn bị đáp án cho Textual KIS, Video KIS, Q&A, TRAKE. Người thao tác tìm bằng văn bản hoặc ảnh, xem frame/video lân cận, giữ ứng viên, chọn đáp án, xem payload DRES rồi tải JSON hoặc gửi qua DRES. Khung câu hỏi đang thi, mô tả và gợi ý riêng đã được gỡ; câu truy vấn nhập trực tiếp ở ô tìm kiếm. Video KIS dùng mô tả hoặc phác họa do người thi nhập trong truy vấn; quy định cuộc thi không cho thu lại clip truy vấn bằng thiết bị điện tử để nạp vào công cụ.
 
 Ưu tiên kế tiếp là để bốn thành viên **mỗi người chạy một bản cài trên máy của mình**, với độ chính xác, tốc độ tìm kiếm và độ ổn định đủ dùng lúc thi, cùng Assistant chuyên biệt cho `Textual KIS`, `Video KIS`, `Q&A`, `TRAKE`. Đây là kế hoạch, chưa phải phần đã triển khai; không có yêu cầu một backend phục vụ bốn người đồng thời. Tên hiển thị là “Hệ thống tìm kiếm video” (không kèm số phiên bản). Các nhãn, trạng thái và chỉ dẫn do ứng dụng kiểm soát đã được Việt hóa; giữ các tên riêng, chữ viết tắt và khóa kỹ thuật cần đối chiếu. Danh sách chọn dạng câu giữ nguyên tiếng Anh. Luồng UI và DRES hiện có cần được giữ đúng khi thực hiện kế hoạch mới.
 
@@ -12,8 +12,8 @@
 
 ```text
 Trình duyệt / frontend/index.html (HTML + Tailwind CDN + JavaScript inline)
-  ├─ câu đang thi, tìm kiếm, kết quả, preview, chatbot, Submission Builder
-  ├─ localStorage: vrs_submission_v2; sessionStorage: ID phiên chat
+  ├─ tìm kiếm, kết quả, preview, chatbot, Submission Builder
+  ├─ localStorage: vrs_submission_v2; ID phiên chat mới tạo trong bộ nhớ mỗi lần tải trang
   └─ HTTP → FastAPI / src/main.py
       ├─ SQLiteSearchEngine / src/sqlite_engine.py
       │   ├─ OpenCLIP ViT-B-32-quickgelu/openai + NumPy + all_vectors.npy
@@ -28,7 +28,7 @@ Trình duyệt / frontend/index.html (HTML + Tailwind CDN + JavaScript inline)
           └─ MCP `video-researcher` / mcp_server.py → API tìm kiếm, camera và ảnh kiểm chứng
 ```
 
-Backend khởi tạo search engine khi import ứng dụng, tải vector và model OpenCLIP; chatbot mặc định prewarm hai phiên Agy `flash`/`pro` sau startup. Có thể đặt `AGY_PREWARM_ON_STARTUP=false` để giảm RAM lúc startup; phiên Agy sẽ chỉ được tạo khi có chat. Mỗi client chat có `session_id` riêng; chat trả SSE/heartbeat và không có deadline cứng toàn lượt; client hủy thì session được dọn. `AgySession.RESPONSE_TIMEOUT_SECONDS=None` nghĩa là heartbeat bên trong không có deadline riêng; prewarm có timeout riêng 90 giây. Tìm ảnh chạy ở worker thread để không chặn event loop. MCP hiện đăng ký **10 tool**, gồm semantic/OCR/ASR, camera, evidence đa sự kiện, context, ảnh URL và contact/sequence sheet. MCP HTTP riêng (`tools/run_mcp_http.py`) dùng `MCP_HOST`/`MCP_PORT`, mặc định loopback `127.0.0.1:8001`; `MCP_API_KEY` tùy chọn bảo vệ `/mcp`, còn `/health` không yêu cầu key. Nó chỉ cung cấp công cụ đọc, không có submit DRES. Câu trả lời tự do của model khác với nhãn UI cố định cần dịch.
+Backend khởi tạo search engine khi import ứng dụng, tải vector và model OpenCLIP; chatbot mặc định prewarm hai phiên Agy `flash`/`pro` sau startup. Có thể đặt `AGY_PREWARM_ON_STARTUP=false` để giảm RAM lúc startup; phiên Agy sẽ chỉ được tạo khi có chat. Mỗi lần tải trang tạo `session_id` mới trong bộ nhớ; các tin nhắn giữ cùng ID cho tới khi tải lại trang. Chat trả SSE/heartbeat và không có deadline cứng toàn lượt; `AgySession.RESPONSE_TIMEOUT_SECONDS=None` nghĩa là heartbeat bên trong không có deadline riêng; prewarm có timeout riêng 90 giây. Client hủy hoặc Agy gặp lỗi thì process tương ứng được dọn. Tìm ảnh chạy ở worker thread để không chặn event loop. MCP hiện đăng ký **10 tool**, gồm semantic/OCR/ASR, camera, evidence đa sự kiện, context, ảnh URL và contact/sequence sheet. MCP HTTP riêng (`tools/run_mcp_http.py`) dùng `MCP_HOST`/`MCP_PORT`, mặc định loopback `127.0.0.1:8001`; `MCP_API_KEY` tùy chọn bảo vệ `/mcp`, còn `/health` không yêu cầu key. Nó chỉ cung cấp công cụ đọc, không có submit DRES. Câu trả lời tự do của model khác với nhãn UI cố định cần dịch.
 
 Semantic search có thể dịch truy vấn tiếng Việt sang tiếng Anh bằng cache, model offline tùy chọn hoặc dịch vụ dự phòng trước khi encode. `smart` là mode mặc định, kết hợp semantic và ASR; `semantic` chỉ dùng semantic search. OCR/ASR dùng FTS5 khi DB có bảng tương ứng, nếu thiếu thì fallback `LIKE`. `_init_faiss()` hiện không dùng FAISS; xếp hạng vector bằng NumPy. Tìm bằng ảnh, tìm frame tương tự và các nhánh tìm kiếm có cache trong tiến trình.
 
@@ -81,11 +81,11 @@ Chỉ dịch câu hiển thị cho người dùng. Giữ nguyên enum, DOM ID, t
 
 Giao diện là một trang, chưa có framework i18n. HTML khai báo `<html lang="vi">`; title/header hiển thị “Hệ thống tìm kiếm video”. Tên hiển thị không kèm số phiên bản; API version không đổi.
 
-1. **Header và câu đang thi:** trạng thái, nút mở Submission Builder, loại câu (giữ tên tiếng Anh trong cả hai menu: `Textual KIS`/`Video KIS` và `KIS (Text / Video)`), timer, mô tả ban đầu, clue, lịch sử và xác nhận reset.
+1. **Header và tìm kiếm:** trạng thái và nút mở Submission Builder. Không còn khung câu đang thi, bộ chọn loại câu, mô tả/gợi ý bổ sung, lịch sử gợi ý hay chức năng reset của khung đó. Câu hỏi nhập trực tiếp trong ô tìm kiếm; ứng dụng không có chức năng đếm ngược.
 2. **Tìm kiếm:** tab văn bản/ảnh/đổi thời gian/context/**camera giao thông**; giữ nguyên nhãn mode tiếng Anh `Smart Hybrid (Semantic + ASR)` (mặc định), `Semantic AI (CLIP only)`, `OCR (Exact Text)`, `ASR Transcript Search` theo yêu cầu người dùng. Tab camera tải các bộ lọc từ DB và trả track/event kèm frame gần thời điểm preview. Bộ lọc Video ID chỉ có ở tìm kiếm văn bản, tìm kiếm ảnh áp dụng trên toàn bộ dữ liệu. Đổi thời gian sang frame dùng thời gian và FPS nhập trực tiếp, không cần Video ID; kết quả nằm giữa hàng và nút chuyển đổi ở mép phải. Thông báo kết quả dài có thể xuống dòng trong cột riêng; telemetry API/ảnh giữ cùng hàng ở màn hình rộng. Số lượng, upload/drop/paste, trạng thái đang tìm, rỗng, lỗi và số kết quả bằng tiếng Việt. Form khoảng thời gian còn trong HTML nhưng không có tab mở.
-3. **Kết quả/preview:** card, ghim/loại/khôi phục, shortlist, so sánh, gán event TRAKE, timestamp/frame/độ tương đồng, ảnh lỗi, filmstrip, bounding box, iframe, transcript ASR quanh frame và nhãn trợ năng. Filmstrip căn giữa frame ngay khi mở; nút trái/phải vẫn cuộn mượt, còn thao tác căn giữa không được kích hoạt nạp liên tiếp nhiều trang. Khi trang trước/sau không thêm frame mới, ngừng gọi tiếp ở đầu/cuối video.
-4. **Submission Builder:** tạo/đổi/chọn/xóa query, thêm/sắp xếp dòng, nhập video/frame/answer/dãy TRAKE, lỗi tại trường, xuất ZIP và mở review DRES.
-5. **DRES review:** summary/evidence/JSON, session, evaluation `ACTIVE`, submit, lịch sử attempt, cảnh báo payload trùng nhưng vẫn cho gửi lại, trạng thái Prepared/Sent/Accepted/Rejected/unknown, xác nhận gửi và lỗi mạng. Vùng này ưu tiên cao về độ chính xác ngữ nghĩa.
+3. **Kết quả/preview:** card, ẩn/khôi phục, so sánh, gán event TRAKE, timestamp/frame/độ tương đồng, ảnh lỗi, filmstrip, bounding box, iframe, transcript ASR quanh frame và nhãn trợ năng. Không còn chức năng ghim frame. Filmstrip căn giữa frame ngay khi mở; nút trái/phải vẫn cuộn mượt, còn thao tác căn giữa không được kích hoạt nạp liên tiếp nhiều trang. Khi trang trước/sau không thêm frame mới, ngừng gọi tiếp ở đầu/cuối video.
+4. **Submission Builder:** ba nút tạo answer set KIS/Q&A/TRAKE với tên mặc định `Question + thời gian`; chọn/xóa query, thêm/sắp xếp dòng, nhập video/frame/answer/dãy TRAKE, lỗi tại trường và mở review DRES. Tên answer set không sửa được. Nút **Nộp đáp án** tự lấy session, chỉ tự gửi khi có đúng một evaluation đang hoạt động; 0 hoặc nhiều evaluation thì báo lỗi và không gửi. Không còn chức năng xuất `submission.zip`.
+5. **DRES review:** summary/evidence/JSON, session, evaluation `ACTIVE`, submit, lịch sử attempt, cảnh báo payload trùng nhưng vẫn cho gửi lại, trạng thái Prepared/Sent/Accepted/Rejected/unknown, xác nhận gửi và lỗi mạng. Kết quả gửi hiển thị nổi bật query, evaluation, mã HTTP và verdict/kết quả hiện có.
 
 ### Cập nhật luồng gửi trùng DRES (2026-09-25)
 
@@ -104,7 +104,7 @@ Giao diện là một trang, chưa có framework i18n. HTML khai báo `<html lan
 - Reverification: route contract **15/15** (thêm xác nhận 401/404 được chuyển tiếp), serializer **16/16**, inline JavaScript **2/2** cú pháp hợp lệ.
 6. **AI Assistant:** lời chào, prompt nhanh, gửi/dừng, trạng thái stream, Markdown và card gợi ý. Câu trả lời tự do của model và dữ liệu OCR/ASR không thuộc chuỗi UI cố định cần dịch.
 
-Các thuật ngữ còn tiếng Anh như `Video ID`, `DRES`, `evaluation`, `frame ID`, `OCR`, `ASR`, `AI`, `API`, `JSON`, `ZIP` được giữ theo glossary vì là tên kỹ thuật hoặc giá trị cần đối chiếu. Nội dung người dùng nhập, kết quả OCR/ASR và câu trả lời tự do của trợ lý AI vẫn giữ nguyên nguồn gốc.
+Các thuật ngữ còn tiếng Anh như `Video ID`, `DRES`, `evaluation`, `frame ID`, `OCR`, `ASR`, `AI`, `API`, `JSON` được giữ theo glossary vì là tên kỹ thuật hoặc giá trị cần đối chiếu. Nội dung người dùng nhập, kết quả OCR/ASR và câu trả lời tự do của trợ lý AI vẫn giữ nguyên nguồn gốc.
 
 ## Tình trạng và giới hạn xác minh
 
@@ -112,7 +112,7 @@ Các thuật ngữ còn tiếng Anh như `Video ID`, `DRES`, `evaluation`, `fram
 - Rerun `tools/benchmark.py --top-k 50 --tolerance-seconds 150` cache-only (direct `SQLiteSearchEngine.search`, semantic): 1/57 case, R@50 2/63, p95 1,416 ms; QA location 1/16 nhưng answer evidence 0/16, TRAKE 0/2. 57/57 video nhãn và frame mục tiêu đều nằm trong DB/dải frame. Không gộp metric này với phép benchmark semantic/OCR/ASR/hybrid khác; cả hai chỉ ra accuracy cần xử lý.
 - Sau khi người dùng cho phép đúng một case Assistant live, lấy top-1 semantic local `L25_V085/18951/632.365s` cho `query-p3-1-kis`. Agy CLI trả `Authentication required`; không có câu trả lời/MCP tool call và không ghi nhận latency hay accuracy. Người dùng yêu cầu bỏ qua Agy trong terminal Codex vì không gọi được; không thử lại CLI.
 
-- Workspace câu thi, timer, lưu nháp, shortlist, so sánh, TRAKE event mapping, validator tại trường, review payload và kết nối DRES đã có. Diễn tập local cho bốn dạng được ghi trong plan/changelog; chưa đủ xác nhận đáp án đúng hoặc hoàn thành trong deadline ngày thi.
+- Workspace câu thi, lưu nháp, so sánh, TRAKE event mapping, validator tại trường, review payload và kết nối DRES đã có. Chức năng ghim frame đã được gỡ khỏi UI, trạng thái lưu và context Chatbox. Ứng dụng không theo dõi đếm ngược thời gian thi. Diễn tập local cho bốn dạng được ghi trong plan/changelog; chưa đủ xác nhận đáp án đúng hoặc hoàn thành trong deadline ngày thi.
 - Serializer/contract DRES và vài luồng UI đã thử offline. Chưa có bằng chứng login/list/submit thật với evaluation do Ban tổ chức cấp; `start == end` của KIS và ý nghĩa response DRES cần xác nhận trong buổi tập huấn.
 - Lỗi từ FastAPI/Pydantic/DRES có thể trở về qua `detail` tiếng Anh. Frontend ánh xạ các lỗi phổ biến của search, frame, validation và DRES sang câu tiếng Việt; lỗi chưa biết vẫn hiện kèm chi tiết máy chủ để hỗ trợ chẩn đoán.
 - Form UI không còn lối vào, nhãn version chưa thống nhất và API base hard-code là việc riêng; không để chúng làm lệch phạm vi dịch chữ.
@@ -120,6 +120,6 @@ Các thuật ngữ còn tiếng Anh như `Video ID`, `DRES`, `evaluation`, `fram
 
 ## Khởi chạy và quy tắc cập nhật
 
-Trên Windows với Python 3.12 x64, cài `requirements.txt`, chép `.env.example` thành `.env`, đặt dữ liệu cần thiết ở root, chạy `python tools/preflight.py`, sau đó `python tools/run_server.py`. Hai script định vị project theo chính file nên có thể chạy bằng đường dẫn tuyệt đối từ thư mục khác. Mặc định backend bind loopback; `.env` có thể ghi đè giá trị này. Health kiểm tra DB queryable, số frame, vector và model đã nạp; HTTP 200 một mình không đồng nghĩa semantic/image search sẵn sàng. Chatbot cần CLI `agy` và MCP `video-researcher` trỏ tới `mcp_server.py`. Chat POST nhận dạng câu `KIS_TEXT`, `KIS_VIDEO`, `QA`, `TRAKE`, mô tả, clue, thời gian còn lại và tối đa 20 frame ghim. `POST /api/v1/frames/validate` chỉ trả Video ID/Frame ID khớp chính xác index kèm PTS nguồn; UI chỉ tạo thẻ Assistant từ các frame đã xác minh. Dùng payload giả và mock/contract checks; không gửi DRES thật để thử bản dịch.
+Trên Windows với Python 3.12 x64, cài `requirements.txt`, chép `.env.example` thành `.env`, đặt dữ liệu cần thiết ở root, chạy `python tools/preflight.py`, sau đó `python tools/run_server.py`. Hai script định vị project theo chính file nên có thể chạy bằng đường dẫn tuyệt đối từ thư mục khác. Mặc định backend bind loopback; `.env` có thể ghi đè giá trị này. Health kiểm tra DB queryable, số frame, vector và model đã nạp; HTTP 200 một mình không đồng nghĩa semantic/image search sẵn sàng. Chatbot cần CLI `agy` và MCP `video-researcher` trỏ tới `mcp_server.py`. Chat POST nhận `question_type` (lấy từ answer set đang chọn: QA/TRAKE, mặc định KIS_TEXT); không nhận frame ghim hay mô tả/gợi ý riêng từ khung câu hỏi. `POST /api/v1/frames/validate` chỉ trả Video ID/Frame ID khớp chính xác index kèm PTS nguồn; UI chỉ tạo thẻ Assistant từ các frame đã xác minh. Dùng payload giả và mock/contract checks; không gửi DRES thật để thử bản dịch.
 
 Khi đổi kiến trúc, API, dữ liệu, trạng thái UI hoặc workflow DRES, sửa trực tiếp file này. Cập nhật tiến độ cài đặt và tối ưu trên máy từng thành viên ở `docs/plan.md`, kết quả kiểm thử ở `docs/TEST_PLAN.md`. Luôn phân biệt **đã triển khai**, **đã thử cục bộ** và **đã xác nhận bằng DRES thật**.

@@ -64,7 +64,7 @@ class AsrPreviewTests(unittest.TestCase):
         self.assertIn('id="previewAsrPanel"', html)
         self.assertIn("loadPreviewAsr(videoId, currentPts)", html)
         self.assertIn("window.SpeechRecognition || window.webkitSpeechRecognition", html)
-        for target in ("questionInitialText", "questionHintInput", "queryInput", "aiChatInput"):
+        for target in ("queryInput", "aiChatInput"):
             self.assertIn(target, html)
 
 

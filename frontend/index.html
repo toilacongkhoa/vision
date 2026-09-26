@@ -10,7 +10,6 @@
     <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
     <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* Custom scrollbar and sidebar transitions */
@@ -38,9 +37,8 @@
 <body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 p-2 sm:p-4 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 z-10 shrink-0">
+    <header class="bg-gray-800 border-b border-gray-700 p-2 sm:p-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 z-10 shrink-0">
         <h1 class="min-w-0 truncate text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Hệ thống tìm kiếm video</h1>
-        <span id="questionClock" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
         <div class="col-span-2 sm:col-span-1 justify-self-stretch sm:justify-self-end flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
             <div id="statsBadge" class="max-w-full text-sm px-3 py-1 bg-gray-700 rounded-full border border-gray-600">Trạng thái: <span class="text-yellow-400">Đang kiểm tra...</span></div>
             <button id="sidebarToggle" aria-label="Mở hoặc đóng Chatbox và Đáp án" aria-expanded="false" title="Mở hoặc đóng Chatbox và Đáp án" class="relative whitespace-nowrap px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-semibold">
@@ -54,33 +52,6 @@
     <main class="flex-1 flex overflow-hidden relative">
         <!-- Content Area -->
         <div id="mainContentArea" class="flex-1 min-h-0 flex flex-col overflow-x-hidden overflow-y-auto p-4 relative z-0 transition-all duration-300">
-            <section id="activeQuestionWorkspace" class="shrink-0 mb-3 rounded-lg border border-indigo-700/70 bg-gray-800 p-3 shadow-lg">
-                <div class="flex flex-wrap items-center gap-2 mb-2">
-                    <strong class="text-indigo-300">Loại câu hỏi</strong>
-                    <select id="questionType" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white" aria-label="Dạng câu thi">
-                        <option value="KIS_TEXT">Textual KIS</option>
-                        <option value="KIS_VIDEO">Video KIS</option>
-                        <option value="QA">Q&amp;A</option>
-                        <option value="TRAKE">TRAKE</option>
-                    </select>
-                    <button id="startQuestionTimer" type="button" class="rounded bg-indigo-600 hover:bg-indigo-700 px-3 py-1 text-sm font-semibold">Bắt đầu</button>
-                    <button id="resetQuestion" type="button" class="ml-auto rounded border border-red-700 px-3 py-1 text-sm text-red-300 hover:bg-red-950">Đặt lại</button>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-2">
-                    <div>
-                        <label for="questionInitialText" class="block text-xs text-gray-400 mb-1">Mô tả ban đầu</label>
-                        <textarea id="questionInitialText" rows="1" class="w-full min-h-[42px] max-h-[35vh] resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="questionHintInput" class="mb-1 block text-xs text-gray-400">Gợi ý bổ sung</label>
-                        <div class="flex items-center gap-2">
-                            <textarea id="questionHintInput" rows="1" class="min-h-[42px] max-h-[35vh] min-w-0 flex-1 resize-none overflow-y-hidden bg-gray-900 border border-gray-600 rounded p-2 text-sm text-white outline-none focus:border-indigo-500"></textarea>
-                            <button id="addQuestionHint" type="button" aria-label="Thêm gợi ý, chưa chạy tìm kiếm" title="Thêm gợi ý, chưa chạy tìm kiếm" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-600 bg-gray-700 text-sm font-bold text-white hover:bg-gray-600">+</button>
-                        </div>
-                        <div id="questionHintHistory" class="mt-1 max-h-16 overflow-y-auto text-xs text-gray-300" aria-live="polite"></div>
-                    </div>
-                </div>
-            </section>
             <!-- Tabs Navigation -->
             <div class="flex gap-2 mb-0">
                 <button id="tabTextSearch" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-t-lg border-t border-l border-r border-blue-600 shadow-md transition-colors">Tìm bằng văn bản</button>
@@ -262,11 +233,11 @@
         <div id="submissionSidebar" class="sidebar absolute top-0 right-0 h-full w-full sm:w-[420px] bg-gray-800 border-l border-gray-700 shadow-2xl z-20 flex flex-col font-sans">
             <!-- Tabs Header -->
             <div class="flex border-b border-gray-700 bg-gray-900 shrink-0">
-                <button id="tabChatBtn" class="flex-1 py-4 font-bold text-indigo-400 border-b-2 border-indigo-500 bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                <button id="tabChatBtn" class="flex-1 py-4 font-bold text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                     Trợ lý AI
                 </button>
-                <button id="tabSubmitBtn" class="flex-1 py-4 font-bold text-gray-400 hover:text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                <button id="tabSubmitBtn" class="flex-1 py-4 font-bold text-indigo-400 border-b-2 border-indigo-500 bg-gray-800 transition-colors flex items-center justify-center gap-2">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Đáp án
                 </button>
@@ -276,7 +247,7 @@
             </div>
             
             <!-- AI Chat Container -->
-            <div id="sidebarChatContainer" class="flex-1 flex flex-col overflow-hidden bg-[#0b0f19]">
+            <div id="sidebarChatContainer" class="hidden flex-1 flex-col overflow-hidden bg-[#0b0f19]">
                 <!-- Messages Area -->
                 <div id="aiChatMessages" class="flex-1 p-5 overflow-y-auto flex flex-col gap-4 text-sm scroll-smooth">
                     <!-- Welcome Message -->
@@ -304,18 +275,14 @@
             </div>
 
             <!-- Submission Builder Container -->
-            <div id="sidebarSubmitContainer" class="hidden flex-col h-full overflow-hidden">
+            <div id="sidebarSubmitContainer" class="flex flex-col h-full overflow-hidden">
                 <div class="p-4 flex-1 overflow-y-auto">
                     <!-- Create Query -->
                     <div class="bg-gray-900 p-3 rounded-lg border border-gray-700 mb-6 shadow-inner">
-                        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                            <input id="newQueryName" type="text" placeholder="New answer set name" class="col-span-2 w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white focus:border-blue-500 outline-none">
-                            <select id="newQueryType" class="w-full min-w-0 bg-gray-800 border border-gray-600 rounded px-2 py-2 text-sm text-white font-mono">
-                                <option value="KIS">KIS (Text / Video)</option>
-                                <option value="QA">Q&amp;A</option>
-                                <option value="TRAKE">TRAKE</option>
-                            </select>
-                            <button id="btnCreateQuery" type="button" aria-label="Create answer set" title="Create answer set" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-white font-bold transition-colors"><span aria-hidden="true">+</span><span>Create</span></button>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="btnCreateKisQuery" type="button" aria-label="Tạo answer set KIS" title="Tạo answer set KIS" class="rounded bg-blue-600 px-2 py-3 font-bold text-white transition-colors hover:bg-blue-700">KIS</button>
+                            <button id="btnCreateQaQuery" type="button" aria-label="Tạo answer set Q&amp;A" title="Tạo answer set Q&amp;A" class="rounded bg-blue-600 px-2 py-3 font-bold text-white transition-colors hover:bg-blue-700">Q&amp;A</button>
+                            <button id="btnCreateTrakeQuery" type="button" aria-label="Tạo answer set TRAKE" title="Tạo answer set TRAKE" class="rounded bg-blue-600 px-2 py-3 font-bold text-white transition-colors hover:bg-blue-700">TRAKE</button>
                         </div>
                     </div>
 
@@ -325,8 +292,7 @@
 
                     <!-- Active Query Details -->
                     <div class="border-t border-gray-700 pt-4 mt-2">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 id="activeQueryTitle" class="hidden text-md font-bold text-blue-400"></h3>
+                        <div class="flex justify-end items-center mb-3">
                             <div class="flex gap-2">
                                 <button id="btnForceNewRow" class="text-xs text-green-400 hover:text-green-300 hidden bg-green-400/10 px-2 py-1 rounded border border-green-400/20" onclick="forceNewRow()">+ Thêm dòng</button>
                                 <button id="btnClearQuery" class="text-xs text-red-400 hover:text-red-300 hidden bg-red-400/10 px-2 py-1 rounded">Xóa tất cả</button>
@@ -339,10 +305,10 @@
                         <button id="btnExportDres" class="w-full py-2.5 mb-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold shadow flex items-center justify-center gap-2 transition-transform active:scale-95">
                             Kiểm tra và nộp
                         </button>
-                        <button id="btnExportZip" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Tải submission.zip
+                        <button id="btnAutoSubmitDres" type="button" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+                            Nộp
                         </button>
+                        <div id="dresInlineStatus" class="hidden mt-3 rounded border border-gray-700 bg-gray-900/60 px-3 py-2 text-sm whitespace-pre-line text-gray-200" role="status" aria-live="polite"></div>
                     </div>
             </div>
 
@@ -405,9 +371,8 @@
     <!-- DRES review: showing this payload does not submit it. -->
     <div id="dresReviewModal" class="hidden fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dresReviewTitle">
         <div class="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-xl border border-gray-600 bg-gray-900 shadow-2xl">
-            <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-gray-700 bg-gray-900 px-5 py-4">
+            <div class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-gray-700 bg-gray-900 px-5 py-4">
                 <h2 id="dresReviewTitle" class="min-w-0 text-lg font-bold text-indigo-300">Kiểm tra đáp án DRES</h2>
-                <span id="questionClockDresReview" class="justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400" aria-live="polite">--:--</span>
                 <button id="btnCloseDresReview" type="button" class="justify-self-end text-gray-300 hover:text-white text-3xl leading-none" aria-label="Đóng phần kiểm tra">&times;</button>
             </div>
             <div class="space-y-4 p-5">
@@ -443,7 +408,7 @@
                 </fieldset>
                 <section id="dresHistorySection" class="hidden rounded border border-gray-700 bg-gray-800/60 p-4">
                     <div id="dresDuplicateWarning" class="hidden mb-3 rounded border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200" role="status"></div>
-                    <div id="dresCurrentAttemptStatus" class="mb-3 text-sm font-semibold text-gray-200" aria-live="polite" tabindex="-1"></div>
+                    <div id="dresCurrentAttemptStatus" class="mb-3 rounded border px-3 py-2 text-sm font-semibold whitespace-pre-line text-gray-200" role="status" aria-live="polite" tabindex="-1"></div>
                     <div id="dresHistoryEntries" class="max-h-72 space-y-2 overflow-y-auto text-xs text-gray-300"></div>
                 </section>
             </div>
@@ -460,14 +425,9 @@
         const API_BASE = window.location.protocol === 'file:'
             ? 'http://127.0.0.1:8000'
             : window.location.origin;
-        const chatSessionStorageKey = 'vision_chat_session_id';
-        window.chatSessionId = sessionStorage.getItem(chatSessionStorageKey);
-        if (!window.chatSessionId) {
-            window.chatSessionId = (window.crypto && window.crypto.randomUUID)
-                ? window.crypto.randomUUID()
-                : `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-            sessionStorage.setItem(chatSessionStorageKey, window.chatSessionId);
-        }
+        window.chatSessionId = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         
         const searchForm = document.getElementById('searchForm');
         const queryInput = document.getElementById('queryInput');
@@ -568,54 +528,26 @@
             });
         }
 
-        installBrowserSpeechInput(['questionInitialText', 'questionHintInput', 'queryInput', 'aiChatInput']);
+        installBrowserSpeechInput(['queryInput', 'aiChatInput']);
 
-        let appState = { queries: [], activeId: null, activeQuestion: null, searchDraft: {}, dresSubmissionHistory: [] };
+        let appState = { queries: [], activeId: null, searchDraft: {}, dresSubmissionHistory: [] };
         let lastResults = [];
 
         function loadState() {
             const saved = localStorage.getItem('vrs_submission_v2');
             if (saved) { try { appState = { ...appState, ...JSON.parse(saved) }; } catch(e) {} }
-            if (appState.activeQuestion) {
-                delete appState.activeQuestion.submissionState;
-                if (!Array.isArray(appState.activeQuestion.pinnedFrames)) appState.activeQuestion.pinnedFrames = Array.isArray(appState.activeQuestion.shortlist) ? appState.activeQuestion.shortlist : [];
-                appState.activeQuestion.pinnedFrames.forEach(frame => { if (frame) delete frame.stageIndex; });
-                delete appState.activeQuestion.shortlist;
-                delete appState.activeQuestion.eliminated;
-            }
+            const hadRemovedWorkspaceState = Object.prototype.hasOwnProperty.call(appState, 'activeQuestion') || Object.prototype.hasOwnProperty.call(appState, 'pinnedFrames');
+            delete appState.activeQuestion;
+            delete appState.pinnedFrames;
+            if (hadRemovedWorkspaceState) localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
             renderSidebar();
-            renderQuestionWorkspace();
         }
         function saveState() {
             localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
             renderSidebar();
-            renderQuestionWorkspace();
             if(lastResults.length) renderResults(lastResults);
         }
-        const questionTypeEl = document.getElementById('questionType');
-        const questionClockEl = document.getElementById('questionClock');
-        const dresReviewClockEl = document.getElementById('questionClockDresReview');
-        function setQuestionClockDisplay(text, className) {
-            [questionClockEl, dresReviewClockEl].forEach(clock => {
-                clock.textContent = text;
-                clock.className = className;
-            });
-        }
         loadState();
-        let questionClockInterval = null;
-        function questionDurationMs(type) { return type === 'KIS_VIDEO' ? 4 * 60 * 1000 : 5 * 60 * 1000; }
-        function renderQuestionWorkspace() {
-            const question = appState.activeQuestion || { type: 'KIS_TEXT', initialText: '', hints: [], startedAt: null };
-            if (questionTypeEl) questionTypeEl.value = question.type || 'KIS_TEXT';
-            const initialTextInput = document.getElementById('questionInitialText');
-            initialTextInput.value = question.initialText || '';
-            resizeAutoGrowTextarea(initialTextInput);
-            const history = document.getElementById('questionHintHistory');
-            history.innerHTML = (question.hints || []).length
-                ? question.hints.map((hint, index) => `<div class="flex min-w-0 items-start gap-2 py-0.5"><span class="shrink-0 text-gray-500">${index + 1}. ${new Date(hint.at).toLocaleTimeString('vi-VN')}</span><span class="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">${escapeHtml(hint.text)}</span><button type="button" class="relative z-10 shrink-0 rounded px-1 text-gray-400 hover:bg-red-900/60 hover:text-red-300" onclick="removeQuestionHint(${index})" aria-label="Xóa gợi ý ${index + 1}" title="Xóa gợi ý này">×</button></div>`).join('')
-                : '';
-            updateQuestionClock();
-        }
         function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
         function friendlyApiError(detail, status = '') {
             const raw = String(detail || '').trim();
@@ -662,42 +594,17 @@
             if (/^payload must contain|^answerSet must contain|^query_type must|^query_id must/i.test(raw)) return 'Dữ liệu gửi chưa đúng cấu trúc. Hãy kiểm tra lại đáp án trong Trình tạo đáp án.';
             return raw ? `Lỗi từ máy chủ: ${raw}` : `Đã xảy ra lỗi${status ? ` (HTTP ${status})` : ''}. Hãy thử lại.`;
         }
-        function updateQuestionClock() {
-            const question = appState.activeQuestion;
-            if (!question || !question.startedAt) {
-                const seconds = Math.ceil(questionDurationMs(question?.type || questionTypeEl.value) / 1000);
-                setQuestionClockDisplay(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, 'justify-self-center whitespace-nowrap font-mono text-xl font-bold text-gray-400');
-                return;
-            }
-            const remaining = Math.max(0, questionDurationMs(question.type) - (Date.now() - question.startedAt));
-            const seconds = Math.ceil(remaining / 1000);
-            setQuestionClockDisplay(`${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`, `justify-self-center whitespace-nowrap font-mono text-xl font-bold ${remaining ? (remaining <= 60000 ? 'text-red-300' : 'text-emerald-300') : 'text-red-400'}`);
-        }
         function persistSearchDraft() {
             appState.searchDraft = { text: queryInput.value, mode: document.getElementById('searchMode').value, videoId: videoIdInput.value };
             localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
         }
-        function candidateKey(videoId, frameIdx) { return `${String(videoId || '').replace(/\.[^/.]+$/, '')}|${Math.round(Number(frameIdx))}`; }
-        function candidateSummary(item) {
-            return { video_id: String(item.video_id || '').replace(/\.[^/.]+$/, ''), frame_idx: Math.round(Number(item.frame_idx)), timestamp: item.timestamp || '', pts_time: Number(item.pts_time) || 0, score: Number(item.score) || 0, r2_url: item.r2_url || '', gdrive_file_id: item.gdrive_file_id || '', image_path: item.image_path || '', object_file_id: item.object_file_id || '', ocr_json_id: item.ocr_json_id || '', vector_id: item.vector_id };
-        }
-        window.togglePinnedFrame = index => {
-            const item = lastResults[index]; if (!item) return;
-            const question = appState.activeQuestion || { type: questionTypeEl.value, initialText: '', hints: [], startedAt: null };
-            const candidate = candidateSummary(item); const key = candidateKey(candidate.video_id, candidate.frame_idx);
-            question.pinnedFrames = question.pinnedFrames || [];
-            const existingIndex = question.pinnedFrames.findIndex(entry => candidateKey(entry.video_id, entry.frame_idx) === key);
-            if (existingIndex >= 0) question.pinnedFrames.splice(existingIndex, 1);
-            else question.pinnedFrames.push(candidate);
-            appState.activeQuestion = question; saveState();
-        };
         const savedSearchDraft = appState.searchDraft || {};
         if (savedSearchDraft.text) queryInput.value = savedSearchDraft.text;
         resizeAutoGrowTextarea(queryInput);
         if (savedSearchDraft.mode) document.getElementById('searchMode').value = savedSearchDraft.mode;
         if (savedSearchDraft.videoId) videoIdInput.value = savedSearchDraft.videoId;
         queryInput.addEventListener('input', () => { resizeAutoGrowTextarea(queryInput); persistSearchDraft(); });
-        window.addEventListener('resize', () => [queryInput, document.getElementById('questionInitialText'), document.getElementById('questionHintInput')].forEach(resizeAutoGrowTextarea));
+        window.addEventListener('resize', () => resizeAutoGrowTextarea(queryInput));
         queryInput.addEventListener('keydown', event => {
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
                 event.preventDefault();
@@ -705,69 +612,6 @@
             }
         });
         [document.getElementById('searchMode'), videoIdInput, topKSelect].forEach(el => el.addEventListener('input', persistSearchDraft));
-        document.getElementById('startQuestionTimer').onclick = () => {
-            appState.activeQuestion = { ...(appState.activeQuestion || {}), type: questionTypeEl.value, startedAt: Date.now(), initialText: document.getElementById('questionInitialText').value, hints: appState.activeQuestion?.hints || [] };
-            ensureSubmissionQueryMatchesActiveQuestion();
-            saveState();
-            clearInterval(questionClockInterval); questionClockInterval = setInterval(updateQuestionClock, 250);
-        };
-        questionTypeEl.onchange = () => {
-            const current = appState.activeQuestion || {};
-            const nextType = questionTypeEl.value;
-            const timerRemaining = current.startedAt
-                ? questionDurationMs(current.type || 'KIS_TEXT') - (Date.now() - current.startedAt)
-                : 0;
-            if (nextType !== current.type && timerRemaining > 0 && !window.confirm('Đồng hồ câu thi vẫn đang chạy. Đổi loại câu hỏi sẽ đặt lại đồng hồ. Bạn có muốn tiếp tục không?')) {
-                questionTypeEl.value = current.type;
-                return;
-            }
-            clearInterval(questionClockInterval);
-            questionClockInterval = null;
-            appState.activeQuestion = { ...current, type: nextType, startedAt: null, initialText: current.initialText ?? document.getElementById('questionInitialText').value, hints: current.hints || [] };
-            saveState();
-        };
-        document.getElementById('questionInitialText').oninput = event => {
-            resizeAutoGrowTextarea(event.target);
-            appState.activeQuestion = { ...(appState.activeQuestion || {}), type: questionTypeEl.value, startedAt: appState.activeQuestion?.startedAt || null, hints: appState.activeQuestion?.hints || [], initialText: event.target.value };
-            localStorage.setItem('vrs_submission_v2', JSON.stringify(appState));
-        };
-        document.getElementById('questionHintInput').addEventListener('input', event => resizeAutoGrowTextarea(event.target));
-        const addQuestionHint = () => {
-            const input = document.getElementById('questionHintInput');
-            const text = input.value.trim();
-            if (!text) { input.focus(); return; }
-            const previousQuestion = appState.activeQuestion || {};
-            appState.activeQuestion = {
-                ...previousQuestion,
-                type: questionTypeEl.value,
-                startedAt: previousQuestion.startedAt || null,
-                initialText: document.getElementById('questionInitialText').value,
-                hints: [...(previousQuestion.hints || []), { text, at: Date.now() }]
-            };
-            input.value = '';
-            resizeAutoGrowTextarea(input);
-            saveState();
-            input.focus();
-        };
-        document.getElementById('addQuestionHint').onclick = addQuestionHint;
-        window.removeQuestionHint = index => {
-            const question = appState.activeQuestion;
-            if (!question?.hints || index < 0 || index >= question.hints.length) return;
-            question.hints.splice(index, 1);
-            saveState();
-        };
-        document.getElementById('questionHintInput').addEventListener('keydown', event => {
-            if (event.key === 'Enter' && event.ctrlKey && !event.isComposing) {
-                event.preventDefault();
-                addQuestionHint();
-            }
-        });
-        document.getElementById('resetQuestion').onclick = () => {
-            if (!confirm('Đặt lại câu thi đang làm, đồng hồ và lịch sử gợi ý? Danh sách ứng viên đã lưu trong Trình tạo đáp án sẽ được giữ lại.')) return;
-            appState.activeQuestion = null; saveState(); clearInterval(questionClockInterval);
-        };
-        if (appState.activeQuestion?.startedAt) questionClockInterval = setInterval(updateQuestionClock, 250);
-
         document.getElementById('sidebarToggle').onclick = () => {
             const sidebar = document.getElementById('submissionSidebar');
             const mainContent = document.getElementById('mainContentArea');
@@ -777,9 +621,9 @@
             mainContent.style.marginRight = shouldOpen && window.innerWidth >= 640 ? '420px' : '0';
             toggle.setAttribute('aria-expanded', String(shouldOpen));
             if (!shouldOpen) return;
-            document.getElementById('tabChatBtn')?.click();
+            document.getElementById('tabSubmitBtn')?.click();
             requestAnimationFrame(() => {
-                document.getElementById('aiChatInput')?.focus();
+                document.getElementById('btnCreateKisQuery')?.focus();
             });
         };
 
@@ -789,7 +633,7 @@
             document.getElementById('mainContentArea').style.marginRight = '420px';
         }
         document.getElementById('sidebarToggle').setAttribute('aria-expanded', 'true');
-        document.getElementById('tabChatBtn')?.click();
+        document.getElementById('tabSubmitBtn')?.click();
         
         document.getElementById('modalClose').onclick = () => {
             document.getElementById('previewModal').classList.add('hidden');
@@ -1181,67 +1025,43 @@
             }
         };
 
-        function expectedSubmissionTypeForActiveQuestion() {
-            const questionType = appState.activeQuestion?.type || questionTypeEl.value;
-            if (questionType === 'QA') return 'QA';
-            if (questionType === 'TRAKE') return 'TRAKE';
-            return 'KIS';
-        }
-        function ensureSubmissionQueryMatchesActiveQuestion() {
-            const expectedType = expectedSubmissionTypeForActiveQuestion();
-            const activeQuery = appState.queries.find(query => query.id === appState.activeId);
-            if (activeQuery?.type === expectedType) return activeQuery;
-
-            const query = {
-                id: Math.random().toString(36).slice(2, 11),
-                name: `Question ${new Date().toLocaleTimeString('vi-VN')}`,
-                type: expectedType,
-                items: []
-            };
-            appState.queries.push(query);
-            appState.activeId = query.id;
-            const queryTypeSelect = document.getElementById('newQueryType');
-            if (queryTypeSelect) queryTypeSelect.value = expectedType;
-            return query;
-        }
-        function getSubmissionTypeMismatch(query) {
-            if (!query) return '';
-            const expectedType = expectedSubmissionTypeForActiveQuestion();
-            if (query.type === expectedType) return '';
-            const questionType = appState.activeQuestion?.type || questionTypeEl.value;
-            const questionLabels = { KIS_TEXT: 'KIS văn bản', KIS_VIDEO: 'KIS video', QA: 'Q&A', TRAKE: 'TRAKE' };
-            return `Dạng câu thi đang chọn là ${questionLabels[questionType] || questionType}, nhưng answer set này thuộc dạng ${query.type}. Hãy chọn answer set dạng ${expectedType} để tiếp tục.`;
+        function createEmptyAnswer(type) {
+            if (type === 'TRAKE') return { video_id: "", frames: [] };
+            if (type === 'QA') return { video_id: "", frame_idx: "", answer: "" };
+            return { video_id: "", frame_idx: "" };
         }
 
-        document.getElementById('btnCreateQuery').onclick = () => {
-            const name = document.getElementById('newQueryName').value.trim() || `Question ${new Date().toLocaleTimeString('vi-VN')}`;
-            const type = document.getElementById('newQueryType').value;
-            const newQuery = { id: Math.random().toString(36).substr(2,9), name, type, items: [] };
+        function isEmptyAnswer(type, item) {
+            if (!item || String(item.video_id || '').trim()) return false;
+            if (type === 'TRAKE') {
+                const frames = Array.isArray(item.frames) ? item.frames : [];
+                return frames.length === 0 && !String(item.framesDraft || '').trim();
+            }
+            const hasFrame = String(item.frame_idx ?? '').trim() !== '';
+            const hasAnswer = type === 'QA' && String(item.answer || '').trim() !== '';
+            return !hasFrame && !hasAnswer;
+        }
+
+        function createAnswerSet(type) {
+            const name = `Question ${new Date().toLocaleTimeString('vi-VN')}`;
+            const newQuery = { id: Math.random().toString(36).substr(2,9), name, type, items: [createEmptyAnswer(type)] };
+            clearDresInlineStatus();
             appState.queries.push(newQuery);
             appState.activeId = newQuery.id;
-            document.getElementById('newQueryName').value = '';
             saveState();
-        };
+        }
+        document.getElementById('btnCreateKisQuery').onclick = () => createAnswerSet('KIS');
+        document.getElementById('btnCreateQaQuery').onclick = () => createAnswerSet('QA');
+        document.getElementById('btnCreateTrakeQuery').onclick = () => createAnswerSet('TRAKE');
 
         window.setActive = id => {
             appState.activeId = id;
+            if (dresInlineStatusQueryId && dresInlineStatusQueryId !== id) clearDresInlineStatus();
             saveState();
             requestAnimationFrame(() => [...document.querySelectorAll('#queriesList .query-select-button')]
                 .find(button => button.dataset.queryId === id)?.focus());
         };
-        window.deleteQuery = id => { appState.queries = appState.queries.filter(q => q.id !== id); if(appState.activeId === id) appState.activeId = null; saveState(); };
-        window.updateQueryName = (id, newName) => {
-            const query = appState.queries.find(item => item.id === id);
-            if (!query) return;
-            const trimmedName = newName.trim();
-            if (!trimmedName) {
-                alert('Tên answer set không được để trống.');
-                renderSidebar();
-                return;
-            }
-            query.name = trimmedName;
-            saveState();
-        };
+        window.deleteQuery = id => { appState.queries = appState.queries.filter(q => q.id !== id); if(appState.activeId === id) { appState.activeId = null; clearDresInlineStatus(); } saveState(); };
         window.deleteItem = (qId, idx) => { const q = appState.queries.find(x => x.id === qId); if (q) { q.items.splice(idx, 1); saveState(); } };
         window.adjustFrame = (qId, idx, delta) => {
             const query = appState.queries.find(candidate => candidate.id === qId);
@@ -1360,8 +1180,8 @@
                 list.innerHTML = `<p class="text-sm text-gray-500 text-center italic">Chưa có answer set nào.</p>`;
             } else {
                 list.innerHTML = appState.queries.map(q => `
-                    <div class="flex items-center gap-2 p-2 rounded border border-transparent transition-all ${q.id === appState.activeId ? 'bg-gray-700 border-indigo-300 ring-2 ring-indigo-500/60 shadow-lg shadow-indigo-950/40' : 'bg-gray-800 hover:border-gray-500'}">
-                        <input type="text" class="query-rename-button w-[44%] max-w-[44%] min-w-0 flex-none bg-transparent p-0 text-left font-medium text-white outline-none focus:text-blue-200" aria-label="Đổi tên ${escapeHtml(q.name)}" title="Nhập tên mới rồi nhấn Enter hoặc rời khỏi ô để lưu" value="${escapeHtml(q.name)}" onchange="updateQueryName('${q.id}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}else if(event.key==='Escape'){this.value=this.defaultValue;this.blur()}">
+                    <div class="flex items-center gap-2 p-2 rounded border border-transparent cursor-pointer transition-all ${q.id === appState.activeId ? 'bg-gray-700 border-indigo-300 ring-2 ring-indigo-500/60 shadow-lg shadow-indigo-950/40' : 'bg-gray-800 hover:border-gray-500'}" onclick="if (!event.target.closest('button')) setActive('${q.id}')">
+                        <span class="w-[44%] max-w-[44%] min-w-0 flex-none truncate text-left font-medium text-white" title="${escapeHtml(q.name)}">${escapeHtml(q.name)}</span>
                         <button type="button" class="query-select-button min-w-0 flex-1 flex items-center justify-end gap-2 text-left" data-query-id="${escapeHtml(q.id)}" aria-pressed="${q.id === appState.activeId}" title="Chọn answer set này" onclick="setActive('${q.id}')">
                             <span class="text-xs bg-gray-900 px-2 py-0.5 rounded text-blue-300 font-bold border border-gray-600">${escapeHtml(q.type)}</span>
                             <span class="text-xs text-gray-400 w-12 text-right">${q.items.length}/100</span>
@@ -1372,18 +1192,13 @@
             }
 
             const itemsContainer = document.getElementById('activeQueryItems');
-            const activeQueryTitle = document.getElementById('activeQueryTitle');
             if (!activeQ) {
-                activeQueryTitle.textContent = "";
-                activeQueryTitle.classList.add('hidden');
                 document.getElementById('btnClearQuery').style.display = "none";
                 document.getElementById('btnForceNewRow').style.display = "none";
                 itemsContainer.innerHTML = "<p class='text-sm text-gray-500 text-center italic'>Hãy chọn answer set để tiếp tục.</p>";
                 return;
             }
 
-            activeQueryTitle.textContent = activeQ.name;
-            activeQueryTitle.classList.remove('hidden');
             document.getElementById('btnClearQuery').style.display = "block";
             document.getElementById('btnForceNewRow').style.display = ['KIS', 'QA', 'TRAKE'].includes(activeQ.type) ? "block" : "none";
             document.getElementById('btnClearQuery').onclick = () => { activeQ.items = []; saveState(); };
@@ -1425,12 +1240,7 @@
             const q = appState.queries.find(x => x.id === appState.activeId);
             if (q && ['KIS', 'QA', 'TRAKE'].includes(q.type)) {
                 if (q.items.length >= 100) return alert("Maximum 100 rows allowed per query.");
-                const newItem = q.type === 'TRAKE'
-                    ? { video_id: "", frames: [] }
-                    : q.type === 'QA'
-                        ? { video_id: "", frame_idx: "", answer: "" }
-                        : { video_id: "", frame_idx: "" };
-                q.items.push(newItem);
+                q.items.push(createEmptyAnswer(q.type));
                 saveState();
             }
         };
@@ -1444,51 +1254,56 @@
                 return;
             }
             const q = appState.queries.find(x => x.id === appState.activeId);
-            if (!q) return;
-            const typeMismatch = getSubmissionTypeMismatch(q);
-            if (typeMismatch) return alert(typeMismatch);
-
+            if (!q) return alert("Hãy chọn hoặc tạo một answer set ở thanh bên trước.");
             const cleanVid = vid.replace(/\.[^/.]+$/, "");
             const intFrame = Math.round(Number(frame));
+            if (!['KIS', 'QA', 'TRAKE'].includes(q.type)) return;
 
-            if (q.type === 'KIS' || q.type === 'QA') {
-                if (q.items.length >= 100) return alert("Maximum 100 rows allowed per query.");
-                if (!q.items.find(x => x.video_id === cleanVid && x.frame_idx === intFrame)) {
-                    q.items.push({ video_id: cleanVid, frame_idx: intFrame, answer: '' });
-                }
-            } else if (q.type === 'TRAKE') {
-                const last = q.items[q.items.length - 1];
-                if (last && last.video_id === "") {
-                    last.video_id = cleanVid;
-                    last.frames.push(intFrame);
-                } else if (last && last.video_id === cleanVid) {
-                    if (!last.frames.includes(intFrame)) last.frames.push(intFrame);
-                } else {
-                    if (q.items.length >= 100) return alert("Maximum 100 rows allowed per query.");
-                    q.items.push({ video_id: cleanVid, frames: [intFrame] });
+            const alreadyAdded = q.type === 'TRAKE'
+                ? q.items.some(item => item.video_id === cleanVid && Array.isArray(item.frames) && item.frames.includes(intFrame))
+                : q.items.some(item => item.video_id === cleanVid && String(item.frame_idx ?? '').trim() !== '' && Number(item.frame_idx) === intFrame);
+            if (alreadyAdded) return;
+
+            if (q.type === 'TRAKE') {
+                const sameVideoAnswer = q.items.find(item => {
+                    if (item.video_id !== cleanVid) return false;
+                    const rawFrames = item.framesDraft !== undefined
+                        ? String(item.framesDraft)
+                        : (Array.isArray(item.frames) ? item.frames.join(', ') : '');
+                    const tokens = rawFrames.split(',').map(token => token.trim());
+                    if (!rawFrames.trim() || tokens.some(token => !/^\d+$/.test(token) || !Number.isSafeInteger(Number(token)))) return false;
+                    const frames = tokens.map(Number);
+                    if (frames.some((value, index) => index > 0 && value <= frames[index - 1])) return false;
+                    return frames.some(value => value < intFrame);
+                });
+                if (sameVideoAnswer) {
+                    const rawFrames = sameVideoAnswer.framesDraft !== undefined
+                        ? String(sameVideoAnswer.framesDraft)
+                        : sameVideoAnswer.frames.join(', ');
+                    const frames = rawFrames.split(',').map(token => Number(token.trim()));
+                    const insertAt = frames.findIndex(value => value > intFrame);
+                    frames.splice(insertAt < 0 ? frames.length : insertAt, 0, intFrame);
+                    sameVideoAnswer.frames = frames;
+                    sameVideoAnswer.framesDraft = frames.join(', ');
+                    saveState();
+                    return;
                 }
             }
-            saveState();
-        };
 
-        document.getElementById('btnExportZip').onclick = async () => {
-            if (appState.queries.length === 0) return alert("Chưa có answer set nào để xuất.");
-            const zip = new JSZip();
-            const folder = zip.folder("submission");
-            appState.queries.forEach(q => {
-                const exportItems = q.items.slice(0, 100);
-                let csv = "";
-                const esc = val => val ? '"' + String(val).replace(/"/g, '""') + '"' : '""';
-                if (q.type === 'KIS') csv = exportItems.map(i => `${i.video_id}, ${i.frame_idx}`).join('\n');
-                else if (q.type === 'QA') csv = exportItems.map(i => `${i.video_id}, ${i.frame_idx}, ${esc(i.answer)}`).join('\n');
-                else if (q.type === 'TRAKE') csv = exportItems.map(i => `${i.video_id}, ${i.frames.join(', ')}`).join('\n');
-                folder.file(`${q.name}.csv`, csv);
-            });
-            const blob = await zip.generateAsync({type:"blob"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = "submission.zip";
-            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            let answer = q.items.find(item => isEmptyAnswer(q.type, item));
+            if (!answer) {
+                if (q.items.length >= 100) return alert("Maximum 100 rows allowed per query.");
+                answer = createEmptyAnswer(q.type);
+                q.items.push(answer);
+            }
+            answer.video_id = cleanVid;
+            if (q.type === 'TRAKE') {
+                answer.frames = [intFrame];
+                delete answer.framesDraft;
+            } else {
+                answer.frame_idx = intFrame;
+            }
+            saveState();
         };
 
         let pendingDresReview = null;
@@ -1500,6 +1315,32 @@
         let dresEvaluationState = 'idle';
         let dresSubmitBusy = false;
         let dresLoginBusy = false;
+        let dresAutoSubmitBusy = false;
+        let dresInlineStatusQueryId = null;
+        function setDresInlineStatus(queryId, queryName, status, message, evaluationId = '') {
+            const statusElement = document.getElementById('dresInlineStatus');
+            if (queryId && appState.activeId !== queryId) return;
+            dresInlineStatusQueryId = queryId;
+            const labels = {
+                preparing: 'Đang chuẩn bị nộp bài', sending: 'Đang nộp bài', submitted: 'Nộp thành công — DRES đã nhận, chưa có kết quả chấm',
+                accepted: 'Nộp thành công — DRES xác nhận ĐÚNG', rejected: 'Đã gửi thành công — DRES xác nhận SAI',
+                precondition_failed: 'HTTP 412 — Trùng kết quả hoặc hết thời gian', session_expired: 'HTTP 401 — Session hết hạn',
+                invalid_evaluation: 'HTTP 404 — Sai Evaluation ID', failed: 'Nộp không thành công', outcome_unknown: 'Chưa rõ kết quả nộp bài'
+            };
+            statusElement.className = 'mt-3 rounded border px-3 py-2 text-sm whitespace-pre-line';
+            const successful = ['submitted', 'accepted', 'rejected'].includes(status);
+            const warning = ['preparing', 'sending', 'precondition_failed', 'session_expired', 'invalid_evaluation', 'outcome_unknown'].includes(status);
+            statusElement.classList.add(successful ? 'border-emerald-500/60' : warning ? 'border-amber-500/60' : 'border-red-500/60');
+            statusElement.classList.add(successful ? 'bg-emerald-950/40' : warning ? 'bg-amber-950/30' : 'bg-red-950/30');
+            statusElement.classList.add(successful ? 'text-emerald-200' : warning ? 'text-amber-200' : 'text-red-200');
+            statusElement.textContent = `${labels[status] || status}${queryName ? `\nAnswer set: ${queryName}` : ''}${evaluationId ? `\nEvaluation: ${evaluationId}` : ''}\nThời gian: ${new Date().toLocaleString('vi-VN')}${message ? `\n${message}` : ''}`;
+            statusElement.classList.remove('hidden');
+        }
+        function clearDresInlineStatus() {
+            const statusElement = document.getElementById('dresInlineStatus');
+            if (statusElement) statusElement.classList.add('hidden');
+            dresInlineStatusQueryId = null;
+        }
         const closeDresReview = () => {
             dresReviewModal.classList.add('hidden');
             pendingDresReview = null;
@@ -1609,9 +1450,34 @@
             const labels = { sending: 'Đang nộp bài', submitted: 'Đã gửi — chưa có kết luận', accepted: 'Đúng — DRES xác nhận đáp án chính xác', rejected: 'Sai — DRES xác nhận đáp án không chính xác', precondition_failed: 'HTTP 412 — Trùng kết quả hoặc hết thời gian', session_expired: 'HTTP 401 — Session hết hạn', invalid_evaluation: 'HTTP 404 — Sai Evaluation ID', duplicate: 'Lần gửi trùng bị từ chối', failed: 'Nộp không thành công', outcome_unknown: 'Chưa rõ kết quả nộp bài' };
             const statusColors = { sending: 'text-amber-300', submitted: 'text-emerald-300', accepted: 'text-emerald-300', rejected: 'text-red-300', precondition_failed: 'text-amber-300', session_expired: 'text-amber-300', invalid_evaluation: 'text-amber-300', failed: 'text-red-300', outcome_unknown: 'text-amber-300' };
             const currentStatus = document.getElementById('dresCurrentAttemptStatus');
-            currentStatus.textContent = current
-                ? `Lịch sử nộp bài: ${labels[current.status] || current.status}`
+            const successfulStatuses = ['submitted', 'accepted', 'rejected'];
+            const hasSuccessfulResponse = Boolean(current && successfulStatuses.includes(current.status));
+            const resultPrefix = current?.status === 'accepted'
+                ? 'Nộp thành công — DRES xác nhận ĐÚNG'
+                : current?.status === 'rejected'
+                ? 'Đã gửi thành công — DRES xác nhận SAI'
+                : current?.status === 'submitted'
+                ? 'Nộp thành công — DRES đã nhận, chưa có kết quả chấm'
                 : 'Lịch sử nộp bài';
+            currentStatus.textContent = current
+                ? `${resultPrefix}: ${labels[current.status] || current.status}\nCâu hỏi: ${current.queryName || current.queryType || ''}\nEvaluation: ${current.evaluationId || 'Không rõ'}\n${current.response || ''}`
+                : 'Lịch sử nộp bài';
+            if (current) setDresInlineStatus(current.queryId, current.queryName || current.queryType, current.status, current.response, current.evaluationId);
+            currentStatus.classList.toggle('border-emerald-500/60', current?.status === 'accepted');
+            currentStatus.classList.toggle('bg-emerald-950/40', current?.status === 'accepted');
+            currentStatus.classList.toggle('text-emerald-200', current?.status === 'accepted');
+            currentStatus.classList.toggle('border-red-500/60', current?.status === 'rejected');
+            currentStatus.classList.toggle('bg-red-950/40', current?.status === 'rejected');
+            currentStatus.classList.toggle('text-red-200', current?.status === 'rejected');
+            currentStatus.classList.toggle('border-sky-500/60', current?.status === 'submitted');
+            currentStatus.classList.toggle('bg-sky-950/40', current?.status === 'submitted');
+            currentStatus.classList.toggle('text-sky-200', current?.status === 'submitted');
+            if (!hasSuccessfulResponse) {
+                currentStatus.classList.remove('border-emerald-500/60', 'bg-emerald-950/40', 'text-emerald-200', 'border-red-500/60', 'bg-red-950/40', 'text-red-200', 'border-sky-500/60', 'bg-sky-950/40', 'text-sky-200');
+                currentStatus.classList.add('border-gray-700', 'bg-gray-900/40', 'text-gray-200');
+            } else {
+                currentStatus.classList.remove('border-gray-700', 'bg-gray-900/40', 'text-gray-200');
+            }
             updateDresConnectionUi();
 
             const entries = queryHistory.slice().sort((a, b) => Number(b.updatedAt || b.createdAt) - Number(a.updatedAt || a.createdAt));
@@ -1663,8 +1529,12 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || `Không tải được evaluation (HTTP ${response.status}).`);
                 dresActiveEvaluations = Array.isArray(data.evaluations) ? data.evaluations : [];
-                if (!dresActiveEvaluations.length) throw new Error('No ACTIVE evaluations were returned.');
                 dresEvaluationState = 'loaded';
+                if (!dresActiveEvaluations.length) {
+                    select.innerHTML = '<option value="">Không tìm thấy evaluation đang hoạt động</option>';
+                    updateDresConnectionUi();
+                    return;
+                }
                 const optionPlaceholder = dresActiveEvaluations.length === 1 ? '' : '<option value="" class="text-gray-500">Chọn evaluation đang hoạt động</option>';
                 select.innerHTML = optionPlaceholder + dresActiveEvaluations.map(evaluation => {
                     const id = String(evaluation.evaluationId ?? evaluation.id ?? '');
@@ -1681,7 +1551,7 @@
             } catch (error) {
                 dresActiveEvaluations = [];
                 dresEvaluationState = 'error';
-                select.innerHTML = `<option value="">${escapeHtml(error.message.includes('No ACTIVE evaluations') ? 'Không tìm thấy evaluation đang hoạt động' : 'Không tải được danh sách evaluation')}</option>`;
+                select.innerHTML = '<option value="">Không tải được danh sách evaluation</option>';
                 updateDresConnectionUi();
             }
         }
@@ -1725,15 +1595,16 @@
         document.getElementById('btnDresRefreshSession').onclick = loginToDres;
         document.getElementById('btnDresLoadEvaluations').onclick = loadDresEvaluations;
         document.getElementById('dresEvaluationSelect').onchange = () => updateDresConnectionUi();
-        document.getElementById('btnDresSubmit').onclick = async () => {
-            if (!pendingDresReview || !dresSessionId) return;
+        async function submitPendingDres({ requireConfirmation = true, silent = false } = {}) {
+            const reportError = message => silent
+                ? setDresInlineStatus(pendingDresReview?.queryId || appState.activeId, pendingDresReview?.queryName || '', 'failed', message)
+                : showDresReviewError(message);
+            if (!pendingDresReview || !dresSessionId) return reportError('Thiếu dữ liệu đáp án hoặc Session ID.');
             const query = appState.queries.find(item => item.id === pendingDresReview.queryId);
-            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) return showDresReviewError('Đáp án đã thay đổi sau khi kiểm tra. Hãy kiểm tra lại trước khi gửi.');
-            const typeMismatch = getSubmissionTypeMismatch(query);
-            if (typeMismatch) return showDresReviewError(typeMismatch);
+            if (!query || query.items.length !== 1 || JSON.stringify(query.items[0]) !== pendingDresReview.itemSnapshot) return reportError('Đáp án đã thay đổi trong lúc chuẩn bị nộp. Hãy thử lại.');
             const evaluationId = document.getElementById('dresEvaluationSelect').value;
-            if (!evaluationId) return;
-            if (!window.confirm(`Gửi đáp án ${pendingDresReview.queryType} đã kiểm tra tới evaluation ${evaluationId}? Nếu đáp án sai, bạn có thể bị trừ điểm và không thể thu hồi lần gửi này.`)) return;
+            if (!evaluationId) return reportError('Chưa chọn được evaluation để nộp.');
+            if (requireConfirmation && !window.confirm(`Gửi đáp án ${pendingDresReview.queryType} đã kiểm tra tới evaluation ${evaluationId}? Nếu đáp án sai, bạn có thể bị trừ điểm và không thể thu hồi lần gửi này.`)) return;
             const button = document.getElementById('btnDresSubmit');
             const history = Array.isArray(appState.dresSubmissionHistory) ? appState.dresSubmissionHistory : [];
             const attempt = {
@@ -1786,18 +1657,25 @@
                 } else {
                     if (record) { record.status = 'failed'; record.response = friendlyApiError(data.detail, response.status); record.updatedAt = Date.now(); }
                     saveState(); renderDresSubmissionHistory();
-                    showDresReviewError(friendlyApiError(data.detail, response.status));
+                    if (!silent) showDresReviewError(friendlyApiError(data.detail, response.status));
                     updateDresConnectionUi();
                 }
             } catch (error) {
                 const record = (appState.dresSubmissionHistory || []).find(entry => entry.id === attempt.id);
                 if (record) { record.status = 'outcome_unknown'; record.response = 'Trình duyệt không xác nhận được phản hồi. Hãy kiểm tra DRES trước khi thao tác tiếp.'; record.updatedAt = Date.now(); saveState(); renderDresSubmissionHistory(); }
-                showDresReviewError(`Không xác nhận được kết quả gửi: ${friendlyApiError(error.message)}. Hãy kiểm tra DRES trước khi thao tác tiếp.`);
+                if (silent) setDresInlineStatus(attempt.queryId, attempt.queryName, 'outcome_unknown', 'Không xác nhận được phản hồi. Hãy kiểm tra DRES trước khi thao tác tiếp.', evaluationId);
+                else showDresReviewError(`Không xác nhận được kết quả gửi: ${friendlyApiError(error.message)}. Hãy kiểm tra DRES trước khi thao tác tiếp.`);
                 updateDresConnectionUi();
             } finally { dresSubmitBusy = false; button.textContent = 'Gửi đáp án'; updateDresConnectionUi(); }
-        };
+        }
+        document.getElementById('btnDresSubmit').onclick = () => submitPendingDres();
 
-        document.getElementById('btnExportDres').onclick = async () => {
+        document.getElementById('btnExportDres').onclick = async (options = {}) => {
+            const silent = options?.silent === true;
+            const reportPreparationError = (message, query = appState.queries.find(item => item.id === appState.activeId)) => {
+                if (silent) setDresInlineStatus(query?.id || null, query?.name || '', 'failed', message);
+                else showDresReviewError(message);
+            };
             const modal = dresReviewModal;
             const button = document.getElementById('btnExportDres');
             const reviewError = document.getElementById('dresReviewError');
@@ -1813,28 +1691,30 @@
             document.getElementById('dresHistorySection').classList.add('hidden');
             document.getElementById('dresDuplicateWarning').classList.add('hidden');
             document.getElementById('dresHistoryEntries').innerHTML = '';
-            dresReviewReturnFocus = document.activeElement;
-            modal.classList.remove('hidden');
-            document.getElementById('btnCloseDresReview').focus();
+            if (silent) {
+                modal.classList.add('hidden');
+            } else {
+                dresReviewReturnFocus = document.activeElement;
+                modal.classList.remove('hidden');
+                document.getElementById('btnCloseDresReview').focus();
+            }
 
             const query = appState.queries.find(item => item.id === appState.activeId);
-            if (!query) return showDresReviewError('Hãy chọn answer set trước.');
-            const typeMismatch = getSubmissionTypeMismatch(query);
-            if (typeMismatch) return showDresReviewError(typeMismatch);
-            if (query.items.length !== 1) return showDresReviewError('Để kiểm tra DRES, answer set đang chọn phải có đúng một đáp án.');
+            if (!query) return reportPreparationError('Hãy chọn answer set trước.', null);
+            if (query.items.length !== 1) return reportPreparationError('Để nộp DRES, answer set đang chọn phải có đúng một đáp án.', query);
             const item = query.items[0];
             const fieldErrors = validateDresItem(query, item);
             if (Object.keys(fieldErrors).length) {
                 const labels = { video_id: 'Video ID', frame_idx: 'Frame ID', answer: 'Câu trả lời Q&A', frames: 'Frame ID TRAKE' };
-                return showDresReviewError(`Hãy sửa các trường sau trước khi kiểm tra: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`);
+                return reportPreparationError(`Hãy sửa các trường sau trước khi nộp: ${Object.entries(fieldErrors).map(([field, message]) => `${labels[field]} — ${message}`).join(' ')}`, query);
             }
             const videoId = String(item.video_id || '').trim();
-            if (!videoId) return showDresReviewError('Thiếu Video ID. Hãy sửa đáp án đã chọn trong Trình tạo đáp án.');
+            if (!videoId) return reportPreparationError('Thiếu Video ID. Hãy sửa đáp án đã chọn trong Trình tạo đáp án.', query);
             const requestBody = { query_type: query.type, video_id: videoId };
             let frameIds = [];
             if (query.type === 'KIS' || query.type === 'QA') {
                 const frameId = Number(item.frame_idx);
-                if (!Number.isInteger(frameId) || frameId < 0) return showDresReviewError('Frame ID phải là số nguyên không âm. Hãy sửa đáp án trong Trình tạo đáp án.');
+                if (!Number.isInteger(frameId) || frameId < 0) return reportPreparationError('Frame ID phải là số nguyên không âm. Hãy sửa đáp án trong Trình tạo đáp án.', query);
                 requestBody.frame_idx = frameId;
                 frameIds = [frameId];
                 if (query.type === 'QA') requestBody.answer = item.answer || '';
@@ -1842,7 +1722,7 @@
                 frameIds = item.framesDraft !== undefined ? item.framesDraft.split(',').map(value => Number(value.trim())) : (Array.isArray(item.frames) ? item.frames.map(Number) : []);
                 requestBody.frame_ids = frameIds;
             } else {
-                return showDresReviewError(`Dạng câu hỏi DRES chưa được hỗ trợ: ${query.type}`);
+                return reportPreparationError(`Dạng câu hỏi DRES chưa được hỗ trợ: ${query.type}`, query);
             }
 
             button.disabled = true;
@@ -1851,19 +1731,18 @@
             try {
                 const sessionRefreshed = await loginToDres();
                 if (!sessionRefreshed) {
-                    showDresReviewError('Không thể tải Session ID mới từ DRES. Hãy thử lại.');
+                    reportPreparationError('Không thể tải Session ID mới từ DRES. Hãy thử lại.', query);
                     return;
                 }
                 button.textContent = 'Đang kiểm tra…';
-                const [payloadResponse, evidenceFrames] = await Promise.all([
-                    fetch(`${API_BASE}/api/v1/submission/dres/export`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
-                    }),
-                    Promise.all(frameIds.map(frameId => fetchDresEvidenceFrame(videoId, frameId)))
-                ]);
+                const payloadResponse = await fetch(`${API_BASE}/api/v1/submission/dres/export`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
+                });
                 const payload = await payloadResponse.json();
                 if (!payloadResponse.ok) throw new Error(payload.detail || `Export validation failed (${payloadResponse.status})`);
 
+                if (!silent) {
+                    const evidenceFrames = await Promise.all(frameIds.map(frameId => fetchDresEvidenceFrame(videoId, frameId)));
                     const summary = [dresLabel('Answer set', query.name || query.id), dresLabel('Dạng câu', query.type), dresLabel('Video ID', videoId)];
                 if (query.type === 'KIS' || query.type === 'QA') {
                     const serializedAnswer = payload.answerSets?.[0]?.answers?.[0] || {};
@@ -1882,17 +1761,62 @@
                 document.getElementById('dresReviewSummary').innerHTML = summary.join('');
                 renderDresEvidenceFrames(evidenceFrames);
                 document.getElementById('dresReviewJson').textContent = JSON.stringify(payload, null, 2);
+                }
                 const fingerprint = JSON.stringify(payload);
                 pendingDresReview = { queryId: query.id, queryName: query.name || query.id, queryType: query.type, itemSnapshot: JSON.stringify(item), payload, fingerprint, historyRecordId: null };
-                document.getElementById('dresHistorySection').classList.remove('hidden');
-                renderDresSubmissionHistory();
-                document.getElementById('btnDownloadReviewedDres').disabled = false;
+                if (!silent) {
+                    document.getElementById('dresHistorySection').classList.remove('hidden');
+                    renderDresSubmissionHistory();
+                    document.getElementById('btnDownloadReviewedDres').disabled = false;
+                }
             } catch (error) {
                 document.getElementById('dresReviewJson').textContent = 'Chưa có dữ liệu gửi.';
-                showDresReviewError(`Không thể chuẩn bị phần kiểm tra DRES: ${friendlyApiError(error.message)}`);
+                reportPreparationError(`Không thể chuẩn bị dữ liệu nộp DRES: ${friendlyApiError(error.message)}`, query);
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
+            }
+        };
+
+        document.getElementById('btnAutoSubmitDres').onclick = async () => {
+            if (dresAutoSubmitBusy) return;
+            const button = document.getElementById('btnAutoSubmitDres');
+            const targetQuery = appState.queries.find(item => item.id === appState.activeId);
+            clearDresInlineStatus();
+            setDresInlineStatus(targetQuery?.id || null, targetQuery?.name || '', 'preparing', 'Đang kiểm tra đáp án, tải session và evaluation.');
+            dresAutoSubmitBusy = true;
+            button.disabled = true;
+            button.textContent = 'Đang chuẩn bị nộp…';
+            try {
+                await document.getElementById('btnExportDres').onclick({ silent: true });
+                if (!pendingDresReview) return;
+
+                if (dresEvaluationState !== 'loaded' || dresActiveEvaluations.length !== 1) {
+                    const count = dresActiveEvaluations.length;
+                    const message = dresEvaluationState === 'error'
+                        ? 'Không tải được danh sách evaluation. Đáp án chưa được gửi.'
+                        : count === 0
+                            ? 'Không tìm thấy evaluation đang hoạt động. Đáp án chưa được gửi.'
+                            : `Tìm thấy ${count} evaluation đang hoạt động. Cần đúng một evaluation để tự động nộp; đáp án chưa được gửi.`;
+                    setDresInlineStatus(pendingDresReview.queryId, pendingDresReview.queryName, 'failed', message);
+                    return;
+                }
+
+                const onlyEvaluation = dresActiveEvaluations[0];
+                const evaluationId = String(onlyEvaluation.evaluationId ?? onlyEvaluation.id ?? '');
+                if (!evaluationId) {
+                    setDresInlineStatus(pendingDresReview.queryId, pendingDresReview.queryName, 'failed', 'Evaluation đang hoạt động không có ID hợp lệ. Đáp án chưa được gửi.');
+                    return;
+                }
+                document.getElementById('dresEvaluationSelect').value = evaluationId;
+                updateDresConnectionUi();
+                await submitPendingDres({ requireConfirmation: false, silent: true });
+            } catch (error) {
+                setDresInlineStatus(targetQuery?.id || null, targetQuery?.name || '', 'failed', `Không thể chuẩn bị nộp: ${friendlyApiError(error.message)}`);
+            } finally {
+                dresAutoSubmitBusy = false;
+                button.disabled = false;
+                button.textContent = 'Nộp';
             }
         };
 
@@ -1915,20 +1839,8 @@
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
 
-        function renderResults(items, searchStartTime, targetGrid = resultsGrid, preserveResultOrder = false) {
-            const searchItems = Array.isArray(items) ? items : [];
-            const questionState = appState.activeQuestion || {};
-            const searchItemsByKey = new Map(searchItems.map(item => [candidateKey(item.video_id, item.frame_idx), item]));
-            const pinnedItems = (questionState.pinnedFrames || [])
-                .map(item => searchItemsByKey.get(candidateKey(item.video_id, item.frame_idx)) || item);
-            const pinnedKeys = new Set(pinnedItems.map(item => candidateKey(item.video_id, item.frame_idx)));
-            const visibleItems = preserveResultOrder ? searchItems : [
-                ...pinnedItems,
-                ...searchItems.filter(item => {
-                    const key = candidateKey(item.video_id, item.frame_idx);
-                    return !pinnedKeys.has(key);
-                })
-            ];
+        function renderResults(items, searchStartTime, targetGrid = resultsGrid) {
+            const visibleItems = Array.isArray(items) ? items : [];
             lastResults = visibleItems;
             if (!visibleItems.length) {
                 targetGrid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500 font-medium">Không tìm thấy kết quả phù hợp.</div>';
@@ -1953,9 +1865,6 @@
                             isAdded = !!activeQ.items.find(x => x.video_id === cleanVid && x.frames.includes(intFrame));
                         }
                     }
-                    const candidateId = candidateKey(item.video_id, item.frame_idx);
-                    const questionState = appState.activeQuestion || {};
-                    const isPinned = (questionState.pinnedFrames || []).some(entry => candidateKey(entry.video_id, entry.frame_idx) === candidateId);
                     const displayScore = item.score !== undefined ? `${parseFloat(item.score).toFixed(1)}%` : '';
 
                     return `
@@ -1965,7 +1874,6 @@
                             <div data-image-fallback class="hidden absolute inset-0 flex items-center justify-center bg-gray-950 px-4 text-center text-xs text-gray-400">Không tải được ảnh. Thông tin Video ID và khung hình vẫn hiển thị bên dưới.</div>
                             ${displayScore ? `<div class="absolute top-2 left-2 bg-black/80 text-white text-[11px] font-bold px-2 py-0.5 rounded backdrop-blur-sm border border-gray-700">${displayScore}</div>` : ''}
                             <div class="absolute top-2 right-2 flex gap-1">
-                            <button class="w-7 h-8 rounded flex items-center justify-center font-bold text-lg shadow-lg border ${isPinned ? 'bg-amber-500 text-black border-amber-300' : 'bg-black/60 text-white border-gray-500 hover:bg-amber-600'}" onclick="event.stopPropagation(); togglePinnedFrame(${index})" title="${isPinned ? 'Bỏ ghim khỏi danh sách ưu tiên' : 'Ghim lên đầu kết quả tìm kiếm'}" aria-label="${isPinned ? 'Bỏ ghim khung hình' : 'Ghim khung hình'}">${isPinned ? '★' : '☆'}</button>
                             <button class="w-8 h-8 rounded flex items-center justify-center font-bold text-lg transition-all shadow-lg border ${isAdded ? 'bg-green-600 text-white border-green-500' : 'bg-black/50 text-white border-gray-500 hover:bg-blue-600 hover:border-blue-500 backdrop-blur-md'}" onclick="event.stopPropagation(); addToActive('${item.video_id}', ${item.frame_idx})" title="${isAdded ? 'Đã thêm vào answer set đang chọn' : 'Chọn làm đáp án'}" aria-label="${isAdded ? 'Đã thêm vào answer set đang chọn' : 'Chọn khung hình này làm đáp án'}">
                                 ${isAdded ? '✓' : '+'}
                             </button>
@@ -2086,31 +1994,7 @@
 
             searchForm.onsubmit = async (e) => {
                 e.preventDefault();
-                const questionText = document.getElementById('questionInitialText').value.trim();
-                const clueInput = document.getElementById('questionHintInput');
-                const newHintText = clueInput.value.trim();
-                const previousQuestion = appState.activeQuestion || {};
-                const hints = [...(previousQuestion.hints || [])];
-                if (newHintText) hints.push({ text: newHintText, at: Date.now() });
-                const hasQuestionContext = Boolean(questionText || newHintText || hints.some(hint => String(hint.text || '').trim()));
-                let query = queryInput.value.trim();
-                if (hasQuestionContext) {
-                    query = [questionText, ...hints.map(hint => String(hint.text || '').trim())].filter(Boolean).join('\n');
-                    queryInput.value = query;
-                    resizeAutoGrowTextarea(queryInput);
-                    appState.activeQuestion = {
-                        ...previousQuestion,
-                        type: questionTypeEl.value,
-                        startedAt: previousQuestion.startedAt || null,
-                        initialText: document.getElementById('questionInitialText').value,
-                        hints
-                    };
-                    if (newHintText) {
-                        clueInput.value = '';
-                        saveState();
-                    }
-                    persistSearchDraft();
-                }
+                const query = queryInput.value.trim();
                 if (!query) return;
                 const searchStartTime = performance.now();
                 const telemetryDiv = document.getElementById('benchmarkTelemetry');
@@ -2134,7 +2018,7 @@
                     spinner.style.display = 'none';
                     if (res.ok) {
                         renderResults(data.results, searchStartTime, resultsGrid);
-                        resultsCount.textContent = `Tìm thấy ${data.total_results || data.results.length} kết quả cho “${query}”.`;
+                        resultsCount.textContent = `Tìm thấy ${data.total_results || data.results.length} kết quả.`;
                     }
                     else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
                 } catch (err) { spinner.style.display = 'none'; resultsCount.textContent = 'Không thể kết nối tới API. Hãy kiểm tra kết nối máy chủ.'; }
@@ -2413,7 +2297,7 @@
                         const distanceDifference = Math.abs(Number(a.frame_idx) - frameIdx) - Math.abs(Number(b.frame_idx) - frameIdx);
                         return distanceDifference || Number(a.frame_idx) - Number(b.frame_idx);
                     });
-                    renderResults(nearestFirst, undefined, resultsGrid, true);
+                    renderResults(nearestFirst, undefined, resultsGrid);
                     resultsCount.textContent = `Tìm thấy ${nearestFirst.length} khung hình lân cận quanh khung hình ${frameIdx}.`;
                 } else { resultsCount.textContent = friendlyApiError(data.detail, res.status); }
             } catch(e) { 
@@ -2727,12 +2611,9 @@
 
                 let rawAssistantText = '';
                 let firstTextTokenReceived = false;
-                const activeQuestion = appState.activeQuestion || {};
-                const questionType = activeQuestion.type || questionTypeEl.value || 'KIS_TEXT';
-                const questionRemainingSeconds = activeQuestion.startedAt
-                    ? Math.max(0, Math.ceil((questionDurationMs(questionType) - (Date.now() - activeQuestion.startedAt)) / 1000))
-                    : null;
-
+                const selectedAnswerSet = appState.queries.find(query => query.id === appState.activeId);
+                const questionType = selectedAnswerSet?.type === 'QA' ? 'QA'
+                    : selectedAnswerSet?.type === 'TRAKE' ? 'TRAKE' : 'KIS_TEXT';
                 try {
                     const res = await fetch(`${API_BASE}/api/v1/chat`, {
                         method: 'POST',
@@ -2741,13 +2622,6 @@
                             message: msg,
                             session_id: window.chatSessionId,
                             question_type: questionType,
-                            description: String(activeQuestion.initialText || '').slice(0, 4000),
-                            clues: (activeQuestion.hints || []).slice(-20).map(hint => String(hint.text || '').slice(0, 500)),
-                            remaining_seconds: questionRemainingSeconds,
-                            pinned_frames: (activeQuestion.pinnedFrames || []).slice(-20).map(frame => ({
-                                video_id: String(frame.video_id || '').replace(/\.[^/.]+$/, ''),
-                                frame_idx: Math.round(Number(frame.frame_idx))
-                            })).filter(frame => frame.video_id && Number.isInteger(frame.frame_idx) && frame.frame_idx >= 0)
                         }),
                         signal: chatAbortController.signal
                     });

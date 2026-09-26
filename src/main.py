@@ -42,10 +42,6 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     question_type: Literal["KIS_TEXT", "KIS_VIDEO", "QA", "TRAKE"] = "KIS_TEXT"
-    description: str = Field("", max_length=4000)
-    clues: List[str] = Field(default_factory=list, max_length=20)
-    remaining_seconds: Optional[int] = Field(None, ge=0, le=300)
-    pinned_frames: List[CandidateFrame] = Field(default_factory=list, max_length=20)
 
 
 class FrameValidationRequest(BaseModel):
@@ -557,10 +553,6 @@ async def chat_endpoint(req: ChatRequest):
     else:
         session = session_pool[sid]
 
-    try:
-        verified_pins = await asyncio.to_thread(validate_frame_candidates, req.pinned_frames)
-    except sqlite3.Error:
-        verified_pins = []
     type_guidance = {
         "KIS_TEXT": "Find one best-supported frame. Track which textual/visual clues are verified; use OCR or ASR only when the clue concerns on-screen text or speech.",
         "KIS_VIDEO": "Return a short visual shortlist early, then inspect candidate frames or a sequence. Do not ask for or reconstruct a recording of the query clip.",
@@ -572,19 +564,6 @@ async def chat_endpoint(req: ChatRequest):
         f"Question type: {req.question_type}",
         f"Workflow: {type_guidance}",
     ]
-    if req.description.strip():
-        context_lines.append("Question description: " + req.description.strip())
-    clues = [clue.strip() for clue in req.clues if clue.strip()]
-    if clues:
-        context_lines.append("Clues in order:\n" + "\n".join(f"{i}. {clue}" for i, clue in enumerate(clues, 1)))
-    if req.remaining_seconds is not None:
-        context_lines.append(f"Time remaining on the local question timer: {req.remaining_seconds} seconds.")
-    if verified_pins:
-        context_lines.append("Verified pinned candidates (Video ID, indexed Frame ID, source PTS seconds):\n" + "\n".join(
-            f"- {item['video_id']}, {item['frame_idx']}, {item['pts_time']:.3f}s" for item in verified_pins
-        ))
-    elif req.pinned_frames:
-        context_lines.append("No pinned candidate was verified in the frame index; do not use the submitted IDs as evidence.")
     context_lines.append("Only report a candidate Video ID and Frame ID after a search tool returns it; never invent IDs or calculate PTS from FPS.")
     context_lines.append("Answer in Vietnamese with: primary/alternate candidates, cited tool evidence for each, confidence and why, missing evidence, and one next action. For TRAKE, list each ordered stage with its verified Video ID/Frame ID and mark any missing stage.")
     assistant_message = "\n".join(context_lines) + "\n\n[USER MESSAGE]\n" + req.message

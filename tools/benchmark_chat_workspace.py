@@ -59,26 +59,14 @@ async def run_checks():
             message="Tìm giúp cảnh phù hợp.",
             session_id="workspace-contract",
             question_type="QA",
-            description="Một người cầm chiếc ô đỏ.",
-            clues=["Đường phố ướt sau mưa."],
-            remaining_seconds=92,
-            pinned_frames=[
-                {"video_id": "L26_V183", "frame_idx": 5895},
-                {"video_id": "NO_SUCH_VIDEO", "frame_idx": 42},
-            ],
         )
         await collect_response(request)
         session = FakeAgySession.instances[-1]
         require(session.model == "flash", "simple QA should use the flash route")
         for expected in (
             "Question type: QA",
-            "Một người cầm chiếc ô đỏ.",
-            "Đường phố ướt sau mưa.",
-            "92 seconds",
-            "L26_V183, 5895, 235.800s",
         ):
             require(expected in session.message, f"assistant context is missing: {expected}")
-        require("NO_SUCH_VIDEO" not in session.message, "unindexed pinned frame leaked into context")
 
         trake = app_module.ChatRequest(message="Tìm các sự kiện.", question_type="TRAKE")
         await collect_response(trake)

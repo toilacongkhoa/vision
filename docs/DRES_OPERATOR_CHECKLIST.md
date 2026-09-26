@@ -6,7 +6,7 @@
 - The current `DRES_API_BASE_URL` is `https://eventretrieval.one` in the server `.env`. If organizers announce a different URL, change that one value and restart the existing backend. The endpoint must use HTTPS.
 - For automatic login, set `DRES_USERNAME` and `DRES_PASSWORD` in the Git-ignored server `.env`, restart the existing backend, then click **Get session from .env** in the review dialog. This action is restricted to the local same-origin app; it returns only a sessionId to page memory, never the username/password. The standard username/password fields remain available for one-time manual login.
 - Confirm the correct competition evaluation is `ACTIVE` after login. Do not select an old or unrelated evaluation.
-- Start the matching task timer: Textual KIS 5 minutes, Video KIS 4 minutes, Q&A 5 minutes, or TRAKE 5 minutes.
+- The application has no countdown. Follow the organizer's official time limit separately.
 - Keep every progressive clue in the active question. For TRAKE, enter all event descriptions in sequence before assigning results.
 
 ## Prepare and review
