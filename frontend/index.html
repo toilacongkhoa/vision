@@ -365,7 +365,7 @@
             <div id="filmstrip" class="w-full max-w-5xl h-[104px] mb-2 hidden shrink-0">
                 <div class="flex items-center gap-2">
                     <button id="filmstripPrev" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button" aria-label="Cuộn về các khung hình trước" title="Các khung hình trước">‹</button>
-                    <div id="filmstripTrack" class="flex-1 flex items-center gap-2 overflow-x-auto overflow-y-hidden py-2 px-1 scroll-smooth" style="scroll-snap-type:x proximity;overscroll-behavior-x:contain"></div>
+                    <div id="filmstripTrack" class="flex-1 flex items-center gap-2 overflow-x-auto overflow-y-hidden py-2 px-1" style="scroll-snap-type:x proximity;overscroll-behavior-x:contain"></div>
                     <button id="filmstripNext" class="shrink-0 text-white/70 hover:text-white text-2xl px-2" type="button" aria-label="Cuộn tới các khung hình tiếp theo" title="Các khung hình tiếp theo">›</button>
                 </div>
             </div>
@@ -808,6 +808,8 @@
         let filmstripPageLoading = false;
         let filmstripRangeStart = 0;
         let filmstripRangeEnd = 0;
+        let filmstripHasMoreBefore = true;
+        let filmstripHasMoreAfter = true;
         let previewAsrRequestId = 0;
         const FILMSTRIP_PAGE_SIZE = 40;
 
@@ -914,7 +916,7 @@
         }
 
         async function loadFilmstrip(videoId, frameIdx, direction = 'around') {
-            if (filmstripPageLoading) return;
+            if (filmstripPageLoading || (direction === 'before' && !filmstripHasMoreBefore) || (direction === 'after' && !filmstripHasMoreAfter)) return;
             filmstripPageLoading = true;
             const strip = document.getElementById('filmstrip');
             const track = document.getElementById('filmstripTrack');
@@ -924,8 +926,12 @@
             try {
                 const res = await fetch(`${API_BASE}/api/v1/video/${encodeURIComponent(videoId)}/filmstrip?anchor_frame=${encodeURIComponent(frameIdx)}&direction=${direction}&limit=${FILMSTRIP_PAGE_SIZE}`);
                 const data = await res.json();
+                const previousCount = filmstripFrames.length;
                 const merged = new Map(filmstripFrames.map(item => [Number(item.frame_idx), item]));
                 (data.results || []).forEach(item => merged.set(Number(item.frame_idx), item));
+                if (direction === 'before' && merged.size === previousCount) filmstripHasMoreBefore = false;
+                if (direction === 'after' && merged.size === previousCount) filmstripHasMoreAfter = false;
+                if (direction !== 'around' && merged.size === previousCount) return;
                 filmstripFrames = Array.from(merged.values()).sort((a, b) => Number(a.frame_idx) - Number(b.frame_idx));
                 filmstripRangeStart = filmstripFrames.length ? Number(filmstripFrames[0].frame_idx) : Number(frameIdx);
                 filmstripRangeEnd = filmstripFrames.length ? Number(filmstripFrames[filmstripFrames.length - 1].frame_idx) : Number(frameIdx);
@@ -1073,6 +1079,8 @@
             filmstripFrames = [];
             filmstripRangeStart = 0;
             filmstripRangeEnd = 0;
+            filmstripHasMoreBefore = true;
+            filmstripHasMoreAfter = true;
             loadFilmstrip(videoId, Number((details.match(/(?:Frame|Khung hình):\s*([\d.]+)/) || [])[1]) || 0, 'around');
             loadPreviewAsr(videoId, currentPts);
             
@@ -1565,7 +1573,7 @@
                     return `<article class="flex min-h-40 flex-col justify-center rounded border border-amber-500/40 bg-amber-950/20 p-5 text-center">
                         <div class="font-mono text-sm font-semibold text-white">${index + 1}. ${escapeHtml(frame.video_id || '')} · Frame ${Number(frame.frame_idx)}</div>
                         <p class="mt-2 text-sm text-amber-200">Không tìm thấy frame này trong dữ liệu video.</p>
-                        <p class="mt-1 text-xs text-gray-400">Không thể tạo payload cho frame chưa có trong index. Hãy kiểm tra và sửa Frame ID.</p>
+                        <p class="mt-1 text-xs text-amber-100">Payload vẫn được tạo bằng thời gian ước tính từ FPS (mặc định 25 FPS nếu thiếu cấu hình). Frame chưa được xác minh; thời gian có thể lệch, nhất là video có FPS biến thiên.</p>
                     </article>`;
                 }
                 const pts = Number(frame.pts_time);
@@ -1863,7 +1871,9 @@
                         ? serializedAnswer.start
                         : (typeof serializedAnswer.text === 'string' ? serializedAnswer.text.match(/-(\d+)$/)?.[1] : null);
                     summary.push(dresLabel('Frame', String(frameIds[0])));
-                    summary.push(dresLabel('Mốc thời gian gửi (ms)', serializedMillis ?? 'Không có'));
+                    const frameMissingFromIndex = evidenceFrames.some(frame => frame.not_found);
+                    summary.push(dresLabel(frameMissingFromIndex ? 'Mốc thời gian gửi (ms, ước tính)' : 'Mốc thời gian gửi (ms)', serializedMillis ?? 'Không có'));
+                    if (frameMissingFromIndex) summary.push(dresLabel('Xác minh frame', 'Không có trong index; payload dùng thời gian ước tính từ FPS'));
                     if (query.type === 'QA') summary.push(dresLabel('Câu trả lời', item.answer || '(để trống — dữ liệu kiểm tra phải từ chối)'));
                 } else {
                     summary.push(dresLabel('Frame ID TRAKE theo thứ tự', frameIds.join(' → ')));

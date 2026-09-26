@@ -27,6 +27,7 @@ from src.config import (  # noqa: E402
     DB_PATH,
     HOST,
     PORT,
+    TRAFFIC_DB_PATH,
 )
 
 
@@ -115,6 +116,12 @@ def check_sqlite() -> None:
                 return
             count = connection.execute("SELECT COUNT(*) FROM keyframes").fetchone()[0]
             database_rows = int(count)
+            first_vector, last_vector, unique_vectors = connection.execute(
+                "SELECT MIN(vector_id), MAX(vector_id), COUNT(DISTINCT vector_id) FROM keyframes"
+            ).fetchone()
+            if (first_vector, last_vector, unique_vectors) != (0, count - 1, count):
+                report("ERROR", "Vector IDs", "Keyframe vector_id values must be unique and contiguous from 0 to row_count - 1.")
+                return
             sample = connection.execute(
                 "SELECT video_id, frame_idx, pts_time, raw_json FROM keyframes "
                 "WHERE video_id IS NOT NULL AND frame_idx IS NOT NULL "
@@ -137,6 +144,13 @@ def check_sqlite() -> None:
                 report("ERROR", "Database sample", "A keyframe raw_json sample is not an object.")
                 return
             report("PASS", "Database", f"read-only schema OK; {count:,} rows; sample has video/frame/PTS.")
+            asr_columns = {row[1] for row in connection.execute("PRAGMA table_info(asr_segments)")}
+            required_asr = {"video_id", "segment_index", "start_time", "end_time", "text", "source_type"}
+            if missing_asr := required_asr - asr_columns:
+                report("DEGRADED", "ASR preview", f"asr_segments lacks columns: {', '.join(sorted(missing_asr))}.")
+            else:
+                asr_count = connection.execute("SELECT COUNT(*) FROM asr_segments").fetchone()[0]
+                report("PASS" if asr_count else "DEGRADED", "ASR preview", f"{asr_count:,} transcript segments available.")
     except (sqlite3.Error, OSError, ValueError) as exc:
         report("ERROR", "Database", f"Cannot read configured DB ({type(exc).__name__}).")
 
@@ -163,6 +177,70 @@ def check_vectors() -> None:
         report("PASS", "Vectors", f"shape={matrix.shape}, dtype={matrix.dtype}; inspected via memory map.")
     except Exception as exc:
         report("ERROR", "Vectors", f"Cannot open vector matrix ({type(exc).__name__}).")
+
+
+def check_traffic_data() -> None:
+    """Validate the optional camera index before the traffic search UI is used."""
+    if not TRAFFIC_DB_PATH.is_file():
+        report("DEGRADED", "Traffic camera", f"Missing file: {TRAFFIC_DB_PATH}; traffic search is unavailable.")
+        return
+    try:
+        with sqlite3.connect(TRAFFIC_DB_PATH.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+            expected = {
+                "videos": {"video_key", "source_fps"},
+                "tracks": {"track_uid", "video_key", "class", "class_conf", "color", "direction", "motion_state", "start_time", "end_time"},
+                "events": {"event_id", "video_key", "track_uid", "event_type", "confidence", "severity", "start_time", "end_time"},
+            }
+            for table, columns in expected.items():
+                actual = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+                if missing := columns - actual:
+                    report("DEGRADED", "Traffic camera", f"{table} lacks columns: {', '.join(sorted(missing))}.")
+                    return
+            counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in expected}
+            if not all(counts.values()):
+                report("DEGRADED", "Traffic camera", f"Empty camera table: {counts}.")
+                return
+            if DB_PATH.is_file():
+                with sqlite3.connect(DB_PATH.as_uri() + "?mode=ro", uri=True, timeout=3) as main_db:
+                    indexed_videos = {row[0] for row in main_db.execute("SELECT DISTINCT video_id FROM keyframes")}
+                camera_videos = {
+                    row[0].split("__")[-1].replace("-", "_")
+                    for row in connection.execute("SELECT video_key FROM videos")
+                }
+                missing = camera_videos - indexed_videos
+                if missing:
+                    report("DEGRADED", "Traffic camera", f"{len(missing)} camera videos are absent from the keyframe index.")
+                    return
+            report("PASS", "Traffic camera", f"read-only schema OK; {counts['videos']:,} videos, {counts['tracks']:,} tracks, {counts['events']:,} events.")
+    except (sqlite3.Error, OSError) as exc:
+        report("DEGRADED", "Traffic camera", f"Cannot read configured camera DB ({type(exc).__name__}).")
+
+
+def check_drive_overlay() -> None:
+    path = BASE_DIR / "docs" / "drive_video_index.jsonl"
+    if not path.is_file():
+        report("DEGRADED", "Drive overlay", "Missing docs/drive_video_index.jsonl; M/N/S video previews may be unavailable.")
+        return
+    try:
+        metadata = json.loads((BASE_DIR / "video_drive_metadata.json").read_text(encoding="utf-8"))
+        videos = metadata.get("videos", metadata)
+        if DB_PATH.is_file():
+            with sqlite3.connect(DB_PATH.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+                indexed_videos = {row[0] for row in connection.execute("SELECT DISTINCT video_id FROM keyframes")}
+            if missing_metadata := indexed_videos - set(videos):
+                raise ValueError(f"metadata lacks {len(missing_metadata)} indexed videos")
+        seen: set[str] = set()
+        for line_number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            row = json.loads(line)
+            video_id = row.get("video_id")
+            if not video_id or video_id in seen or video_id not in videos or not row.get("drive_file_id") or not row.get("drive_url"):
+                raise ValueError(f"invalid or duplicate mapping at line {line_number}")
+            seen.add(video_id)
+        report("PASS", "Drive overlay", f"{len(seen):,} unique video mappings match metadata.")
+    except (OSError, sqlite3.Error, UnicodeError, json.JSONDecodeError, ValueError, AttributeError) as exc:
+        report("DEGRADED", "Drive overlay", f"Cannot validate Drive mappings ({exc}).")
 
 
 def check_json_data(path: Path, label: str, required: bool) -> None:
@@ -302,8 +380,10 @@ def main() -> int:
     check_dependencies()
     check_sqlite()
     check_vectors()
+    check_traffic_data()
     check_json_data(BASE_DIR / "video_drive_metadata.json", "Video metadata", required=False)
     check_json_data(BASE_DIR / "video_fps_map.json", "FPS metadata", required=False)
+    check_drive_overlay()
     check_model()
     check_optional_services()
     check_host_resources()

@@ -11,6 +11,7 @@ import ssl
 import json
 import sqlite3
 import time
+import math
 import hashlib
 import uuid
 import urllib.request
@@ -432,6 +433,22 @@ def convert_time_to_frame(video_id: str, time_sec: float, fps: float = 25.0):
     return {"status": "success", "video_id": video_id, "time_sec": time_sec, "frame_idx": frame_idx, "fps": actual_fps}
 
 
+def _fps_for_video(video_id: str) -> float:
+    """Return configured FPS, falling back to 25 when metadata is unavailable."""
+    try:
+        json_path = BASE_DIR / "video_fps_map.json"
+        if json_path.exists():
+            with open(json_path, "r", encoding="utf-8") as f:
+                fps_map = json.load(f)
+            if isinstance(fps_map, dict):
+                fps = float(fps_map.get(video_id, 25.0))
+                if fps > 0 and math.isfinite(fps):
+                    return fps
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+    return 25.0
+
+
 @app.post("/api/v1/submission/dres/export")
 def export_dres_submission(request: DRESExportRequest):
     """Serialize one selected answer as a DRES body; this endpoint does not submit it."""
@@ -446,9 +463,14 @@ def export_dres_submission(request: DRESExportRequest):
             candidates = search_engine.search_frame_range(
                 request.video_id, request.frame_idx, request.frame_idx, limit=1
             )
-            if not candidates or int(candidates[0].get("frame_idx", -1)) != request.frame_idx:
-                raise HTTPException(status_code=404, detail="Selected video/frame was not found")
-            pts_time = candidates[0].get("pts_time")
+            pts_time = None
+            if candidates and int(candidates[0].get("frame_idx", -1)) == request.frame_idx:
+                pts_time = candidates[0].get("pts_time")
+            # Allow operators to export even when the selected frame is absent
+            # from the local index or has no PTS. This estimate may be inaccurate
+            # for variable-frame-rate sources, so the review UI marks it clearly.
+            if pts_time is None:
+                pts_time = request.frame_idx / _fps_for_video(request.video_id)
             if request.query_type == "KIS":
                 payload = build_kis_payload(request.video_id, pts_time)
             else:
@@ -569,13 +591,8 @@ async def chat_endpoint(req: ChatRequest):
 
     async def gen():
         try:
-            async with asyncio.timeout(120):
-                async for chunk in session.send_message(assistant_message):
-                    yield chunk
-        except asyncio.TimeoutError:
-            await session.close()
-            yield "data: [ERROR] Lỗi: AI vượt quá giới hạn 120 giây; phiên đã được dọn. Có thể tiếp tục tìm kiếm thủ công.\n\n"
-            yield "data: [DONE]\n\n"
+            async for chunk in session.send_message(assistant_message):
+                yield chunk
         except asyncio.CancelledError:
             await session.close()
             raise

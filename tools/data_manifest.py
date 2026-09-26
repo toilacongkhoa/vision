@@ -11,6 +11,7 @@ import sys
 DATA_FILES = (
     "video_index_v2.db",
     "all_vectors.npy",
+    "camera/traffic_search.db",
     "video_drive_metadata.json",
     "video_fps_map.json",
     "frame_map_supabase.json",

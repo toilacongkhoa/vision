@@ -99,14 +99,13 @@ async def run_checks():
         else:
             raise AssertionError("unsupported question_type should be rejected")
 
-        app_module.asyncio.timeout = lambda _seconds: real_timeout(0.01)
-        timeout_request = app_module.ChatRequest(message="[DELAY MOCK]", session_id="timeout")
+        timeout_request = app_module.ChatRequest(message="[DELAY MOCK]", session_id="no-chat-deadline")
         timeout_response = await app_module.chat_endpoint(timeout_request)
         timeout_chunks = [chunk async for chunk in timeout_response.body_iterator]
         timeout_session = FakeAgySession.instances[-1]
-        require(timeout_session.closed, "session was not closed after a chat deadline")
-        require(any("120 giây" in chunk for chunk in timeout_chunks), "timeout response was not streamed")
-        app_module.asyncio.timeout = real_timeout
+        require(not timeout_session.closed, "chat session was closed despite a normal response")
+        require(any("[DONE]" in chunk for chunk in timeout_chunks), "long-running response did not finish normally")
+        require("asyncio.timeout(120)" not in (ROOT / "src" / "main.py").read_text(encoding="utf-8"), "120-second route deadline is still configured")
 
         cancel_request = app_module.ChatRequest(message="[DELAY MOCK]", session_id="cancel")
         cancel_response = await app_module.chat_endpoint(cancel_request)
@@ -123,7 +122,7 @@ async def run_checks():
         print("PASS structured context and verified pin (5 checks)")
         print("PASS question-type and multi-event routing (2 checks)")
         print("PASS invalid question type rejected (1 check)")
-        print("PASS timeout and client-cancel cleanup (2 checks)")
+        print("PASS unbounded chat response and client-cancel cleanup (3 checks)")
     finally:
         app_module.asyncio.timeout = real_timeout
         app_module.AgySession = original_session

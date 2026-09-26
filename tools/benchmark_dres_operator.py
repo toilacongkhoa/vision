@@ -64,11 +64,19 @@ def run_benchmark() -> Tuple[int, int, List[str]]:
             )),
             {"answerSets": [{"answers": [{"text": "TR-L1_V2-100,150,205"}]}]},
         )))
-        scenarios.append(("missing_exact_frame_rejected", lambda: _expect_error(
-            lambda: app_module.export_dres_submission(app_module.DRESExportRequest(
+        original_fps_resolver = app_module._fps_for_video
+        app_module._fps_for_video = lambda _video_id: 25.0
+        scenarios.append(("missing_exact_frame_uses_approximate_fps_time", lambda: _assert_equal(
+            app_module.export_dres_submission(app_module.DRESExportRequest(
                 query_type="KIS", video_id="MISSING", frame_idx=123
             )),
-            404,
+            {"answerSets": [{"answers": [{"mediaItemName": "MISSING", "start": "4920", "end": "4920"}]}]},
+        )))
+        scenarios.append(("missing_exact_frame_allows_qa_export", lambda: _assert_equal(
+            app_module.export_dres_submission(app_module.DRESExportRequest(
+                query_type="QA", video_id="MISSING", frame_idx=123, answer="answer"
+            )),
+            {"answerSets": [{"answers": [{"text": "QA-answer-MISSING-4920"}]}]},
         )))
         scenarios.append(("invalid_trake_sequence_rejected", lambda: _expect_error(
             lambda: app_module.export_dres_submission(app_module.DRESExportRequest(
@@ -83,11 +91,14 @@ def run_benchmark() -> Tuple[int, int, List[str]]:
                 failures.append(f"{name}: {type(exc).__name__}: {exc}")
     finally:
         app_module.search_engine = original_engine
+        if 'original_fps_resolver' in locals():
+            app_module._fps_for_video = original_fps_resolver
 
     ui_scenarios = [
         ("dres_download_button_present", lambda: _assert_contains(html, 'id="btnExportDres"')),
         ("ui_calls_local_export_route", lambda: _assert_contains(html, "/api/v1/submission/dres/export")),
         ("ui_requires_one_selected_answer", lambda: _assert_contains(html, "phải có đúng một đáp án")),
+        ("ui_warns_when_frame_missing_but_allows_payload", lambda: _assert_contains(html, "Payload vẫn được tạo bằng thời gian ước tính từ FPS")),
         ("ui_download_handler_only_downloads_reviewed_json", lambda: _assert_download_handler_only_downloads_json(html)),
     ]
     scenarios.extend(ui_scenarios)
